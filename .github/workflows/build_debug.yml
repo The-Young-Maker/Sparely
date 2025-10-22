@@ -19,8 +19,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      ANDROID_SDK_ROOT: /usr/local/android-sdk
 
     steps:
     - name: Checkout code (default run ref)
@@ -43,13 +41,13 @@ jobs:
         distribution: 'temurin'
         cache: 'gradle'
 
-    - name: Install Android SDK and Build Tools
-      uses: r0adkll/setup-android@v2
-      with:
-        api-level: '33'
-        build-tools: '33.0.2'
-        components: 'platform-tools,build-tools;33.0.2,platforms;android-33'
-        cache: true
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Install Android SDK components
+      run: |
+        sdkmanager --install "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+        sdkmanager --list_installed
 
     - name: Grant execute permission for gradlew
       run: chmod +x ./gradlew
@@ -61,13 +59,11 @@ jobs:
         git status --porcelain || true
         git rev-parse --abbrev-ref HEAD || true
         echo "JAVA_HOME: $JAVA_HOME"
+        echo "ANDROID_HOME: $ANDROID_HOME"
         echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
-        sdkmanager --list || true
         
     - name: Build
       run: ./gradlew ${{ github.event.inputs.buildType || 'assembleDebug' }} --no-daemon --stacktrace --info
-      env:
-        ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
 
     - name: Upload debug APK (if present)
       if: ${{ always() }}
