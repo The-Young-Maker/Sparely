@@ -2,14 +2,17 @@ package com.example.sparely.ui.screens
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -129,8 +132,7 @@ fun OnboardingScreen(
                 AnimatedContent(
                     targetState = currentStep,
                     transitionSpec = {
-                        slideInHorizontally { it } + fadeIn() with 
-                        slideOutHorizontally { -it } + fadeOut()
+                        (slideInHorizontally { it } + fadeIn()).togetherWith(slideOutHorizontally { -it } + fadeOut())
                     },
                     label = "onboarding_step"
                 ) { step ->
@@ -249,7 +251,7 @@ fun OnboardingProgressBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
             Text(
                 text = "Step $currentStep of $totalSteps",
@@ -259,14 +261,15 @@ fun OnboardingProgressBar(
         }
         
         Spacer(modifier = Modifier.height(8.dp))
-        
+
         LinearProgressIndicator(
-            progress = (currentStep.toFloat() / totalSteps),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(6.dp),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant
+        progress = { currentStep.toFloat() / totalSteps },
+        modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp),
+        color = MaterialTheme.colorScheme.primary,
+        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+        strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
         )
     }
 }
@@ -598,7 +601,7 @@ private fun SmartVaultsStep(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    VaultPriority.values().forEach { priority ->
+                    VaultPriority.entries.forEach { priority ->
                         FilterChip(
                             selected = draft.priority == priority,
                             onClick = { onDraftChange(draft.copy(priority = priority)) },
@@ -616,7 +619,7 @@ private fun SmartVaultsStep(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    VaultType.values().forEach { type ->
+                    VaultType.entries.forEach { type ->
                         FilterChip(
                             selected = draft.type == type,
                             onClick = { onDraftChange(draft.copy(type = type)) },

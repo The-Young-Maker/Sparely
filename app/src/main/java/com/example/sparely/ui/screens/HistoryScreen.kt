@@ -19,7 +19,9 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -119,7 +121,7 @@ private fun FilterRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            DateRangeFilter.values().forEach { filter ->
+            DateRangeFilter.entries.forEach { filter ->
                 FilterChip(
                     selected = filter == dateFilter,
                     onClick = { onDateSelected(filter) },
@@ -144,7 +146,7 @@ private fun FilterRow(
                     }
                 }
             )
-            ExpenseCategory.values().forEach { category ->
+            ExpenseCategory.entries.forEach { category ->
                 FilterChip(
                     selected = categoryFilter == category,
                     onClick = {
@@ -212,7 +214,11 @@ private fun ExpenseHistoryRow(expense: Expense, onDelete: () -> Unit) {
                 text = "Emergency ${formatCurrency(expense.allocation.emergencyAmount)} | Invest ${formatCurrency(expense.allocation.investmentAmount)} | Fun ${formatCurrency(expense.allocation.funAmount)}",
                 style = MaterialTheme.typography.bodySmall
             )
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                thickness = DividerDefaults.Thickness,
+                color = DividerDefaults.color
+            )
             Text(
                 text = "Safe ${formatCurrency(expense.allocation.safeInvestmentAmount)} • High-risk ${formatCurrency(expense.allocation.highRiskInvestmentAmount)}",
                 style = MaterialTheme.typography.bodySmall,

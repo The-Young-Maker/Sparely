@@ -1,12 +1,15 @@
 package com.example.sparely.ui.screens
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,7 +41,7 @@ fun VaultManagementScreen(
                 title = { Text("Manage Smart Vaults") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -162,6 +165,7 @@ private fun EmptyVaultsCard() {
     }
 }
 
+@SuppressLint("DefaultLocale")
 @Composable
 private fun VaultCard(
     vault: SmartVault,
@@ -211,12 +215,13 @@ private fun VaultCard(
             }
 
             LinearProgressIndicator(
-                progress = progress,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            progress = { progress },
+            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
             )
 
             Row(

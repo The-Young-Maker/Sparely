@@ -12,7 +12,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.sparely"
+        applicationId = "com.sparely.app"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
