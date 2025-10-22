@@ -4,6 +4,16 @@ on:
   push:
     branches:
       - main # Or your desired branch
+  workflow_dispatch:           # <- allows manual runs from Actions UI or API
+    inputs:
+      ref:
+        description: 'Branch or commit to build'
+        required: false
+        default: 'main'
+      buildType:
+        description: 'Build variant (assembleDebug or assembleRelease)'
+        required: false
+        default: 'assembleDebug'
 
 jobs:
   build:
@@ -12,6 +22,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.ref || github.ref }}
 
     - name: Set up JDK 17
       uses: actions/setup-java@v4
@@ -23,10 +35,11 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Build debug APK
-      run: ./gradlew assembleDebug
+    - name: Build
+      run: ./gradlew ${{ github.event.inputs.buildType || 'assembleDebug' }}
 
     - name: Upload debug APK
+      if: ${{ always() && (github.event.inputs.buildType == 'assembleDebug' || github.event.inputs.buildType == '' ) }}
       uses: actions/upload-artifact@v4
       with:
         name: debug-apk
