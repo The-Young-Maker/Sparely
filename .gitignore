@@ -13,3 +13,46 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+
+# Gradle
+.gradle/
+build/
+
+# Local configuration
+/local.properties
+
+# Android Studio
+/.idea/
+*.iml
+*.ipr
+*.iws
+
+# Build outputs
+/app/build/
+/build/
+
+# Keystores and key properties
+*.jks
+*.keystore
+keystore.properties
+*.p12
+*.pem
+
+# Firebase / Google services
+google-services.json
+GoogleService-Info.plist
+
+# Environment files
+.env
+.env.*
+secrets.properties
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Misc
+captures/
+*.log
+"""
