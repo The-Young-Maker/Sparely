@@ -28,11 +28,13 @@ jobs:
 
     - name: Checkout provided ref (if input provided)
       if: ${{ github.event.inputs.ref != '' }}
+      env:
+        PROVIDED_REF: ${{ github.event.inputs.ref }}
       run: |
-        echo "Fetching and checking out provided ref: '${{ github.event.inputs.ref }}'"
+        echo "Fetching and checking out provided ref: '$PROVIDED_REF'"
         # attempt a shallow fetch of the ref; fall back to full fetch if that fails
-        git fetch --depth=1 origin ${{ github.event.inputs.ref }} || git fetch --no-tags --prune --no-recurse-submodules origin
-        git checkout --progress --force ${{ github.event.inputs.ref }}
+        git fetch --depth=1 origin "$PROVIDED_REF" || git fetch --no-tags --prune --no-recurse-submodules origin
+        git checkout --progress --force "$PROVIDED_REF"
 
     - name: Set up JDK 17
       uses: actions/setup-java@v4
