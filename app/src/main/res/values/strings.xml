@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">Sparely</string>
+    <string name="widget_savings_label">Sparely savings snapshot</string>
+    <string name="smart_transfer_channel_name">Smart transfer assistant</string>
+    <string name="smart_transfer_channel_description">Keeps pending transfers handy until you mark them done.</string>
+    <string name="smart_transfer_notification_title">Move %1$s to savings</string>
+    <string name="smart_transfer_notification_content">Tracked %1$s (Emergency %2$s / Investing %3$s)</string>
+    <string name="smart_transfer_notification_vault_breakdown">Vault plan:
+%1$s</string>
+    <string name="smart_transfer_notification_mark_done">Mark done</string>
+    <string name="smart_transfer_notification_do_later">I\'ll do it later</string>
+</resources>
