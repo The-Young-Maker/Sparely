@@ -48,6 +48,12 @@ data class UserProfileSetup(
     val transferReminder: TransferReminderPreference? = null,
     val educationStatus: EducationStatus = EducationStatus.OTHER,
     val employmentStatus: EmploymentStatus = EmploymentStatus.EMPLOYED,
+    val livingSituation: LivingSituation = LivingSituation.OTHER,
+    val occupation: String? = null,
+    val mainAccountBalance: Double = 0.0,
+    val savingsAccountBalance: Double = 0.0,
+    val vaultsBalance: Double = 0.0,
+    val subscriptions: List<OnboardingSubscription> = emptyList(),
     val birthday: LocalDate? = null,
     val joinedDate: LocalDate = LocalDate.now()
 )
@@ -61,11 +67,25 @@ enum class EducationStatus {
 
 enum class EmploymentStatus {
     STUDENT,
+    PART_TIME,
+    FULL_TIME,
     EMPLOYED,
     SELF_EMPLOYED,
     UNEMPLOYED,
     RETIRED
 }
+
+enum class LivingSituation {
+    WITH_PARENTS,
+    RENTING,
+    HOMEOWNER,
+    OTHER
+}
+
+data class OnboardingSubscription(
+    val name: String,
+    val amount: Double
+)
 
 data class SavingsAccountInput(
     val name: String,

@@ -18,10 +18,12 @@ object NotificationHelper {
     const val SMART_TRANSFER_CHANNEL_ID = "sparely_smart_transfer"
     const val AUTO_DEPOSIT_CHANNEL_ID = "sparely_auto_deposits"
     const val VAULT_TRANSFER_CHANNEL_ID = "sparely_vault_transfers"
+    const val PAYDAY_CHANNEL_ID = "sparely_payday_reminders"
     private const val REMINDER_NOTIFICATION_ID = 1001
     private const val SMART_TRANSFER_NOTIFICATION_ID = 2001
     private const val AUTO_DEPOSIT_NOTIFICATION_ID = 3001
     private const val VAULT_TRANSFER_NOTIFICATION_ID = 4001
+    private const val PAYDAY_NOTIFICATION_ID = 4002
 
     fun ensureChannels(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -48,6 +50,14 @@ object NotificationHelper {
             ).apply {
                 description = "Notifications for scheduled vault auto-deposits"
             }
+            val paydayChannel = NotificationChannel(
+                PAYDAY_CHANNEL_ID,
+                "Payday Reminders",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Reminders to log your paycheck"
+                setShowBadge(false)
+            }
             val vaultTransferChannel = NotificationChannel(
                 VAULT_TRANSFER_CHANNEL_ID,
                 "Vault Transfers",
@@ -59,6 +69,7 @@ object NotificationHelper {
             manager.createNotificationChannel(reminderChannel)
             manager.createNotificationChannel(smartTransferChannel)
             manager.createNotificationChannel(autoDepositChannel)
+            manager.createNotificationChannel(paydayChannel)
             manager.createNotificationChannel(vaultTransferChannel)
         }
     }
@@ -277,6 +288,70 @@ object NotificationHelper {
 
     fun dismissVaultTransferNotification(context: Context) {
         NotificationManagerCompat.from(context).cancel(VAULT_TRANSFER_NOTIFICATION_ID)
+    }
+
+    fun showPaydayReminder(
+        context: Context,
+        expectedDate: java.time.LocalDate,
+        suggestedAmount: Double?
+    ) {
+        ensureChannels(context)
+        val formattedDate = expectedDate.format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))
+        val baseMessage = "Enter the amount you received this payday."
+        val body = if (suggestedAmount != null && suggestedAmount > 0.0) {
+            val formattedAmount = formatAmount(suggestedAmount)
+            "$baseMessage\nSuggested amount based on recent paychecks: $formattedAmount"
+        } else baseMessage
+
+        val contentIntent = PendingIntent.getActivity(
+            context,
+            0,
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("navigate_to", "paycheck")
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val recordIncomeIntent = PendingIntent.getBroadcast(
+            context,
+            1,
+            PaydayNotificationReceiver.createRecordIncomeIntent(context),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val remindLaterIntent = PendingIntent.getBroadcast(
+            context,
+            2,
+            PaydayNotificationReceiver.createRemindLaterIntent(context),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, PAYDAY_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_logo)
+            .setContentTitle("Payday — $formattedDate")
+            .setContentText(baseMessage)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .addAction(
+                R.drawable.ic_launcher_foreground,
+                "Record Income",
+                recordIncomeIntent
+            )
+            .addAction(
+                R.drawable.ic_launcher_foreground,
+                "Remind Later",
+                remindLaterIntent
+            )
+            .build()
+
+        NotificationManagerCompat.from(context).notify(PAYDAY_NOTIFICATION_ID, notification)
+    }
+
+    fun dismissPaydayReminder(context: Context) {
+        NotificationManagerCompat.from(context).cancel(PAYDAY_NOTIFICATION_ID)
     }
 
     private fun formatAmount(amount: Double): String =

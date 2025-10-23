@@ -25,8 +25,10 @@ import com.example.sparely.domain.model.SavingsAccountInput
 import com.example.sparely.domain.model.SavingsCategory
 import com.example.sparely.domain.model.SavingsTransfer
 import com.example.sparely.domain.model.SmartVault
+import com.example.sparely.domain.model.VaultBalanceAdjustment
 import com.example.sparely.domain.model.VaultContribution
 import com.example.sparely.domain.model.VaultContributionSource
+import com.example.sparely.domain.model.VaultAdjustmentType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.Instant
@@ -215,12 +217,78 @@ class SavingsRepository(
     suspend fun getVaultContributions(vaultId: Long): List<VaultContribution> =
         smartVaultDao.getContributionsForVault(vaultId).map { it.toDomain() }
 
+    suspend fun getVaultAdjustments(vaultId: Long): List<VaultBalanceAdjustment> =
+        smartVaultDao.getAdjustmentsForVault(vaultId).map { it.toDomain() }
+
+    suspend fun depositToVault(vaultId: Long, amount: Double, reason: String?) {
+        if (amount <= 0.0) return
+        val vault = smartVaultDao.getVaultById(vaultId) ?: return
+        val sanitizedAmount = amount.coerceAtLeast(0.0)
+        val newBalance = vault.currentBalance + sanitizedAmount
+        recordVaultBalanceAdjustment(
+            vaultId = vaultId,
+            previousBalance = vault.currentBalance,
+            newBalance = newBalance,
+            type = VaultAdjustmentType.MANUAL_DEPOSIT,
+            reason = reason
+        )
+    }
+
+    suspend fun deductFromVault(vaultId: Long, amount: Double, reason: String?) {
+        if (amount <= 0.0) return
+        val vault = smartVaultDao.getVaultById(vaultId) ?: return
+        val sanitizedAmount = amount.coerceAtLeast(0.0)
+        val newBalance = (vault.currentBalance - sanitizedAmount).coerceAtLeast(0.0)
+        recordVaultBalanceAdjustment(
+            vaultId = vaultId,
+            previousBalance = vault.currentBalance,
+            newBalance = newBalance,
+            type = VaultAdjustmentType.MANUAL_DEDUCTION,
+            reason = reason
+        )
+    }
+
+    suspend fun overrideVaultBalance(vaultId: Long, newBalance: Double, reason: String?) {
+        if (newBalance < 0.0) return
+        val vault = smartVaultDao.getVaultById(vaultId) ?: return
+        val sanitized = newBalance.coerceAtLeast(0.0)
+        recordVaultBalanceAdjustment(
+            vaultId = vaultId,
+            previousBalance = vault.currentBalance,
+            newBalance = sanitized,
+            type = VaultAdjustmentType.MANUAL_EDIT,
+            reason = reason
+        )
+    }
+
     suspend fun setVaultAutoDeposit(vaultId: Long, schedule: VaultAutoDepositEntity?) {
         if (schedule == null) {
             smartVaultDao.removeAutoDepositForVault(vaultId)
         } else {
             smartVaultDao.attachAutoDeposit(vaultId, schedule.copy(vaultId = vaultId))
         }
+    }
+
+    private suspend fun recordVaultBalanceAdjustment(
+        vaultId: Long,
+        previousBalance: Double,
+        newBalance: Double,
+        type: VaultAdjustmentType,
+        reason: String?
+    ) {
+        if (newBalance == previousBalance) return
+        val delta = newBalance - previousBalance
+        val timestamp = Instant.now()
+        smartVaultDao.setVaultBalance(vaultId, newBalance, LocalDate.now())
+        val adjustment = VaultBalanceAdjustment(
+            vaultId = vaultId,
+            type = type,
+            delta = delta,
+            resultingBalance = newBalance,
+            createdAt = timestamp,
+            reason = reason?.takeIf { it.isNotBlank() }
+        )
+        smartVaultDao.insertAdjustment(adjustment.toEntity())
     }
 
     suspend fun refreshLinkedAccounts(fetchBalance: suspend (SavingsAccount) -> Double) {

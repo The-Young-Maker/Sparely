@@ -38,6 +38,7 @@ fun OnboardingScreen(
     onSkip: () -> Unit
 ) {
     var currentStep by remember { mutableStateOf(0) }
+    var selectedCountry by remember { mutableStateOf<CountryConfig?>(null) }
     var userName by remember { mutableStateOf("") }
     var age by remember { mutableStateOf("30") }
     var birthday by remember { mutableStateOf<LocalDate?>(null) }
@@ -48,14 +49,21 @@ fun OnboardingScreen(
     var currentEmergencyFund by remember { mutableStateOf("0") }
     var educationStatus by remember { mutableStateOf(EducationStatus.OTHER) }
     var employmentStatus by remember { mutableStateOf(EmploymentStatus.EMPLOYED) }
+    var livingSituation by remember { mutableStateOf(LivingSituation.OTHER) }
+    var occupation by remember { mutableStateOf("") }
+    var mainAccountBalance by remember { mutableStateOf("") }
+    var savingsAccountBalance by remember { mutableStateOf("") }
+    var vaultsBalanceInput by remember { mutableStateOf("") }
     val vaultDrafts = remember { mutableStateListOf<VaultDraft>() }
     var nextDraftId by remember { mutableStateOf(0L) }
+    val subscriptionDrafts = remember { mutableStateListOf<SubscriptionDraft>() }
+    var nextSubscriptionId by remember { mutableStateOf(0L) }
     var reminderEnabled by remember { mutableStateOf(true) }
     var reminderFrequency by remember { mutableStateOf(7) }
     var reminderHour by remember { mutableStateOf(20) }
 
-    val totalSteps = 7
-    val vaultsStepIndex = 5
+    val totalSteps = 8  // Increased from 7 to 8
+    val vaultsStepIndex = 6  // Shifted from 5 to 6
     val derivedAge = birthday?.let { ChronoUnit.YEARS.between(it, LocalDate.now()).coerceAtLeast(0L).toInt() }
     val ageValue = derivedAge ?: age.toIntOrNull() ?: 30
     val monthlyIncomeValue = monthlyIncome.toDoubleOrNull() ?: 0.0
@@ -80,6 +88,36 @@ fun OnboardingScreen(
     fun updateVaultDraft(index: Int, updated: VaultDraft) {
         if (index < 0 || index >= vaultDrafts.size) return
         vaultDrafts[index] = updated
+    }
+
+    fun allocateSubscriptionId(): Long {
+        val id = nextSubscriptionId
+        nextSubscriptionId += 1
+        return id
+    }
+
+    fun addSubscriptionDraft() {
+        subscriptionDrafts.add(SubscriptionDraft(id = allocateSubscriptionId(), name = "", amount = ""))
+    }
+
+    fun updateSubscriptionName(id: Long, value: String) {
+        val index = subscriptionDrafts.indexOfFirst { it.id == id }
+        if (index >= 0) {
+            val draft = subscriptionDrafts[index]
+            subscriptionDrafts[index] = draft.copy(name = value)
+        }
+    }
+
+    fun updateSubscriptionAmount(id: Long, value: String) {
+        val index = subscriptionDrafts.indexOfFirst { it.id == id }
+        if (index >= 0) {
+            val draft = subscriptionDrafts[index]
+            subscriptionDrafts[index] = draft.copy(amount = value)
+        }
+    }
+
+    fun removeSubscription(id: Long) {
+        subscriptionDrafts.removeAll { it.id == id }
     }
 
     LaunchedEffect(
@@ -114,11 +152,11 @@ fun OnboardingScreen(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Progress indicator
+            // Progress indicator (skip on country selection step)
             if (currentStep > 0) {
                 OnboardingProgressBar(
-                    currentStep = currentStep,
-                    totalSteps = totalSteps,
+                    currentStep = currentStep - 1,  // Adjust for zero-indexed country step
+                    totalSteps = totalSteps - 1,
                     onBack = { if (currentStep > 0) currentStep-- }
                 )
             }
@@ -137,16 +175,22 @@ fun OnboardingScreen(
                     label = "onboarding_step"
                 ) { step ->
                     when (step) {
-                        0 -> WelcomeStep(
-                            onNext = { currentStep = 1 },
+                        0 -> CountrySelectionStep(
+                            selectedCountry = selectedCountry,
+                            onCountrySelected = { selectedCountry = it },
+                            onNext = { currentStep = 1 }
+                        )
+                        1 -> WelcomeStep(
+                            countryConfig = selectedCountry,
+                            onNext = { currentStep = 2 },
                             onSkip = onSkip
                         )
-                        1 -> NameStep(
+                        2 -> NameStep(
                             name = userName,
                             onNameChange = { userName = it },
-                            onNext = { currentStep = 2 }
+                            onNext = { currentStep = 3 }
                         )
-                        2 -> IncomeStep(
+                        3 -> IncomeStep(
                             income = monthlyIncome,
                             age = age,
                             birthday = birthday,
@@ -164,14 +208,14 @@ fun OnboardingScreen(
                                     age = computedAge.toString()
                                 }
                             },
-                            onNext = { currentStep = 3 }
-                        )
-                        3 -> RiskLevelStep(
-                            selectedRisk = selectedRiskLevel,
-                            onRiskSelected = { selectedRiskLevel = it },
                             onNext = { currentStep = 4 }
                         )
-                        4 -> FinancialSituationStep(
+                        4 -> RiskLevelStep(
+                            selectedRisk = selectedRiskLevel,
+                            onRiskSelected = { selectedRiskLevel = it },
+                            onNext = { currentStep = 5 }
+                        )
+                        5 -> FinancialSituationStep(
                             hasDebts = hasDebts,
                             onDebtsChange = { hasDebts = it },
                             emergencyFund = currentEmergencyFund,
@@ -180,17 +224,32 @@ fun OnboardingScreen(
                             onEducationStatusChange = { educationStatus = it },
                             employmentStatus = employmentStatus,
                             onEmploymentStatusChange = { employmentStatus = it },
+                            livingSituation = livingSituation,
+                            onLivingSituationChange = { livingSituation = it },
+                            occupation = occupation,
+                            onOccupationChange = { occupation = it },
+                            mainAccountBalance = mainAccountBalance,
+                            onMainAccountBalanceChange = { mainAccountBalance = it },
+                            savingsAccountBalance = savingsAccountBalance,
+                            onSavingsAccountBalanceChange = { savingsAccountBalance = it },
+                            vaultsBalance = vaultsBalanceInput,
+                            onVaultsBalanceChange = { vaultsBalanceInput = it },
+                            subscriptions = subscriptionDrafts,
+                            onAddSubscription = { addSubscriptionDraft() },
+                            onSubscriptionNameChange = { id, value -> updateSubscriptionName(id, value) },
+                            onSubscriptionAmountChange = { id, value -> updateSubscriptionAmount(id, value) },
+                            onRemoveSubscription = { id -> removeSubscription(id) },
                             age = ageValue,
-                            onNext = { currentStep = 5 }
+                            onNext = { currentStep = 6 }
                         )
-                        5 -> SmartVaultsStep(
+                        6 -> SmartVaultsStep(
                             drafts = vaultDrafts,
                             onDraftChange = { index, draft -> updateVaultDraft(index, draft) },
                             onRemove = { index -> removeVaultAt(index) },
                             onAddVault = { addVaultDraft() },
-                            onNext = { currentStep = 6 }
+                            onNext = { currentStep = 7 }
                         )
-                        6 -> TransferReminderStep(
+                        7 -> TransferReminderStep(
                             reminderEnabled = reminderEnabled,
                             onReminderEnabledChange = { reminderEnabled = it },
                             reminderFrequency = reminderFrequency,
@@ -198,9 +257,9 @@ fun OnboardingScreen(
                             reminderHour = reminderHour,
                             onReminderHourChange = { reminderHour = it },
                             pendingVaults = vaultDrafts,
-                            onNext = { currentStep = 7 }
+                            onNext = { currentStep = 8 }
                         )
-                        7 -> GoalStep(
+                        8 -> GoalStep(
                             goal = primaryGoal,
                             onGoalChange = { primaryGoal = it },
                             onComplete = {
@@ -210,6 +269,19 @@ fun OnboardingScreen(
                                     frequencyDays = reminderFrequency,
                                     hourOfDay = reminderHour
                                 )
+                                val sanitizedOccupation = occupation.trim().ifBlank { null }
+                                val mainBalance = mainAccountBalance.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+                                val savingsBalance = savingsAccountBalance.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+                                val vaultsBalance = vaultsBalanceInput.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+                                val subscriptions = subscriptionDrafts.mapNotNull { draft ->
+                                    val name = draft.name.trim()
+                                    val amount = draft.amount.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+                                    if (name.isEmpty() || amount <= 0.0) {
+                                        null
+                                    } else {
+                                        OnboardingSubscription(name = name, amount = amount)
+                                    }
+                                }
                                 val profile = UserProfileSetup(
                                     name = userName.ifBlank { null },
                                     age = age.toIntOrNull() ?: 30,
@@ -222,6 +294,12 @@ fun OnboardingScreen(
                                     transferReminder = reminderPreference,
                                     educationStatus = educationStatus,
                                     employmentStatus = employmentStatus,
+                                    livingSituation = livingSituation,
+                                    occupation = sanitizedOccupation,
+                                    mainAccountBalance = mainBalance,
+                                    savingsAccountBalance = savingsBalance,
+                                    vaultsBalance = vaultsBalance,
+                                    subscriptions = subscriptions,
                                     birthday = birthday
                                 )
                                 onComplete(profile)
@@ -757,6 +835,12 @@ private fun SmartVaultsStep(
         return setups.map { it.toDraft(recommended = true) }
     }
 
+    private data class SubscriptionDraft(
+        val id: Long,
+        val name: String,
+        val amount: String
+    )
+
     private fun SmartVaultSetup.toDraft(recommended: Boolean): VaultDraft = VaultDraft(
         id = -1,
         name = name,
@@ -779,10 +863,18 @@ private fun EducationStatus.displayName(): String = when (this) {
 
 private fun EmploymentStatus.displayName(): String = when (this) {
     EmploymentStatus.STUDENT -> "Student"
-    EmploymentStatus.EMPLOYED -> "Employed"
+    EmploymentStatus.PART_TIME -> "Part-time"
+    EmploymentStatus.FULL_TIME, EmploymentStatus.EMPLOYED -> "Full-time"
     EmploymentStatus.SELF_EMPLOYED -> "Self-employed"
     EmploymentStatus.UNEMPLOYED -> "Unemployed"
     EmploymentStatus.RETIRED -> "Retired"
+}
+
+private fun LivingSituation.displayName(): String = when (this) {
+    LivingSituation.WITH_PARENTS -> "With family"
+    LivingSituation.RENTING -> "Renting"
+    LivingSituation.HOMEOWNER -> "Homeowner"
+    LivingSituation.OTHER -> "Other"
 }
 
 private fun VaultPriority.displayName(): String = when (this) {
@@ -1207,7 +1299,7 @@ fun RiskLevelOption(
 }
 
 @Composable
-fun FinancialSituationStep(
+private fun FinancialSituationStep(
     hasDebts: Boolean,
     onDebtsChange: (Boolean) -> Unit,
     emergencyFund: String,
@@ -1216,6 +1308,21 @@ fun FinancialSituationStep(
     onEducationStatusChange: (EducationStatus) -> Unit,
     employmentStatus: EmploymentStatus,
     onEmploymentStatusChange: (EmploymentStatus) -> Unit,
+    livingSituation: LivingSituation,
+    onLivingSituationChange: (LivingSituation) -> Unit,
+    occupation: String,
+    onOccupationChange: (String) -> Unit,
+    mainAccountBalance: String,
+    onMainAccountBalanceChange: (String) -> Unit,
+    savingsAccountBalance: String,
+    onSavingsAccountBalanceChange: (String) -> Unit,
+    vaultsBalance: String,
+    onVaultsBalanceChange: (String) -> Unit,
+    subscriptions: List<SubscriptionDraft>,
+    onAddSubscription: () -> Unit,
+    onSubscriptionNameChange: (Long, String) -> Unit,
+    onSubscriptionAmountChange: (Long, String) -> Unit,
+    onRemoveSubscription: (Long) -> Unit,
     age: Int,
     onNext: () -> Unit
 ) {
@@ -1294,6 +1401,39 @@ fun FinancialSituationStep(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "Living situation",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LivingSituation.entries.forEach { option ->
+                FilterChip(
+                    selected = livingSituation == option,
+                    onClick = { onLivingSituationChange(option) },
+                    label = { Text(option.displayName()) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        OutlinedTextField(
+            value = occupation,
+            onValueChange = onOccupationChange,
+            label = { Text("Occupation (optional)") },
+            placeholder = { Text("e.g. Product designer") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            leadingIcon = {
+                Icon(Icons.Default.Work, contentDescription = null)
+            }
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
         
         Text(
             text = "Do you have any debts?",
@@ -1345,6 +1485,149 @@ fun FinancialSituationStep(
                 Text("How much do you already have saved for emergencies?")
             }
         )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "Account balances",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Share your current cash cushions so we can account for them in your emergency fund target.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = mainAccountBalance,
+            onValueChange = onMainAccountBalanceChange,
+            label = { Text("Main account balance") },
+            placeholder = { Text("0") },
+            prefix = { Text("$") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            leadingIcon = {
+                Icon(Icons.Default.AccountBalance, contentDescription = null)
+            }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = savingsAccountBalance,
+            onValueChange = onSavingsAccountBalanceChange,
+            label = { Text("Savings account balance") },
+            placeholder = { Text("0") },
+            prefix = { Text("$") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            leadingIcon = {
+                Icon(Icons.Default.Savings, contentDescription = null)
+            }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = vaultsBalance,
+            onValueChange = onVaultsBalanceChange,
+            label = { Text("Existing vault or sinking funds") },
+            placeholder = { Text("0") },
+            prefix = { Text("$") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            leadingIcon = {
+                Icon(Icons.Default.Lock, contentDescription = null)
+            }
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "Monthly subscriptions (optional)",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "List recurring bills so Sparely can bake them into your runway calculations.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (subscriptions.isEmpty()) {
+            Text(
+                text = "No subscriptions yet. Add streaming services, rent, insurance, anything that hits monthly.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth()
+            )
+        } else {
+            subscriptions.forEachIndexed { index, draft ->
+                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Subscription ${index + 1}",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Medium
+                            )
+                            IconButton(onClick = { onRemoveSubscription(draft.id) }) {
+                                Icon(Icons.Default.Delete, contentDescription = "Remove subscription")
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        OutlinedTextField(
+                            value = draft.name,
+                            onValueChange = { onSubscriptionNameChange(draft.id, it) },
+                            label = { Text("Name") },
+                            placeholder = { Text("e.g. Rent or Spotify") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        OutlinedTextField(
+                            value = draft.amount,
+                            onValueChange = { onSubscriptionAmountChange(draft.id, it) },
+                            label = { Text("Monthly amount") },
+                            placeholder = { Text("0") },
+                            prefix = { Text("$") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            leadingIcon = {
+                                Icon(Icons.Default.AttachMoney, contentDescription = null)
+                            }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+
+        OutlinedButton(onClick = onAddSubscription, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.Add, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Add subscription")
+        }
         
         Spacer(modifier = Modifier.weight(1f))
         
@@ -1468,6 +1751,209 @@ fun GoalStep(
             Icon(Icons.Default.RocketLaunch, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text("Start Saving!", style = MaterialTheme.typography.titleMedium)
+        }
+    }
+}
+
+@Composable
+private fun CountrySelectionStep(
+    selectedCountry: CountryConfig?,
+    onCountrySelected: (CountryConfig) -> Unit,
+    onNext: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        Icon(
+            imageVector = Icons.Default.Public,
+            contentDescription = null,
+            modifier = Modifier.size(80.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Text(
+            text = "Choose your country",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        Text(
+            text = "We'll customize the app for your region with local currency, tax rates, and financial recommendations",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        // Country selection cards
+        CountryProfiles.ALL_COUNTRIES.forEach { country ->
+            Card(
+                onClick = {
+                    onCountrySelected(country)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (selectedCountry?.countryCode == country.countryCode) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    }
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = country.countryName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "${country.languageName} • ${CurrencyPresets.getByCode(country.defaultCurrency)?.symbol ?: country.defaultCurrency}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    
+                    if (selectedCountry?.countryCode == country.countryCode) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = "Selected",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Button(
+            onClick = onNext,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            enabled = selectedCountry != null
+        ) {
+            Text("Continue", style = MaterialTheme.typography.titleMedium)
+        }
+    }
+}
+
+@Composable
+private fun WelcomeStep(
+    countryConfig: CountryConfig?,
+    onNext: () -> Unit,
+    onSkip: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Savings,
+            contentDescription = null,
+            modifier = Modifier.size(120.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        Text(
+            text = "Welcome to Sparely",
+            style = MaterialTheme.typography.displaySmall,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Text(
+            text = buildString {
+                append("Smart savings made simple")
+                countryConfig?.let {
+                    append(" for ${it.countryName}")
+                }
+            },
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        
+        Spacer(modifier = Modifier.height(48.dp))
+        
+        // Show country-specific welcome message
+        countryConfig?.let { config ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Customized for you",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "• Currency: ${CurrencyPresets.getByCode(config.defaultCurrency)?.name ?: config.defaultCurrency}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = "• Tax insights: ~${(config.taxConfig.incomeTaxRate * 100).toInt()}% income tax",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = "• Savings goal: ${config.savingsNorms.recommendedEmergencyMonths} months emergency fund",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.weight(1f))
+        
+        Button(
+            onClick = onNext,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+        ) {
+            Text("Get Started", style = MaterialTheme.typography.titleMedium)
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        TextButton(onClick = onSkip) {
+            Text("Skip setup")
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.example.sparely.domain.model
 
+import java.time.Instant
 import java.time.LocalDate
 
 /**
@@ -49,6 +50,23 @@ enum class VaultContributionSource {
     MANUAL,
     TRANSFER
 }
+
+enum class VaultAdjustmentType {
+    MANUAL_DEPOSIT,
+    MANUAL_DEDUCTION,
+    MANUAL_EDIT,
+    AUTOMATIC_RECURRING_TRANSFER
+}
+
+data class VaultBalanceAdjustment(
+    val id: Long = 0L,
+    val vaultId: Long,
+    val type: VaultAdjustmentType,
+    val delta: Double,
+    val resultingBalance: Double,
+    val createdAt: Instant,
+    val reason: String? = null
+)
 
 data class VaultProjection(
     val vaultId: Long,

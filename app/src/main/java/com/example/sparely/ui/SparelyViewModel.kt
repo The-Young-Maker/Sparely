@@ -22,6 +22,8 @@ import com.example.sparely.domain.logic.SavingTaxEngine
 import com.example.sparely.domain.logic.SmartTransferEngine
 import com.example.sparely.domain.logic.DynamicAllocationEngine
 import com.example.sparely.domain.logic.IncomeAutomationEngine
+import com.example.sparely.domain.logic.PayScheduleCalculator
+import com.example.sparely.domain.logic.EmergencyFundCalculator
 import com.example.sparely.domain.model.Achievement
 import com.example.sparely.domain.model.AlertMessage
 import com.example.sparely.domain.model.AlertType
@@ -35,6 +37,7 @@ import com.example.sparely.domain.model.ChallengeInput
 import com.example.sparely.domain.model.ChallengeType
 import com.example.sparely.domain.model.EducationStatus
 import com.example.sparely.domain.model.EmploymentStatus
+import com.example.sparely.domain.model.LivingSituation
 import com.example.sparely.domain.model.Expense
 import com.example.sparely.domain.model.ExpenseCategory
 import com.example.sparely.domain.model.ExpenseInput
@@ -81,6 +84,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.temporal.ChronoUnit
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.round
 import kotlin.math.roundToInt
 
@@ -203,16 +207,31 @@ class SparelyViewModel(
                     }.orEmpty()
                     val budgetAlerts = budgetSummary?.let { BudgetEngine.generateBudgetAlerts(it) }.orEmpty()
 
+                    val monthlyExpenseEstimate = when {
+                        analytics.averageMonthlyExpense > 0.0 -> analytics.averageMonthlyExpense
+                        else -> {
+                            val cutoff = LocalDate.now().minusDays(30)
+                            domainExpenses.filter { !it.date.isBefore(cutoff) }.sumOf { it.amount }
+                        }
+                    }
+                    val emergencyGoal = EmergencyFundCalculator.calculate(
+                        settings = feed.settings,
+                        monthlyExpenseEstimate = monthlyExpenseEstimate,
+                        existingEmergency = analytics.totalEmergency
+                    )
+
                     val recommendationBundle = recommendationEngine.generate(
                         expenses = domainExpenses,
                         transfers = domainTransfers,
                         settings = feed.settings,
-                        autoTune = feed.settings.autoRecommendationsEnabled
+                        autoTune = feed.settings.autoRecommendationsEnabled,
+                        emergencyGoal = emergencyGoal
                     )
                     val recommendation = if (feed.settings.autoRecommendationsEnabled) recommendationBundle else null
                     val plan = recommendationBundle.savingsPlan
 
                     notificationScheduler.schedule(feed.settings)
+                    notificationScheduler.schedulePaydayReminder(feed.settings)
 
                     val alerts = AlertsGenerator.buildAlerts(analytics, recommendation, feed.settings, domainGoals)
                     val smartTransfer = SmartTransferEngine.evaluate(feed.smartSnapshot)
@@ -342,6 +361,8 @@ class SparelyViewModel(
                         smartTransfer = smartTransfer,
                         smartVaults = feed.vaults,
                         totalVaultBalance = totalVaultBalance,
+                        vaultAdjustments = _uiState.value.vaultAdjustments,
+                        emergencyFundGoal = emergencyGoal,
                         onboardingCompleted = onboardingCompleted,
                         activeSaveRate = activeSaveRate,
                         activeSavingTaxRate = activeSavingTaxRate,
@@ -682,6 +703,8 @@ class SparelyViewModel(
     fun updatePaySchedule(schedule: PayScheduleSettings) {
         viewModelScope.launch(dispatcher) {
             preferencesRepository.updatePaySchedule(schedule)
+            val refreshedSettings = preferencesRepository.getSettingsSnapshot()
+            notificationScheduler.schedulePaydayReminder(refreshedSettings)
         }
     }
 
@@ -741,7 +764,7 @@ class SparelyViewModel(
             val nextDate = if (schedule.trackingMode == IncomeTrackingMode.MANUAL_PER_PAYCHECK) {
                 null
             } else {
-                computeNextPayDate(schedule, payday)
+                PayScheduleCalculator.computeNextPayDate(schedule, payday)
             }
 
             mutatedSchedule = mutatedSchedule.copy(
@@ -750,6 +773,10 @@ class SparelyViewModel(
                 nextPayDate = nextDate
             )
             preferencesRepository.updatePaySchedule(mutatedSchedule)
+            preferencesRepository.recordPaycheckHistory(normalizedAmount)
+            notificationScheduler.dismissPaydayReminderNotification()
+            val refreshedSettings = preferencesRepository.getSettingsSnapshot()
+            notificationScheduler.schedulePaydayReminder(refreshedSettings)
         }
     }
 
@@ -768,6 +795,19 @@ class SparelyViewModel(
     fun updateVaultAllocationMode(mode: VaultAllocationMode) {
         viewModelScope.launch(dispatcher) {
             preferencesRepository.updateVaultAllocationMode(mode)
+        }
+    }
+
+    fun updatePaydayReminderSettings(
+        enabled: Boolean,
+        hour: Int,
+        minute: Int,
+        suggestAverage: Boolean
+    ) {
+        viewModelScope.launch(dispatcher) {
+            preferencesRepository.updatePaydayReminder(enabled, hour, minute, suggestAverage)
+            val refreshedSettings = preferencesRepository.getSettingsSnapshot()
+            notificationScheduler.schedulePaydayReminder(refreshedSettings)
         }
     }
 
@@ -799,6 +839,37 @@ class SparelyViewModel(
         if (vaultId == 0L) return
         viewModelScope.launch(dispatcher) {
             savingsRepository.deleteSmartVault(vaultId)
+        }
+    }
+    
+    fun depositToVault(vaultId: Long, amount: Double, reason: String?) {
+        if (vaultId == 0L || amount <= 0.0) return
+        viewModelScope.launch(dispatcher) {
+            savingsRepository.depositToVault(vaultId, amount, reason)
+            refreshVaultAdjustments(vaultId)
+        }
+    }
+    
+    fun deductFromVault(vaultId: Long, amount: Double, reason: String?) {
+        if (vaultId == 0L || amount <= 0.0) return
+        viewModelScope.launch(dispatcher) {
+            savingsRepository.deductFromVault(vaultId, amount, reason)
+            refreshVaultAdjustments(vaultId)
+        }
+    }
+    
+    fun overrideVaultBalance(vaultId: Long, balance: Double, reason: String?) {
+        if (vaultId == 0L || balance < 0.0) return
+        viewModelScope.launch(dispatcher) {
+            savingsRepository.overrideVaultBalance(vaultId, balance, reason)
+            refreshVaultAdjustments(vaultId)
+        }
+    }
+    
+    fun loadVaultAdjustmentHistory(vaultId: Long) {
+        if (vaultId == 0L) return
+        viewModelScope.launch(dispatcher) {
+            refreshVaultAdjustments(vaultId)
         }
     }
     
@@ -834,6 +905,14 @@ class SparelyViewModel(
     private suspend fun refreshPendingContributions() {
         val pending = savingsRepository.getPendingVaultContributions()
         _uiState.value = _uiState.value.copy(pendingVaultContributions = pending)
+    }
+    
+    private suspend fun refreshVaultAdjustments(vaultId: Long) {
+        val history = savingsRepository.getVaultAdjustments(vaultId)
+        _uiState.update { current ->
+            val updated = current.vaultAdjustments + (vaultId to history)
+            current.copy(vaultAdjustments = updated)
+        }
     }
 
     private fun buildPendingVaultBreakdown(): List<Pair<String, Double>> {
@@ -992,48 +1071,6 @@ class SparelyViewModel(
         return contributions
     }
 
-    private fun computeNextPayDate(schedule: PayScheduleSettings, lastPayDate: LocalDate): LocalDate? {
-        return when (schedule.interval) {
-            PayInterval.WEEKLY -> nextScheduledWeekday(lastPayDate, schedule.weeklyDayOfWeek, 7)
-            PayInterval.BIWEEKLY -> nextScheduledWeekday(lastPayDate, schedule.weeklyDayOfWeek, 14)
-            PayInterval.SEMI_MONTHLY -> nextSemiMonthlyDate(lastPayDate, schedule.semiMonthlyDay1, schedule.semiMonthlyDay2)
-            PayInterval.MONTHLY -> nextMonthlyDate(lastPayDate, schedule.monthlyDay)
-            PayInterval.CUSTOM -> schedule.customDaysBetween?.let { lastPayDate.plusDays(it.toLong()) }
-        }
-    }
-
-    private fun nextScheduledWeekday(baseDate: LocalDate, target: java.time.DayOfWeek, minimumDays: Long): LocalDate {
-        var candidate = baseDate.plusDays(minimumDays.coerceAtLeast(1))
-        repeat(7) {
-            if (candidate.dayOfWeek == target) {
-                return candidate
-            }
-            candidate = candidate.plusDays(1)
-        }
-        return candidate
-    }
-
-    private fun nextSemiMonthlyDate(baseDate: LocalDate, day1: Int, day2: Int): LocalDate {
-        val ordered = listOf(day1, day2).map { it.coerceIn(1, 28) }.sorted()
-        val currentMonth = YearMonth.from(baseDate)
-        val currentDay = baseDate.dayOfMonth
-        val withinMonth = ordered.firstOrNull { it > currentDay }
-        return if (withinMonth != null) {
-            val clamped = withinMonth.coerceAtMost(currentMonth.lengthOfMonth())
-            currentMonth.atDay(clamped)
-        } else {
-            val nextMonth = currentMonth.plusMonths(1)
-            val clamped = ordered.first().coerceAtMost(nextMonth.lengthOfMonth())
-            nextMonth.atDay(clamped)
-        }
-    }
-
-    private fun nextMonthlyDate(baseDate: LocalDate, desiredDay: Int): LocalDate {
-        val nextMonth = YearMonth.from(baseDate).plusMonths(1)
-        val clamped = desiredDay.coerceIn(1, nextMonth.lengthOfMonth())
-        return nextMonth.atDay(clamped)
-    }
-
     fun updateAge(age: Int) {
         viewModelScope.launch(dispatcher) {
             preferencesRepository.updateAge(age)
@@ -1049,6 +1086,18 @@ class SparelyViewModel(
     fun updateEmploymentStatus(status: EmploymentStatus) {
         viewModelScope.launch(dispatcher) {
             preferencesRepository.updateEmploymentStatus(status)
+        }
+    }
+
+    fun updateLivingSituation(situation: LivingSituation) {
+        viewModelScope.launch(dispatcher) {
+            preferencesRepository.updateLivingSituation(situation)
+        }
+    }
+
+    fun updateOccupation(occupation: String?) {
+        viewModelScope.launch(dispatcher) {
+            preferencesRepository.updateOccupation(occupation)
         }
     }
 
@@ -1073,6 +1122,12 @@ class SparelyViewModel(
     fun updateDisplayName(name: String?) {
         viewModelScope.launch(dispatcher) {
             preferencesRepository.updateDisplayName(name)
+        }
+    }
+    
+    fun updateRegionalSettings(countryCode: String, languageCode: String, currencyCode: String, customTaxRate: Double?) {
+        viewModelScope.launch(dispatcher) {
+            preferencesRepository.updateRegionalSettings(countryCode, languageCode, currencyCode, customTaxRate)
         }
     }
 
@@ -1101,15 +1156,49 @@ class SparelyViewModel(
             preferencesRepository.updateRiskLevel(profile.riskLevel)
             preferencesRepository.updateEducationStatus(profile.educationStatus)
             preferencesRepository.updateEmploymentStatus(profile.employmentStatus)
+            preferencesRepository.updateLivingSituation(profile.livingSituation)
+            preferencesRepository.updateOccupation(profile.occupation)
+            preferencesRepository.updateMainAccountBalance(profile.mainAccountBalance)
+            preferencesRepository.updateSavingsAccountBalance(profile.savingsAccountBalance)
             preferencesRepository.updateHasDebts(profile.hasDebts)
             preferencesRepository.updateEmergencyFund(profile.currentEmergencyFund)
+            val subscriptionTotal = profile.subscriptions.sumOf { it.amount.coerceAtLeast(0.0) }
+            preferencesRepository.updateSubscriptionTotal(subscriptionTotal)
             preferencesRepository.updatePrimaryGoal(profile.primaryGoal)
             preferencesRepository.updateDisplayName(profile.name)
             preferencesRepository.updateBirthday(profile.birthday)
             preferencesRepository.setJoinedDate(profile.joinedDate)
+            
+            // Generate starter budgets if none provided
+            val shouldAutoGenerateBudgets = profile.monthlyIncome > 0.0
+            if (shouldAutoGenerateBudgets) {
+                val starterBudgets = com.example.sparely.domain.logic.OnboardingHelper.generateStarterBudgets(profile)
+                starterBudgets.forEach { budget ->
+                    savingsRepository.upsertBudget(budget)
+                }
+            }
+            
             val resolvedVaultSetups = when {
                 profile.smartVaults.isNotEmpty() -> profile.smartVaults
                 profile.savingsAccounts.isNotEmpty() -> profile.savingsAccounts.map { it.toSmartVaultSetup(profile.monthlyIncome) }
+                shouldAutoGenerateBudgets -> {
+                    // Use OnboardingHelper to generate vaults
+                    val generatedVaults = com.example.sparely.domain.logic.OnboardingHelper.generateStarterVaults(profile)
+                    generatedVaults.map { vault ->
+                        com.example.sparely.domain.model.SmartVaultSetup(
+                            name = vault.name,
+                            targetAmount = vault.targetAmount,
+                            currentBalance = vault.currentBalance,
+                            targetDate = vault.targetDate,
+                            priority = vault.priority,
+                            type = vault.type,
+                            interestRate = vault.interestRate,
+                            allocationMode = vault.allocationMode,
+                            manualAllocationPercent = vault.manualAllocationPercent,
+                            savingTaxRateOverride = vault.savingTaxRateOverride
+                        )
+                    }
+                }
                 else -> SavingsAdvisor.recommendedVaults(profile)
             }
             val recommendedPercentages = SavingsAdvisor.recommendedPercentages(profile)
@@ -1122,6 +1211,11 @@ class SparelyViewModel(
                 .mapIndexed { index, vault ->
                     vault.copy(name = vault.name.ifBlank { "Vault ${index + 1}" })
                 }
+            val resolvedVaultBalance = max(
+                profile.vaultsBalance.coerceAtLeast(0.0),
+                resolvedVaults.sumOf { it.currentBalance }
+            )
+            preferencesRepository.updateVaultsBalance(resolvedVaultBalance)
             savingsRepository.seedSmartVaults(resolvedVaults)
             preferencesRepository.setOnboardingCompleted(true)
         }

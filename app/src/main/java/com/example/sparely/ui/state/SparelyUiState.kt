@@ -15,6 +15,8 @@ data class SparelyUiState(
     val smartTransfer: SmartTransferRecommendation? = null,
     val smartVaults: List<SmartVault> = emptyList(),
     val totalVaultBalance: Double = 0.0,
+    val vaultAdjustments: Map<Long, List<VaultBalanceAdjustment>> = emptyMap(),
+    val emergencyFundGoal: EmergencyFundGoal? = null,
     val onboardingCompleted: Boolean = false,
     val activeSaveRate: Double = 0.0,
     val activeSavingTaxRate: Double = 0.0,

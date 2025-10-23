@@ -19,9 +19,10 @@ import androidx.room.TypeConverters
         SavingsAccountEntity::class,
         SmartVaultEntity::class,
         VaultAutoDepositEntity::class,
-        VaultContributionEntity::class
+        VaultContributionEntity::class,
+        VaultBalanceAdjustmentEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

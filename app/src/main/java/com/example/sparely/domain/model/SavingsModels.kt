@@ -84,6 +84,19 @@ data class PayScheduleSettings(
 )
 
 /**
+ * Represents a tailored emergency fund target for the user.
+ */
+data class EmergencyFundGoal(
+    val targetMonths: Double,
+    val targetAmount: Double,
+    val shortfallAmount: Double,
+    val recommendedMonthlyContribution: Double
+) {
+    val coverageRatio: Double
+        get() = if (targetAmount <= 0.0) 1.0 else (targetAmount - shortfallAmount).coerceAtLeast(0.0) / targetAmount
+}
+
+/**
  * User-configurable settings stored in DataStore.
  */
 data class SparelySettings(
@@ -95,6 +108,12 @@ data class SparelySettings(
     val age: Int = 30,
     val educationStatus: EducationStatus = EducationStatus.OTHER,
     val employmentStatus: EmploymentStatus = EmploymentStatus.EMPLOYED,
+    val livingSituation: LivingSituation = LivingSituation.OTHER,
+    val occupation: String? = null,
+    val mainAccountBalance: Double = 0.0,
+    val savingsAccountBalance: Double = 0.0,
+    val vaultsBalance: Double = 0.0,
+    val subscriptionTotal: Double = 0.0,
     val riskLevel: RiskLevel = RiskLevel.BALANCED,
     val autoRecommendationsEnabled: Boolean = true,
     val includeTaxByDefault: Boolean = false,
@@ -103,6 +122,12 @@ data class SparelySettings(
     val remindersEnabled: Boolean = true,
     val reminderHour: Int = 20,
     val reminderFrequencyDays: Int = 1,
+    val paydayReminderEnabled: Boolean = true,
+    val paydayReminderHour: Int = 9,
+    val paydayReminderMinute: Int = 0,
+    val paydaySuggestAverageIncome: Boolean = true,
+    val payHistoryCount: Int = 0,
+    val payHistoryAverage: Double = 0.0,
     val joinedDate: LocalDate? = null,
     val hasDebts: Boolean = false,
     val currentEmergencyFund: Double = 0.0,
@@ -114,7 +139,8 @@ data class SparelySettings(
     val savingTaxRate: Double = 0.04,
     val vaultAllocationMode: VaultAllocationMode = VaultAllocationMode.DYNAMIC_AUTO,
     val dynamicSavingTaxEnabled: Boolean = false,
-    val lastComputedSavingTaxRate: Double? = null
+    val lastComputedSavingTaxRate: Double? = null,
+    val regionalSettings: RegionalSettings = RegionalSettings()
 ) {
     val isNewUser: Boolean
         get() = joinedDate?.let { java.time.temporal.ChronoUnit.DAYS.between(it, java.time.LocalDate.now()) < 7 } ?: true
@@ -159,6 +185,18 @@ data class SparelySettings(
 
     fun withEmploymentStatus(status: EmploymentStatus): SparelySettings = copy(employmentStatus = status)
 
+    fun withLivingSituation(situation: LivingSituation): SparelySettings = copy(livingSituation = situation)
+
+    fun withOccupation(label: String?): SparelySettings = copy(occupation = label?.trim().takeUnless { it.isNullOrEmpty() })
+
+    fun withMainAccountBalance(balance: Double): SparelySettings = copy(mainAccountBalance = max(0.0, balance))
+
+    fun withSavingsAccountBalance(balance: Double): SparelySettings = copy(savingsAccountBalance = max(0.0, balance))
+
+    fun withVaultsBalance(balance: Double): SparelySettings = copy(vaultsBalance = max(0.0, balance))
+
+    fun withSubscriptionTotal(amount: Double): SparelySettings = copy(subscriptionTotal = max(0.0, amount))
+
     fun withHasDebts(value: Boolean): SparelySettings = copy(hasDebts = value)
 
     fun withEmergencyFundAmount(amount: Double): SparelySettings = copy(currentEmergencyFund = max(0.0, amount))
@@ -168,6 +206,18 @@ data class SparelySettings(
     fun withDisplayName(name: String?): SparelySettings = copy(displayName = name?.trim().takeUnless { it.isNullOrEmpty() })
 
     fun withBirthday(date: LocalDate?): SparelySettings = copy(birthday = date)
+
+    fun withPaydayReminder(
+        enabled: Boolean = paydayReminderEnabled,
+        hour: Int = paydayReminderHour,
+        minute: Int = paydayReminderMinute,
+        suggestAverage: Boolean = paydaySuggestAverageIncome
+    ): SparelySettings = copy(
+        paydayReminderEnabled = enabled,
+        paydayReminderHour = hour,
+        paydayReminderMinute = minute,
+        paydaySuggestAverageIncome = suggestAverage
+    )
 }
 
 data class SavingsAccount(

@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -53,17 +54,46 @@ import com.example.sparely.ui.screens.VaultManagementScreen
 import com.example.sparely.ui.screens.VaultTransfersScreen
 import com.example.sparely.ui.screens.SettingsScreen
 import com.example.sparely.ui.screens.VaultTransfersScreen
+import com.example.sparely.ui.screens.VaultHistoryScreen
+import com.example.sparely.MainActivity
 
 @Composable
-fun SparelyApp(viewModel: SparelyViewModel) {
+fun SparelyApp(
+    viewModel: SparelyViewModel,
+    deepLinkDestination: String? = null,
+    onDeepLinkHandled: () -> Unit = {}
+) {
+    val context = LocalContext.current
     val navController = rememberNavController()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    
+    // Monitor language changes and recreate activity
+    LaunchedEffect(uiState.settings.regionalSettings.languageCode) {
+        // Skip on first composition (no need to recreate immediately)
+        // The locale is already applied in MainActivity onCreate
+    }
 
     LaunchedEffect(uiState.errorMessage) {
         val message = uiState.errorMessage
         if (!message.isNullOrEmpty()) {
             snackbarHostState.showSnackbar(message)
+        }
+    }
+    
+    // Handle deep link navigation
+    LaunchedEffect(deepLinkDestination) {
+        if (deepLinkDestination != null && uiState.onboardingCompleted) {
+            when (deepLinkDestination) {
+                "paycheck" -> {
+                    // Navigate to Settings with paycheck entry focused
+                    navController.navigate(SparelyDestination.Settings.route)
+                }
+                "vaultTransfers" -> {
+                    navController.navigate("vaultTransfers")
+                }
+            }
+            onDeepLinkHandled()
         }
     }
 
@@ -294,7 +324,8 @@ private fun SparelyNavHost(
                 onAutoDepositCheckHourChange = viewModel::updateAutoDepositCheckHour,
                 onManualAutoDepositTrigger = viewModel::triggerManualAutoDepositCheck,
                 autoDepositsEnabled = uiState.settings.paySchedule.autoDistributeToVaults,
-                autoDepositCheckHour = uiState.autoDepositCheckHour
+                autoDepositCheckHour = uiState.autoDepositCheckHour,
+                onRegionalSettingsChange = viewModel::updateRegionalSettings
             )
         }
         composable(SparelyDestination.ExpenseEntry.route) {
@@ -324,6 +355,27 @@ private fun SparelyNavHost(
                 onAddVault = viewModel::addSmartVault,
                 onUpdateVault = viewModel::updateSmartVault,
                 onDeleteVault = viewModel::deleteSmartVault,
+                onNavigateBack = { navController.popBackStack() },
+                onManualDeposit = { vaultId, amount, reason ->
+                    viewModel.depositToVault(vaultId, amount, reason)
+                },
+                onManualWithdrawal = { vaultId, amount, reason ->
+                    viewModel.deductFromVault(vaultId, amount, reason)
+                },
+                onViewHistory = { vaultId ->
+                    viewModel.loadVaultAdjustmentHistory(vaultId)
+                    navController.navigate("vaultHistory/$vaultId")
+                }
+            )
+        }
+        composable("vaultHistory/{vaultId}") { backStackEntry ->
+            val vaultId = backStackEntry.arguments?.getString("vaultId")?.toLongOrNull() ?: 0L
+            val vault = uiState.smartVaults.find { it.id == vaultId }
+            val adjustments = uiState.vaultAdjustments[vaultId] ?: emptyList()
+            
+            VaultHistoryScreen(
+                vaultName = vault?.name ?: "Vault",
+                adjustments = adjustments,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

@@ -10,6 +10,7 @@ import com.example.sparely.domain.model.RecurringFrequency
 import com.example.sparely.domain.model.RiskLevel
 import com.example.sparely.domain.model.SavingsCategory
 import com.example.sparely.domain.model.VaultAllocationMode
+import com.example.sparely.domain.model.VaultAdjustmentType
 import com.example.sparely.domain.model.VaultContributionSource
 import com.example.sparely.domain.model.VaultPriority
 import com.example.sparely.domain.model.VaultType
@@ -103,4 +104,10 @@ class Converters {
 
     @TypeConverter
     fun toVaultContributionSource(source: VaultContributionSource?): String? = source?.name
+
+    @TypeConverter
+    fun fromVaultAdjustmentType(value: String?): VaultAdjustmentType? = value?.let { VaultAdjustmentType.valueOf(it) }
+
+    @TypeConverter
+    fun toVaultAdjustmentType(type: VaultAdjustmentType?): String? = type?.name
 }

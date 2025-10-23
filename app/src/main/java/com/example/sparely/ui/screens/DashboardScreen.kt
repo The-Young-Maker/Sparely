@@ -1,5 +1,9 @@
 package com.example.sparely.ui.screens
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,8 +16,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material.icons.outlined.Savings
+import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
@@ -22,18 +33,27 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DividerDefaults
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ProgressIndicatorDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -73,11 +93,25 @@ fun DashboardScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                        MaterialTheme.colorScheme.surface,
+                        MaterialTheme.colorScheme.surface
+                    )
+                )
+            )
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         item {
-            DashboardHeader(onAddExpense = onAddExpense, onNavigateToHistory = onNavigateToHistory)
+            DashboardHeader(
+                totalBalance = uiState.totalVaultBalance,
+                monthlyIncome = uiState.settings.monthlyIncome,
+                onAddExpense = onAddExpense,
+                onNavigateToHistory = onNavigateToHistory
+            )
         }
 
         if (uiState.smartVaults.isNotEmpty()) {
@@ -108,6 +142,12 @@ fun DashboardScreen(
                     onComplete = onCompleteSmartTransfer,
                     onReturnToPending = { onCancelSmartTransfer(true) }
                 )
+            }
+        }
+
+        uiState.emergencyFundGoal?.let { goal ->
+            item {
+                EmergencyFundCard(goal = goal, settings = uiState.settings)
             }
         }
         
@@ -145,36 +185,127 @@ fun DashboardScreen(
             )
         }
 
-        // FIX: Wrap the remaining composables in an item block
-        item {
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Button(onClick = onAddExpense, modifier = Modifier.weight(1f)) {
-                    Text("Log purchase")
-                }
-                Button(onClick = onNavigateToHistory, modifier = Modifier.weight(1f)) {
-                    Text("History")
-                }
-            }
-        }
+        item { Spacer(modifier = Modifier.height(32.dp)) }
     }
 }
 
 @Composable
-private fun DashboardHeader(onAddExpense: () -> Unit, onNavigateToHistory: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+private fun DashboardHeader(
+    totalBalance: Double,
+    monthlyIncome: Double,
+    onAddExpense: () -> Unit,
+    onNavigateToHistory: () -> Unit
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = "Dashboard",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
-        )
+        // Hero Section with gradient card
+        ElevatedCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(8.dp, RoundedCornerShape(24.dp)),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer
+            )
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                                MaterialTheme.colorScheme.tertiary.copy(alpha = 0.6f)
+                            )
+                        )
+                    )
+                    .padding(24.dp)
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Total Saved",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White.copy(alpha = 0.9f)
+                            )
+                            Text(
+                                text = formatCurrency(totalBalance),
+                                style = MaterialTheme.typography.displaySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Outlined.Savings,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = Color.White.copy(alpha = 0.7f)
+                        )
+                    }
+                    
+                    if (monthlyIncome > 0) {
+                        val savingsRate = if (totalBalance > 0) (totalBalance / monthlyIncome) * 100 else 0.0
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = Color.White.copy(alpha = 0.9f)
+                            )
+                            Text(
+                                text = "${String.format("%.1f", savingsRate)}% of monthly income",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White.copy(alpha = 0.9f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Quick Action Buttons
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            FilledTonalButton(
+                onClick = onAddExpense,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Log Purchase")
+            }
+            Button(
+                onClick = onNavigateToHistory,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.History,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("History")
+            }
+        }
     }
 }
 
@@ -188,122 +319,95 @@ private fun SmartVaultsCard(
 ) {
     val accentYellow = Color(0xFFFACC15)
     val dateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(4.dp, RoundedCornerShape(20.dp)),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Smart vaults", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        if (pendingCount > 0) {
-                            androidx.compose.material3.Badge(
-                                containerColor = MaterialTheme.colorScheme.error
-                            ) {
-                                Text(pendingCount.toString())
-                            }
-                        }
-                    }
-                    Text(
-                        text = "Net saved ${formatCurrency(totalBalance)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                
-                }
-                TextButton(onClick = onManageVaults) {
-                    Text("Manage")
-                }
-            }
-
-            val previewVaults = vaults.take(3)
-            previewVaults.forEach { vault ->
-                val progress = if (vault.targetAmount <= 0) 0f else (vault.currentBalance / vault.targetAmount).toFloat().coerceIn(0f, 1f)
-                val urgencyColor = when (vault.priority) {
-                    VaultPriority.CRITICAL -> MaterialTheme.colorScheme.error
-                    VaultPriority.HIGH -> accentYellow
-                    VaultPriority.MEDIUM -> MaterialTheme.colorScheme.primary
-                    VaultPriority.LOW -> MaterialTheme.colorScheme.secondary
-                }
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier.size(42.dp),
-                            color = urgencyColor,
-                            strokeWidth = 6.dp,
-                            trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                            strokeCap = ProgressIndicatorDefaults.CircularDeterminateStrokeCap,
-                            )
+                        Icon(
+                            imageVector = Icons.Outlined.AccountBalance,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                    Column {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
-                                text = String.format("%.0f%%", progress * 100),
-                                style = MaterialTheme.typography.labelSmall,
+                                "Smart Vaults",
+                                style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold
                             )
-                        }
-                        Column {
-                            Text(vault.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                            val targetText = buildString {
-                                append("Target ")
-                                append(formatCurrency(vault.targetAmount))
-                                vault.targetDate?.let {
-                                    append(" • ${it.format(dateFormatter)}")
+                            if (pendingCount > 0) {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.errorContainer
+                                ) {
+                                    Text(
+                                        text = pendingCount.toString(),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
                                 }
                             }
-                            Text(
-                                text = targetText,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            vault.nextExpectedContribution?.takeIf { it > 0 }?.let { nextAmount ->
-                                Text(
-                                    text = "Next contribution ${formatCurrency(nextAmount)}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = urgencyColor
-                                )
-                            }
                         }
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = formatCurrency(vault.currentBalance),
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = vault.type.displayName(),
-                            style = MaterialTheme.typography.labelSmall,
+                            text = "Net saved ${formatCurrency(totalBalance)}",
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-                if (vault != previewVaults.last()) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 8.dp),
-                        thickness = DividerDefaults.Thickness,
-                        color = DividerDefaults.color
-                    )
+                TextButton(onClick = onManageVaults) {
+                    Text("Manage", fontWeight = FontWeight.SemiBold)
                 }
             }
+
+            // Vault List
+            val previewVaults = vaults.take(3)
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                previewVaults.forEach { vault ->
+                    VaultItem(vault = vault, accentYellow = accentYellow, dateFormatter = dateFormatter)
+                }
+            }
+            
             if (vaults.size > 3) {
                 Text(
-                    text = "${vaults.size - 3} more vault${if (vaults.size - 3 == 1) "" else "s"} hidden",
+                    text = "+${vaults.size - 3} more vault${if (vaults.size - 3 == 1) "" else "s"}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 8.dp)
                 )
             }
             
@@ -311,9 +415,129 @@ private fun SmartVaultsCard(
                 HorizontalDivider()
                 Button(
                     onClick = onNavigateToTransfers,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     Text("View $pendingCount Pending Transfer${if (pendingCount == 1) "" else "s"}")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VaultItem(
+    vault: SmartVault,
+    accentYellow: Color,
+    dateFormatter: DateTimeFormatter
+) {
+    val progress = if (vault.targetAmount <= 0) 0f 
+                  else (vault.currentBalance / vault.targetAmount).toFloat().coerceIn(0f, 1f)
+    
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress,
+        animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
+        label = "progress"
+    )
+    
+    val urgencyColor = when (vault.priority) {
+        VaultPriority.CRITICAL -> MaterialTheme.colorScheme.error
+        VaultPriority.HIGH -> accentYellow
+        VaultPriority.MEDIUM -> MaterialTheme.colorScheme.primary
+        VaultPriority.LOW -> MaterialTheme.colorScheme.secondary
+    }
+    
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(
+                            progress = { animatedProgress },
+                            modifier = Modifier.size(52.dp),
+                            color = urgencyColor,
+                            strokeWidth = 5.dp,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            strokeCap = ProgressIndicatorDefaults.CircularDeterminateStrokeCap,
+                        )
+                        Text(
+                            text = String.format("%.0f%%", progress * 100),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Column {
+                        Text(
+                            vault.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        val targetText = buildString {
+                            append("Goal: ")
+                            append(formatCurrency(vault.targetAmount))
+                            vault.targetDate?.let {
+                                append(" • ${it.format(dateFormatter)}")
+                            }
+                        }
+                        Text(
+                            text = targetText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = formatCurrency(vault.currentBalance),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = urgencyColor
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = urgencyColor.copy(alpha = 0.2f)
+                    ) {
+                        Text(
+                            text = vault.type.displayName(),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Medium,
+                            color = urgencyColor
+                        )
+                    }
+                }
+            }
+            
+            vault.nextExpectedContribution?.takeIf { it > 0 }?.let { nextAmount ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = urgencyColor
+                    )
+                    Text(
+                        text = "Next contribution ${formatCurrency(nextAmount)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = urgencyColor,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
         }
@@ -685,6 +909,180 @@ private fun SmartTransferCard(
 }
 
 @Composable
+private fun EmergencyFundCard(goal: EmergencyFundGoal, settings: SparelySettings) {
+    val coverage = goal.coverageRatio.coerceIn(0.0, 1.0)
+    val animatedCoverage by animateFloatAsState(
+        targetValue = coverage.toFloat(),
+        animationSpec = tween(durationMillis = 1200, easing = FastOutSlowInEasing),
+        label = "coverage"
+    )
+    val coverageLabel = String.format("%.0f%%", coverage * 100)
+    val savedAmount = (goal.targetAmount - goal.shortfallAmount).coerceAtLeast(0.0)
+    val shortfall = goal.shortfallAmount.coerceAtLeast(0.0)
+
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(4.dp, RoundedCornerShape(20.dp)),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Header with icon
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.errorContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Security,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = "Emergency Runway",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "${formatMonths(goal.targetMonths)} month goal • ${formatCurrency(goal.targetAmount)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // Animated Progress Bar
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = coverageLabel,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = formatCurrency(savedAmount),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                LinearProgressIndicator(
+                    progress = { animatedCoverage },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(12.dp)
+                        .clip(RoundedCornerShape(6.dp)),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
+                )
+            }
+
+            // Stats Grid
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    DetailRow(
+                        label = "Current cushion",
+                        value = formatCurrency(savedAmount)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    DetailRow(
+                        label = "Shortfall",
+                        value = formatCurrency(shortfall),
+                        valueColor = if (shortfall > 0.0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                    )
+                    if (goal.recommendedMonthlyContribution > 0.0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        DetailRow(
+                            label = "Monthly target",
+                            value = formatCurrency(goal.recommendedMonthlyContribution),
+                            valueColor = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                }
+            }
+
+            if (goal.recommendedMonthlyContribution <= 0.0) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Goal reached! Keep contributing to stay ahead of inflation.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailRow(
+    label: String,
+    value: String,
+    valueColor: Color = MaterialTheme.colorScheme.onSurface
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = valueColor
+        )
+    }
+}
+
+@Composable
 private fun MetricsRow(uiState: SparelyUiState) {
     val totalsByType = uiState.smartVaults
         .groupBy { it.type }
@@ -693,28 +1091,31 @@ private fun MetricsRow(uiState: SparelyUiState) {
     val shortTermTotal = totalsByType[VaultType.SHORT_TERM] ?: 0.0
     val longTermTotal = totalsByType[VaultType.LONG_TERM] ?: 0.0
     val passiveTotal = totalsByType[VaultType.PASSIVE_INVESTMENT] ?: 0.0
-    val totalReserved = uiState.smartVaults.sumOf { it.currentBalance }
 
-    Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        MetricCard(
-            title = "Total set aside",
-            value = totalReserved,
-            subtitle = "Across all vaults"
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = "Savings Breakdown",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 4.dp)
         )
+        
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            MetricCard(
+            ModernMetricCard(
                 title = "Short-term",
                 value = shortTermTotal,
+                icon = Icons.Outlined.Savings,
+                color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.weight(1f)
             )
-            MetricCard(
+            ModernMetricCard(
                 title = "Long-term",
                 value = longTermTotal,
+                icon = Icons.Outlined.AccountBalance,
+                color = MaterialTheme.colorScheme.tertiary,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -722,15 +1123,19 @@ private fun MetricsRow(uiState: SparelyUiState) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            MetricCard(
+            ModernMetricCard(
                 title = "Passive growth",
                 value = passiveTotal,
+                icon = Icons.AutoMirrored.Filled.TrendingUp,
+                color = MaterialTheme.colorScheme.secondary,
                 modifier = Modifier.weight(1f)
             )
-            MetricCard(
+            ModernMetricCard(
                 title = "Monthly avg",
                 value = uiState.analytics.averageMonthlyReserve,
-                subtitle = "Projected ${formatCurrency(uiState.analytics.projectedReserveSixMonths)} in 6 months",
+                subtitle = "Projected\n${formatCurrency(uiState.analytics.projectedReserveSixMonths)}\nin 6 months",
+                icon = Icons.AutoMirrored.Filled.TrendingUp,
+                color = Color(0xFF4CAF50),
                 modifier = Modifier.weight(1f)
             )
         }
@@ -738,29 +1143,49 @@ private fun MetricsRow(uiState: SparelyUiState) {
 }
 
 @Composable
-private fun MetricCard(
+private fun ModernMetricCard(
     title: String,
     value: Double,
-    subtitle: String? = null,
-    modifier: Modifier = Modifier
+    icon: ImageVector,
+    color: Color,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null
 ) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ElevatedCard(
+        modifier = modifier.shadow(2.dp, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
             Text(
                 text = formatCurrency(value),
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = color
             )
             subtitle?.let {
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = it,
                     style = MaterialTheme.typography.bodySmall,
@@ -1131,6 +1556,9 @@ private data class BudgetStatusColors(
     val indicatorColor: Color,
     val contentColor: Color
 )
+
+private fun formatMonths(months: Double): String =
+    if (months % 1.0 == 0.0) months.toInt().toString() else String.format("%.1f", months)
 
 private fun formatCurrency(value: Double): String = "$" + String.format("%,.2f", value)
 

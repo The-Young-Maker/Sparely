@@ -1,6 +1,7 @@
 package com.example.sparely.ui.screens
 
 import android.annotation.SuppressLint
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,11 +30,15 @@ fun VaultManagementScreen(
     onAddVault: (SmartVault) -> Unit,
     onUpdateVault: (SmartVault) -> Unit,
     onDeleteVault: (Long) -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onManualDeposit: ((Long, Double, String) -> Unit)? = null,
+    onManualWithdrawal: ((Long, Double, String) -> Unit)? = null,
+    onViewHistory: ((Long) -> Unit)? = null
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var editingVault by remember { mutableStateOf<SmartVault?>(null) }
     var vaultToDelete by remember { mutableStateOf<SmartVault?>(null) }
+    var vaultForManualAdjustment by remember { mutableStateOf<Pair<SmartVault, Boolean>?>(null) }
 
     Scaffold(
         topBar = {
@@ -71,7 +76,10 @@ fun VaultManagementScreen(
                     VaultCard(
                         vault = vault,
                         onEdit = { editingVault = vault },
-                        onDelete = { vaultToDelete = vault }
+                        onDelete = { vaultToDelete = vault },
+                        onDeposit = if (onManualDeposit != null) {{ vaultForManualAdjustment = vault to true }} else null,
+                        onWithdraw = if (onManualWithdrawal != null) {{ vaultForManualAdjustment = vault to false }} else null,
+                        onViewHistory = if (onViewHistory != null) {{ onViewHistory(vault.id) }} else null
                     )
                 }
             }
@@ -128,6 +136,22 @@ fun VaultManagementScreen(
             }
         )
     }
+    
+    vaultForManualAdjustment?.let { (vault, isDeposit) ->
+        ManualAdjustmentDialog(
+            vaultName = vault.name,
+            isDeposit = isDeposit,
+            onConfirm = { amount, reason ->
+                if (isDeposit) {
+                    onManualDeposit?.invoke(vault.id, amount, reason)
+                } else {
+                    onManualWithdrawal?.invoke(vault.id, amount, reason)
+                }
+                vaultForManualAdjustment = null
+            },
+            onDismiss = { vaultForManualAdjustment = null }
+        )
+    }
 }
 
 @Composable
@@ -170,7 +194,10 @@ private fun EmptyVaultsCard() {
 private fun VaultCard(
     vault: SmartVault,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onDeposit: (() -> Unit)? = null,
+    onWithdraw: (() -> Unit)? = null,
+    onViewHistory: (() -> Unit)? = null
 ) {
     val dateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
     val progress = if (vault.targetAmount <= 0) 0f else (vault.currentBalance / vault.targetAmount).toFloat().coerceIn(0f, 1f)
@@ -269,6 +296,85 @@ private fun VaultCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary
                 )
+            }
+            
+            // Manual adjustment buttons
+            if (onDeposit != null || onWithdraw != null || onViewHistory != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    onDeposit?.let {
+                        IconButton(
+                            onClick = it,
+                            modifier = Modifier
+                                .weight(1f)
+                                .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Deposit",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    "Deposit",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                    onWithdraw?.let {
+                        IconButton(
+                            onClick = it,
+                            modifier = Modifier
+                                .weight(1f)
+                                .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Remove,
+                                    contentDescription = "Withdraw",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    "Withdraw",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
+                    onViewHistory?.let {
+                        IconButton(
+                            onClick = it,
+                            modifier = Modifier
+                                .weight(1f)
+                                .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.List,
+                                    contentDescription = "History"
+                                )
+                                Text(
+                                    "History",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -599,4 +705,87 @@ private fun VaultEditorDialog(
             DatePicker(state = datePickerState)
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ManualAdjustmentDialog(
+    vaultName: String,
+    isDeposit: Boolean,
+    onConfirm: (amount: Double, reason: String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var amount by remember { mutableStateOf("") }
+    var reason by remember { mutableStateOf("") }
+    val isValid = amount.toDoubleOrNull()?.let { it > 0 } == true
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = if (isDeposit) Icons.Default.Add else Icons.Default.Clear,
+                contentDescription = null
+            )
+        },
+        title = {
+            Text(if (isDeposit) "Manual Deposit" else "Manual Withdrawal")
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = vaultName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { amount = it },
+                    label = { Text("Amount") },
+                    prefix = { Text("$") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    isError = amount.isNotEmpty() && amount.toDoubleOrNull() == null
+                )
+                
+                OutlinedTextField(
+                    value = reason,
+                    onValueChange = { reason = it },
+                    label = { Text("Reason (optional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 3,
+                    placeholder = { Text("e.g., Bank transfer, Goal reached, etc.") }
+                )
+                
+                Text(
+                    text = if (isDeposit) {
+                        "This will add funds to the vault and record it in the adjustment history."
+                    } else {
+                        "This will remove funds from the vault and record it in the adjustment history."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val parsedAmount = amount.toDoubleOrNull() ?: 0.0
+                    onConfirm(parsedAmount, reason.trim())
+                },
+                enabled = isValid
+            ) {
+                Text(if (isDeposit) "Deposit" else "Withdraw")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }

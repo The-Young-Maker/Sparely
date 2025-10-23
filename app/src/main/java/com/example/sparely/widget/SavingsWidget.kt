@@ -15,14 +15,18 @@ import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
+import androidx.glance.Image
+import androidx.glance.ImageProvider
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
+import androidx.glance.layout.Alignment
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.width
+import androidx.glance.layout.size
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -30,6 +34,7 @@ import androidx.glance.unit.ColorProvider
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.sparely.MainActivity
+import com.example.sparely.R
 import com.example.sparely.data.local.SparelyDatabase
 import com.example.sparely.data.local.ExpenseEntity
 import com.example.sparely.data.preferences.UserPreferencesRepository
@@ -95,7 +100,8 @@ private fun EducationStatus.displayLabel(): String = when (this) {
 
 private fun EmploymentStatus.displayLabel(): String = when (this) {
     EmploymentStatus.STUDENT -> "Student"
-    EmploymentStatus.EMPLOYED -> "Employed"
+    EmploymentStatus.PART_TIME -> "Part-time"
+    EmploymentStatus.FULL_TIME, EmploymentStatus.EMPLOYED -> "Full-time"
     EmploymentStatus.SELF_EMPLOYED -> "Self-employed"
     EmploymentStatus.UNEMPLOYED -> "Unemployed"
     EmploymentStatus.RETIRED -> "Retired"
@@ -350,39 +356,44 @@ private fun UpcomingRecurringExpense.toWidgetSummary(): NextRecurringSummary = N
 private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Action) {
     val currencyFormatter = rememberCurrencyFormatter()
 
-    // Corrected ColorProvider definitions
-    val surfaceColor =
-        androidx.glance.color.ColorProvider(day = WhisperSurface, night = MidnightSurface)
+    // Google Material Design 3 colors - clean and professional
+    val surfaceColor = androidx.glance.color.ColorProvider(day = WhisperSurface, night = MidnightSurface)
     val onSurfaceColor = androidx.glance.color.ColorProvider(day = DeepNavy, night = MistyWhite)
-    val onSurfaceVariantColor =
-        androidx.glance.color.ColorProvider(day = TideOutline, night = PearlOnVariant)
-    val accentColor = androidx.glance.color.ColorProvider(day = TealPrimary, night = TealPrimaryDark)
-    val accentContainerColor = androidx.glance.color.ColorProvider(
-        day = TealPrimary.copy(alpha = 0.12f),
-        night = TealPrimaryDark.copy(alpha = 0.24f)
+    val onSurfaceVariantColor = androidx.glance.color.ColorProvider(day = TideOutline, night = PearlOnVariant)
+    val primaryColor = androidx.glance.color.ColorProvider(day = TealPrimary, night = TealPrimaryDark)
+    val primaryContainerColor = androidx.glance.color.ColorProvider(
+        day = androidx.compose.ui.graphics.Color(0xFFE0F2F1), // TealPrimary with light alpha
+        night = androidx.compose.ui.graphics.Color(0xFF1A3A37) // TealPrimaryDark with alpha
     )
-    val spentColor =
-        androidx.glance.color.ColorProvider(day = AzureTertiary, night = AzureTertiaryDark)
-    val spentContainerColor = androidx.glance.color.ColorProvider(
-        day = AzureTertiary.copy(alpha = 0.12f),
-        night = AzureTertiaryDark.copy(alpha = 0.24f)
+    val secondaryColor = androidx.glance.color.ColorProvider(day = AzureTertiary, night = AzureTertiaryDark)
+    val secondaryContainerColor = androidx.glance.color.ColorProvider(
+        day = androidx.compose.ui.graphics.Color(0xFFE3F2FD), // AzureTertiary with light alpha
+        night = androidx.compose.ui.graphics.Color(0xFF1A2530) // AzureTertiaryDark with alpha
     )
-    val neutralContainerColor = androidx.glance.color.ColorProvider(
-        day = TideOutline.copy(alpha = 0.08f),
-        night = DeepCurrentSurfaceVariant.copy(alpha = 0.6f)
+    val surfaceContainerColor = androidx.glance.color.ColorProvider(
+        day = androidx.compose.ui.graphics.Color(0xFFFAFAFA), // Very light gray
+        night = androidx.compose.ui.graphics.Color(0xFF2A2F35) // Dark gray with slight alpha
     )
-
+    val errorContainerColor = androidx.glance.color.ColorProvider(
+        day = androidx.compose.ui.graphics.Color(0xFFFDEDED),
+        night = androidx.compose.ui.graphics.Color(0xFF3A2020)
+    )
+    val errorColor = androidx.glance.color.ColorProvider(
+        day = androidx.compose.ui.graphics.Color(0xFFB00020),
+        night = androidx.compose.ui.graphics.Color(0xFFCF6679)
+    )
 
     val settings = snapshot.settings
-    val educationLabel = settings.educationStatus.displayLabel()
-    val employmentLabel = settings.employmentStatus.displayLabel()
-    val birthdayMessage = computeBirthdayMessage(settings)
-
     val monthBadge = remember {
         val month = YearMonth.now()
-        month.month.getDisplayName(JavaTextStyle.SHORT, Locale.getDefault()).uppercase(Locale.getDefault())
+        month.month.getDisplayName(JavaTextStyle.SHORT, Locale.getDefault())
     }
 
+    // Calculate savings metrics
+    val savingsRate = if (snapshot.monthSpent > 0) {
+        ((snapshot.monthSaved / (snapshot.monthSpent + snapshot.monthSaved)) * 100).toInt()
+    } else 0
+    
     val monthDelta = snapshot.monthSaved - snapshot.monthSpent
     val netLabel = if (monthDelta >= 0) {
         "+${currencyFormatter(monthDelta)}"
@@ -395,108 +406,152 @@ private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Actio
             .fillMaxSize()
             .appWidgetBackground()
             .background(surfaceColor)
-            .cornerRadius(22.dp)
-            .padding(16.dp)
+            .cornerRadius(28.dp)
+            .padding(20.dp)
             .clickable(openApp)
     ) {
-        Text(
-            modifier = GlanceModifier
-                .background(accentContainerColor)
-                .cornerRadius(14.dp)
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            text = "$monthBadge · INSIGHTS",
-            style = TextStyle(
-                color = accentColor,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium
-            )
-        )
-        Spacer(modifier = GlanceModifier.height(10.dp))
-        settings.displayName?.takeIf { it.isNotBlank() }?.let { name ->
-            Text(
-                text = "Hi $name!",
-                style = TextStyle(
-                    color = onSurfaceVariantColor,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium
+        // Header Section - Google style with avatar placeholder
+        Row(
+            modifier = GlanceModifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = GlanceModifier.defaultWeight()) {
+                Text(
+                    text = "Sparely",
+                    style = TextStyle(
+                        color = onSurfaceColor,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 )
-            )
-            Spacer(modifier = GlanceModifier.height(4.dp))
+                Spacer(modifier = GlanceModifier.height(2.dp))
+                settings.displayName?.takeIf { it.isNotBlank() }?.let { name ->
+                    Text(
+                        text = "$name - $monthBadge",
+                        style = TextStyle(
+                            color = onSurfaceVariantColor,
+                            fontSize = 13.sp
+                        )
+                    )
+                } ?: run {
+                    Text(
+                        text = monthBadge,
+                        style = TextStyle(
+                            color = onSurfaceVariantColor,
+                            fontSize = 13.sp
+                        )
+                    )
+                }
+            }
         }
-        Text(
-            text = "Savings snapshot",
-            style = TextStyle(
-                color = onSurfaceColor,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Medium
-            )
-        )
-        Text(
-            text = currencyFormatter(snapshot.totalSaved),
-            style = TextStyle(
-                color = onSurfaceColor,
-                fontSize = 26.sp,
-                fontWeight = FontWeight.Bold
-            )
-        )
-        Spacer(modifier = GlanceModifier.height(4.dp))
-        Text(
-            text = "Lifetime saved",
-            style = TextStyle(
-                color = onSurfaceVariantColor,
-                fontSize = 12.sp
-            )
-        )
-        settings.primaryGoal?.takeIf { it.isNotBlank() }?.let { goal ->
-            Spacer(modifier = GlanceModifier.height(6.dp))
+        
+        Spacer(modifier = GlanceModifier.height(20.dp))
+        
+        // Hero Metrics - Total Savings with Monthly Performance
+        Column(
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .background(primaryContainerColor)
+                .cornerRadius(16.dp)
+                .padding(16.dp)
+        ) {
             Text(
-                text = "Primary goal: $goal",
+                text = "Total Savings",
                 style = TextStyle(
-                    color = onSurfaceVariantColor,
+                    color = primaryColor,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 )
             )
-        }
-        Spacer(modifier = GlanceModifier.height(4.dp))
-        Text(
-            text = "Emergency fund ${currencyFormatter(settings.currentEmergencyFund)} • Debts ${if (settings.hasDebts) "active" else "clear"}",
-            style = TextStyle(
-                color = onSurfaceVariantColor,
-                fontSize = 11.sp
-            )
-        )
-        Text(
-            text = "$educationLabel • $employmentLabel",
-            style = TextStyle(
-                color = onSurfaceVariantColor,
-                fontSize = 11.sp
-            )
-        )
-        birthdayMessage?.let { message ->
+            Spacer(modifier = GlanceModifier.height(4.dp))
             Text(
-                text = message,
+                text = currencyFormatter(snapshot.totalSaved),
                 style = TextStyle(
-                    color = accentColor,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
+                    color = onSurfaceColor,
+                    fontSize = 36.sp,
+                    fontWeight = FontWeight.Bold
                 )
             )
+            
+            Spacer(modifier = GlanceModifier.height(12.dp))
+            
+            // Divider line
+            Spacer(
+                modifier = GlanceModifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(androidx.glance.color.ColorProvider(
+                        day = androidx.compose.ui.graphics.Color(0xFFE0E0E0),
+                        night = androidx.compose.ui.graphics.Color(0xFF3A3A3A)
+                    ))
+            )
+            
+            Spacer(modifier = GlanceModifier.height(12.dp))
+            
+            // Monthly Stats Grid - Google style
+            Row(modifier = GlanceModifier.fillMaxWidth()) {
+                Column(modifier = GlanceModifier.defaultWeight()) {
+                    Text(
+                        text = "This month",
+                        style = TextStyle(
+                            color = onSurfaceVariantColor,
+                            fontSize = 11.sp
+                        )
+                    )
+                    Spacer(modifier = GlanceModifier.height(4.dp))
+                    Text(
+                        text = netLabel,
+                        style = TextStyle(
+                            color = if (monthDelta >= 0) primaryColor else errorColor,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+                
+                if (savingsRate > 0) {
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        modifier = GlanceModifier.defaultWeight()
+                    ) {
+                        Text(
+                            text = "Savings rate",
+                            style = TextStyle(
+                                color = onSurfaceVariantColor,
+                                fontSize = 11.sp
+                            )
+                        )
+                        Spacer(modifier = GlanceModifier.height(4.dp))
+                        Text(
+                            text = "$savingsRate%",
+                            style = TextStyle(
+                                color = primaryColor,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
+                }
+            }
         }
+        
         Spacer(modifier = GlanceModifier.height(16.dp))
+        
+        // Monthly Activity - Clean dual card layout
         Row(modifier = GlanceModifier.fillMaxWidth()) {
+            // Saved this month
             Column(
                 modifier = GlanceModifier
                     .defaultWeight()
-                    .background(accentContainerColor)
-                    .cornerRadius(18.dp)
+                    .background(surfaceContainerColor)
+                    .cornerRadius(12.dp)
                     .padding(14.dp)
             ) {
                 Text(
-                    text = "Saved this month",
+                    text = "Saved",
                     style = TextStyle(
-                        color = accentColor,
-                        fontSize = 12.sp,
+                        color = onSurfaceVariantColor,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Medium
                     )
                 )
@@ -504,34 +559,28 @@ private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Actio
                 Text(
                     text = currencyFormatter(snapshot.monthSaved),
                     style = TextStyle(
-                        color = onSurfaceColor,
+                        color = primaryColor,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold
                     )
                 )
-                Spacer(modifier = GlanceModifier.height(2.dp))
-                Text(
-                    text = "Net $netLabel",
-                    style = TextStyle(
-                        color = onSurfaceVariantColor,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Normal
-                    )
-                )
             }
+            
             Spacer(modifier = GlanceModifier.width(12.dp))
+            
+            // Spent this month
             Column(
                 modifier = GlanceModifier
                     .defaultWeight()
-                    .background(spentContainerColor)
-                    .cornerRadius(18.dp)
+                    .background(surfaceContainerColor)
+                    .cornerRadius(12.dp)
                     .padding(14.dp)
             ) {
                 Text(
-                    text = "Spent this month",
+                    text = "Spent",
                     style = TextStyle(
-                        color = spentColor,
-                        fontSize = 12.sp,
+                        color = onSurfaceVariantColor,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Medium
                     )
                 )
@@ -544,100 +593,123 @@ private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Actio
                         fontWeight = FontWeight.Bold
                     )
                 )
-                Spacer(modifier = GlanceModifier.height(2.dp))
-                Text(
-                    text = "Tap to plan smarter",
-                    style = TextStyle(
-                        color = onSurfaceVariantColor,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Normal
-                    )
+            }
+        }
+        
+        // Smart Insights - Contextual cards
+        snapshot.smartTransfer?.let { smart ->
+            if (smart.status == SmartTransferStatus.READY || smart.status == SmartTransferStatus.AWAITING_CONFIRMATION) {
+                Spacer(modifier = GlanceModifier.height(12.dp))
+                SmartTransferInsightCard(
+                    recommendation = smart,
+                    currencyFormatter = currencyFormatter,
+                    onSurfaceColor = onSurfaceColor,
+                    onSurfaceVariantColor = onSurfaceVariantColor,
+                    primaryColor = primaryColor,
+                    surfaceContainerColor = surfaceContainerColor
                 )
             }
         }
+        
         snapshot.budgetPrompt?.let { prompt ->
             Spacer(modifier = GlanceModifier.height(12.dp))
-            BudgetPromptWidgetCard(
+            BudgetAlertCard(
                 prompt = prompt,
                 currencyFormatter = currencyFormatter,
-                onSurfaceColor = onSurfaceColor,
+                errorColor = errorColor,
                 onSurfaceVariantColor = onSurfaceVariantColor,
-                accentColor = accentColor,
-                spentColor = spentColor,
-                spentContainerColor = spentContainerColor
+                errorContainerColor = errorContainerColor
             )
         }
-        snapshot.nextRecurring?.let { summary ->
+        
+        snapshot.nextRecurring?.let { recurring ->
             Spacer(modifier = GlanceModifier.height(12.dp))
-            NextRecurringWidgetCard(
-                summary = summary,
+            UpcomingBillsCard(
+                summary = recurring,
                 currencyFormatter = currencyFormatter,
                 onSurfaceColor = onSurfaceColor,
                 onSurfaceVariantColor = onSurfaceVariantColor,
-                accentColor = accentColor,
-                neutralContainerColor = neutralContainerColor
+                surfaceContainerColor = surfaceContainerColor
             )
         }
-        snapshot.recentExpense?.let { expense ->
+        
+        // Emergency Fund Quick View
+        if (settings.currentEmergencyFund > 0 || settings.hasDebts) {
+            Spacer(modifier = GlanceModifier.height(12.dp))
+            Row(modifier = GlanceModifier.fillMaxWidth()) {
+                if (settings.currentEmergencyFund > 0) {
+                    Column(
+                        modifier = GlanceModifier
+                            .defaultWeight()
+                            .background(surfaceContainerColor)
+                            .cornerRadius(12.dp)
+                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                    ) {
+                        Text(
+                            text = "Emergency",
+                            style = TextStyle(
+                                color = onSurfaceVariantColor,
+                                fontSize = 10.sp
+                            )
+                        )
+                        Text(
+                            text = currencyFormatter(settings.currentEmergencyFund),
+                            style = TextStyle(
+                                color = primaryColor,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
+                    Spacer(modifier = GlanceModifier.width(8.dp))
+                }
+                
+                Column(
+                    modifier = GlanceModifier
+                        .defaultWeight()
+                        .background(if (settings.hasDebts) errorContainerColor else surfaceContainerColor)
+                        .cornerRadius(12.dp)
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                ) {
+                    Text(
+                        text = "Debts",
+                        style = TextStyle(
+                            color = onSurfaceVariantColor,
+                            fontSize = 10.sp
+                        )
+                    )
+                    Text(
+                        text = if (settings.hasDebts) "Active" else "Clear",
+                        style = TextStyle(
+                            color = if (settings.hasDebts) errorColor else primaryColor,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+            }
+        }
+        
+        // Goal Footer
+        settings.primaryGoal?.takeIf { it.isNotBlank() }?.let { goal ->
             Spacer(modifier = GlanceModifier.height(12.dp))
             Column(
                 modifier = GlanceModifier
                     .fillMaxWidth()
-                    .background(neutralContainerColor)
-                    .cornerRadius(18.dp)
-                    .padding(14.dp)
+                    .background(secondaryContainerColor)
+                    .cornerRadius(12.dp)
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
             ) {
                 Text(
-                    text = "Latest expense",
+                    text = "$goal",  // Removed emoji
                     style = TextStyle(
-                        color = onSurfaceVariantColor,
+                        color = secondaryColor,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
-                    )
-                )
-                Spacer(modifier = GlanceModifier.height(4.dp))
-                Text(
-                    text = expense.description,
-                    style = TextStyle(
-                        color = onSurfaceColor,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                )
-                Spacer(modifier = GlanceModifier.height(2.dp))
-                Text(
-                    text = currencyFormatter(expense.amount),
-                    style = TextStyle(
-                        color = onSurfaceVariantColor,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Normal
                     )
                 )
             }
         }
-        snapshot.smartTransfer?.let { smart ->
-            Spacer(modifier = GlanceModifier.height(12.dp))
-            SmartTransferWidgetPanel(
-                recommendation = smart,
-                currencyFormatter = currencyFormatter,
-                onSurfaceColor = onSurfaceColor,
-                onSurfaceVariantColor = onSurfaceVariantColor,
-                accentColor = accentColor,
-                accentContainerColor = accentContainerColor,
-                spentColor = spentColor,
-                spentContainerColor = spentContainerColor,
-                neutralContainerColor = neutralContainerColor
-            )
-        }
-        Spacer(modifier = GlanceModifier.height(12.dp))
-        Text(
-            text = "Tap to open Sparely",
-            style = TextStyle(
-                color = onSurfaceVariantColor,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Normal
-            )
-        )
     }
 }
 
@@ -888,3 +960,173 @@ private fun SmartTransferWidgetPanel(
         )
     }
 }
+
+@Composable
+private fun SmartTransferInsightCard(
+    recommendation: SmartTransferRecommendation,
+    currencyFormatter: (Double) -> String,
+    onSurfaceColor: ColorProvider,
+    onSurfaceVariantColor: ColorProvider,
+    primaryColor: ColorProvider,
+    surfaceContainerColor: ColorProvider
+) {
+    Column(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .background(surfaceContainerColor)
+            .cornerRadius(16.dp)
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = GlanceModifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Image(
+                provider = ImageProvider(R.drawable.ic_arrow_forward),
+                contentDescription = "Transfer",
+                modifier = GlanceModifier.size(20.dp),
+                colorFilter = androidx.glance.ColorFilter.tint(primaryColor)
+            )
+            Spacer(modifier = GlanceModifier.width(8.dp))
+            Text(
+                text = "Smart Transfer Ready",
+                style = TextStyle(
+                    color = onSurfaceColor,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            )
+        }
+        Spacer(modifier = GlanceModifier.height(6.dp))
+        Text(
+            text = "${currencyFormatter(recommendation.totalAmount)} ready to move",
+            style = TextStyle(
+                color = onSurfaceColor,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium
+            )
+        )
+        Spacer(modifier = GlanceModifier.height(4.dp))
+        Text(
+            text = "Emergency ${currencyFormatter(recommendation.emergencyPortion)} · Investing ${currencyFormatter(recommendation.investmentPortion)}",
+            style = TextStyle(
+                color = onSurfaceVariantColor,
+                fontSize = 12.sp
+            )
+        )
+    }
+}
+
+@Composable
+private fun BudgetAlertCard(
+    prompt: BudgetPromptSummary,
+    currencyFormatter: (Double) -> String,
+    errorColor: ColorProvider,
+    onSurfaceVariantColor: ColorProvider,
+    errorContainerColor: ColorProvider
+) {
+    Column(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .background(errorContainerColor)
+            .cornerRadius(16.dp)
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = GlanceModifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Image(
+                provider = ImageProvider(R.drawable.ic_warning),
+                contentDescription = "Warning",
+                modifier = GlanceModifier.size(20.dp),
+                colorFilter = androidx.glance.ColorFilter.tint(errorColor)
+            )
+            Spacer(modifier = GlanceModifier.width(8.dp))
+            Text(
+                text = "Budget Alert",
+                style = TextStyle(
+                    color = errorColor,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            )
+        }
+        Spacer(modifier = GlanceModifier.height(6.dp))
+        Text(
+            text = "${prompt.category.displayName()}: ${currencyFormatter(prompt.spent)} / ${currencyFormatter(prompt.limit)}",
+            style = TextStyle(
+                color = errorColor,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium
+            )
+        )
+        Spacer(modifier = GlanceModifier.height(4.dp))
+        Text(
+            text = if (prompt.overspend > 0) "Over by ${currencyFormatter(prompt.overspend)}" else "Approaching limit",
+            style = TextStyle(
+                color = onSurfaceVariantColor,
+                fontSize = 12.sp
+            )
+        )
+    }
+}
+
+@Composable
+private fun UpcomingBillsCard(
+    summary: NextRecurringSummary,
+    currencyFormatter: (Double) -> String,
+    onSurfaceColor: ColorProvider,
+    onSurfaceVariantColor: ColorProvider,
+    surfaceContainerColor: ColorProvider
+) {
+    Column(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .background(surfaceContainerColor)
+            .cornerRadius(16.dp)
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = GlanceModifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Image(
+                provider = ImageProvider(R.drawable.ic_calendar),
+                contentDescription = "Calendar",
+                modifier = GlanceModifier.size(20.dp),
+                colorFilter = androidx.glance.ColorFilter.tint(onSurfaceColor)
+            )
+            Spacer(modifier = GlanceModifier.width(8.dp))
+            Text(
+                text = "Upcoming Bills",
+                style = TextStyle(
+                    color = onSurfaceColor,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            )
+        }
+        Spacer(modifier = GlanceModifier.height(6.dp))
+        Text(
+            text = summary.description,
+            style = TextStyle(
+                color = onSurfaceColor,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium
+            )
+        )
+        Spacer(modifier = GlanceModifier.height(4.dp))
+        val dueDateLabel = summary.dueDate.format(widgetDateFormatter)
+        Text(
+            text = "Due $dueDateLabel (${formatCountdown(summary.daysUntil)}) • ${currencyFormatter(summary.amount)}",
+            style = TextStyle(
+                color = onSurfaceVariantColor,
+                fontSize = 12.sp
+            )
+        )
+    }
+}
+
+private fun ExpenseCategory.displayName(): String = name.lowercase().replaceFirstChar { it.uppercase() }
+

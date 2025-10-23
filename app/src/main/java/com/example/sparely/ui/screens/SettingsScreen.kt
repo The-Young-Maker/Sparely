@@ -116,7 +116,8 @@ fun SettingsScreen(
     onAutoDepositCheckHourChange: (Int) -> Unit,
     onManualAutoDepositTrigger: () -> Unit,
     autoDepositsEnabled: Boolean,
-    autoDepositCheckHour: Int
+    autoDepositCheckHour: Int,
+    onRegionalSettingsChange: (String, String, String, Double?) -> Unit // countryCode, languageCode, currencyCode, customTaxRate
 ) {
     var emergency by remember(settings.defaultPercentages) { mutableStateOf(settings.defaultPercentages.emergency.toFloat()) }
     var invest by remember(settings.defaultPercentages) { mutableStateOf(settings.defaultPercentages.invest.toFloat()) }
@@ -459,6 +460,11 @@ fun SettingsScreen(
                 }
             }
         }
+
+        RegionalSettingsCard(
+            settings = settings,
+            onRegionalSettingsChange = onRegionalSettingsChange
+        )
 
         ReminderCard(
             remindersEnabled = remindersEnabled,
@@ -1635,8 +1641,360 @@ private fun EducationStatus.displayLabel(): String = when (this) {
 
 private fun EmploymentStatus.displayLabel(): String = when (this) {
     EmploymentStatus.STUDENT -> "Student"
-    EmploymentStatus.EMPLOYED -> "Employed"
+    EmploymentStatus.PART_TIME -> "Part-time"
+    EmploymentStatus.FULL_TIME, EmploymentStatus.EMPLOYED -> "Full-time"
     EmploymentStatus.SELF_EMPLOYED -> "Self-employed"
     EmploymentStatus.UNEMPLOYED -> "Unemployed"
     EmploymentStatus.RETIRED -> "Retired"
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RegionalSettingsCard(
+    settings: SparelySettings,
+    onRegionalSettingsChange: (String, String, String, Double?) -> Unit
+) {
+    val regionalSettings = settings.regionalSettings
+    val currentCountry = regionalSettings.getCountryConfig()
+    
+    var showCountryPicker by remember { mutableStateOf(false) }
+    var showLanguagePicker by remember { mutableStateOf(false) }
+    var showCurrencyPicker by remember { mutableStateOf(false) }
+    var customTaxRate by remember(regionalSettings.customIncomeTaxRate) {
+        mutableStateOf(regionalSettings.customIncomeTaxRate?.let { (it * 100).toString() } ?: "")
+    }
+    
+    val allCountries = listOf(
+        com.example.sparely.domain.model.CountryProfiles.UNITED_STATES,
+        com.example.sparely.domain.model.CountryProfiles.UNITED_KINGDOM,
+        com.example.sparely.domain.model.CountryProfiles.CANADA,
+        com.example.sparely.domain.model.CountryProfiles.FRANCE,
+        com.example.sparely.domain.model.CountryProfiles.GERMANY,
+        com.example.sparely.domain.model.CountryProfiles.SPAIN,
+        com.example.sparely.domain.model.CountryProfiles.JAPAN,
+        com.example.sparely.domain.model.CountryProfiles.AUSTRALIA,
+        com.example.sparely.domain.model.CountryProfiles.INDIA,
+        com.example.sparely.domain.model.CountryProfiles.MEXICO,
+        com.example.sparely.domain.model.CountryProfiles.BRAZIL
+    )
+    
+    // Available languages for the selected country
+    val availableLanguages = when (regionalSettings.countryCode) {
+        "CA" -> listOf("en" to "English", "fr" to "Français")
+        "BE" -> listOf("en" to "English", "fr" to "Français", "nl" to "Nederlands")
+        "CH" -> listOf("en" to "English", "fr" to "Français", "de" to "Deutsch", "it" to "Italiano")
+        else -> listOf(
+            "en" to "English",
+            "es" to "Español",
+            "fr" to "Français",
+            "de" to "Deutsch",
+            "pt" to "Português",
+            "ja" to "日本語"
+        )
+    }
+    
+    // Available currencies
+    val availableCurrencies = listOf("USD", "CAD", "GBP", "EUR", "JPY", "AUD", "INR", "MXN", "BRL")
+    
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Regional Settings",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            
+            // Country Selection
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Country",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = currentCountry?.countryName ?: regionalSettings.countryCode,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                OutlinedButton(onClick = { showCountryPicker = true }) {
+                    Text("Change")
+                }
+            }
+            
+            // Language Selection
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Language",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = availableLanguages.find { it.first == regionalSettings.languageCode }?.second 
+                            ?: regionalSettings.languageCode,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                OutlinedButton(onClick = { showLanguagePicker = true }) {
+                    Text("Change")
+                }
+            }
+            
+            // Currency Selection
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Currency",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "${regionalSettings.currencyCode} (${getCurrencySymbol(regionalSettings.currencyCode)})",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                OutlinedButton(onClick = { showCurrencyPicker = true }) {
+                    Text("Change")
+                }
+            }
+            
+            HorizontalDivider()
+            
+            // Custom Tax Rate
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Custom Income Tax Rate",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = "Override the default tax rate for ${currentCountry?.countryName ?: "your country"}. " +
+                            "Default: ${currentCountry?.taxConfig?.incomeTaxRate?.times(100)?.toInt() ?: 0}%",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = customTaxRate,
+                        onValueChange = { newValue ->
+                            if (newValue.isEmpty() || newValue.matches(Regex("^\\d{0,2}(\\.\\d{0,2})?$"))) {
+                                customTaxRate = newValue
+                            }
+                        },
+                        label = { Text("Tax Rate (%)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            val taxRate = customTaxRate.toDoubleOrNull()?.div(100)
+                            onRegionalSettingsChange(
+                                regionalSettings.countryCode,
+                                regionalSettings.languageCode,
+                                regionalSettings.currencyCode,
+                                taxRate
+                            )
+                        }
+                    ) {
+                        Text("Save")
+                    }
+                    if (customTaxRate.isNotEmpty()) {
+                        OutlinedButton(
+                            onClick = {
+                                customTaxRate = ""
+                                onRegionalSettingsChange(
+                                    regionalSettings.countryCode,
+                                    regionalSettings.languageCode,
+                                    regionalSettings.currencyCode,
+                                    null
+                                )
+                            }
+                        ) {
+                            Text("Reset")
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Country Picker Dialog
+    if (showCountryPicker) {
+        AlertDialog(
+            onDismissRequest = { showCountryPicker = false },
+            title = { Text("Select Country") },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    allCountries.forEach { country ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onRegionalSettingsChange(
+                                        country.countryCode,
+                                        country.languageCode,
+                                        country.defaultCurrency,
+                                        regionalSettings.customIncomeTaxRate
+                                    )
+                                    showCountryPicker = false
+                                },
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (country.countryCode == regionalSettings.countryCode)
+                                    MaterialTheme.colorScheme.primaryContainer
+                                else
+                                    MaterialTheme.colorScheme.surface
+                            )
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = country.countryName,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "${country.defaultCurrency} • ${country.languageName}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showCountryPicker = false }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+    
+    // Language Picker Dialog
+    if (showLanguagePicker) {
+        AlertDialog(
+            onDismissRequest = { showLanguagePicker = false },
+            title = { Text("Select Language") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    availableLanguages.forEach { (code, name) ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onRegionalSettingsChange(
+                                        regionalSettings.countryCode,
+                                        code,
+                                        regionalSettings.currencyCode,
+                                        regionalSettings.customIncomeTaxRate
+                                    )
+                                    showLanguagePicker = false
+                                },
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (code == regionalSettings.languageCode)
+                                    MaterialTheme.colorScheme.primaryContainer
+                                else
+                                    MaterialTheme.colorScheme.surface
+                            )
+                        ) {
+                            Text(
+                                text = name,
+                                modifier = Modifier.padding(16.dp),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showLanguagePicker = false }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+    
+    // Currency Picker Dialog
+    if (showCurrencyPicker) {
+        AlertDialog(
+            onDismissRequest = { showCurrencyPicker = false },
+            title = { Text("Select Currency") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    availableCurrencies.forEach { currency ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onRegionalSettingsChange(
+                                        regionalSettings.countryCode,
+                                        regionalSettings.languageCode,
+                                        currency,
+                                        regionalSettings.customIncomeTaxRate
+                                    )
+                                    showCurrencyPicker = false
+                                },
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (currency == regionalSettings.currencyCode)
+                                    MaterialTheme.colorScheme.primaryContainer
+                                else
+                                    MaterialTheme.colorScheme.surface
+                            )
+                        ) {
+                            Text(
+                                text = "$currency (${getCurrencySymbol(currency)})",
+                                modifier = Modifier.padding(16.dp),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showCurrencyPicker = false }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+}
+
+private fun getCurrencySymbol(currencyCode: String): String = when (currencyCode) {
+    "USD", "CAD", "AUD", "MXN" -> "$"
+    "GBP" -> "£"
+    "EUR" -> "€"
+    "JPY" -> "¥"
+    "INR" -> "₹"
+    "BRL" -> "R$"
+    else -> currencyCode
 }

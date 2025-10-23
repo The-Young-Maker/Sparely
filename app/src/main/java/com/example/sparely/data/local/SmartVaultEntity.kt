@@ -9,8 +9,10 @@ import androidx.room.Relation
 import com.example.sparely.domain.model.AutoDepositFrequency
 import com.example.sparely.domain.model.VaultAllocationMode
 import com.example.sparely.domain.model.VaultContributionSource
+import com.example.sparely.domain.model.VaultAdjustmentType
 import com.example.sparely.domain.model.VaultPriority
 import com.example.sparely.domain.model.VaultType
+import java.time.Instant
 import java.time.LocalDate
 
 @Entity(tableName = "smart_vaults")
@@ -75,6 +77,28 @@ data class VaultContributionEntity(
     val source: VaultContributionSource,
     val note: String?,
     val reconciled: Boolean
+)
+
+@Entity(
+    tableName = "vault_balance_adjustments",
+    foreignKeys = [
+        ForeignKey(
+            entity = SmartVaultEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["vaultId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("vaultId"), Index("createdAt")]
+)
+data class VaultBalanceAdjustmentEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val vaultId: Long,
+    val type: VaultAdjustmentType,
+    val delta: Double,
+    val resultingBalance: Double,
+    val createdAt: Instant,
+    val reason: String?
 )
 
 data class SmartVaultWithSchedule(

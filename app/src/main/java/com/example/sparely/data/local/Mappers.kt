@@ -9,6 +9,7 @@ import com.example.sparely.domain.model.SavingsAccount
 import com.example.sparely.domain.model.SavingsAccountInput
 import com.example.sparely.domain.model.SavingsChallenge
 import com.example.sparely.domain.model.SmartVault
+import com.example.sparely.domain.model.VaultBalanceAdjustment
 import com.example.sparely.domain.model.VaultContribution
 import java.time.YearMonth
 
@@ -255,6 +256,26 @@ fun VaultContribution.toEntity(): VaultContributionEntity = VaultContributionEnt
     source = source,
     note = note,
     reconciled = reconciled
+)
+
+fun VaultBalanceAdjustmentEntity.toDomain(): VaultBalanceAdjustment = VaultBalanceAdjustment(
+    id = id,
+    vaultId = vaultId,
+    type = type,
+    delta = delta,
+    resultingBalance = resultingBalance,
+    createdAt = createdAt,
+    reason = reason
+)
+
+fun VaultBalanceAdjustment.toEntity(): VaultBalanceAdjustmentEntity = VaultBalanceAdjustmentEntity(
+    id = id,
+    vaultId = vaultId,
+    type = type,
+    delta = delta,
+    resultingBalance = resultingBalance,
+    createdAt = createdAt,
+    reason = reason
 )
 
 fun SmartVaultWithSchedule.toDomain(): SmartVault {

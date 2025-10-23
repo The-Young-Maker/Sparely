@@ -3,13 +3,18 @@ package com.example.sparely.notifications
 import android.content.Context
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import androidx.work.workDataOf
 import com.example.sparely.domain.model.SmartTransferRecommendation
 import com.example.sparely.domain.model.SparelySettings
+import com.example.sparely.domain.logic.PayScheduleCalculator
 import kotlinx.coroutines.flow.first
 import java.time.Duration
+import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.concurrent.TimeUnit
 
@@ -52,6 +57,52 @@ class NotificationScheduler(context: Context) {
 
     fun dismissSmartTransferTracker() {
         NotificationHelper.dismissSmartTransferTracker(appContext)
+    }
+
+    fun schedulePaydayReminder(settings: SparelySettings) {
+        if (!settings.paydayReminderEnabled) {
+            cancelPaydayReminder()
+            return
+        }
+
+        val upcoming = PayScheduleCalculator.resolveUpcomingPayDate(settings.paySchedule) ?: return
+        val zone = ZoneId.systemDefault()
+        val hour = settings.paydayReminderHour.coerceIn(0, 23)
+        val minute = settings.paydayReminderMinute.coerceIn(0, 59)
+        var scheduledDate = upcoming
+        var trigger = scheduledDate.atTime(hour, minute).atZone(zone)
+        val now = ZonedDateTime.now(zone)
+        if (!trigger.isAfter(now.plusMinutes(1))) {
+            PayScheduleCalculator.computeNextPayDate(settings.paySchedule, scheduledDate)?.let { next ->
+                scheduledDate = next
+                trigger = scheduledDate.atTime(hour, minute).atZone(zone)
+            } ?: return
+        }
+
+        val delay = Duration.between(now, trigger).coerceAtLeast(Duration.ZERO)
+        val data = workDataOf(
+            PaydayReminderWorker.KEY_EXPECTED_PAYDAY_EPOCH_DAY to scheduledDate.toEpochDay()
+        )
+
+        val request = OneTimeWorkRequestBuilder<PaydayReminderWorker>()
+            .setInitialDelay(delay.toMillis(), TimeUnit.MILLISECONDS)
+            .setInputData(data)
+            .build()
+
+        workManager.enqueueUniqueWork(
+            PAYDAY_WORK_NAME,
+            ExistingWorkPolicy.REPLACE,
+            request
+        )
+    }
+
+    fun cancelPaydayReminder() {
+        workManager.cancelUniqueWork(PAYDAY_WORK_NAME)
+        NotificationHelper.dismissPaydayReminder(appContext)
+    }
+
+    fun dismissPaydayReminderNotification() {
+        NotificationHelper.dismissPaydayReminder(appContext)
     }
 
     suspend fun showVaultTransferWorkflow(container: com.example.sparely.AppContainer) {
@@ -108,5 +159,6 @@ class NotificationScheduler(context: Context) {
 
     companion object {
         private const val WORK_NAME = "sparely-daily-reminder"
+        private const val PAYDAY_WORK_NAME = "sparely-payday-reminder"
     }
 }

@@ -11,9 +11,11 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.sparely.domain.model.EducationStatus
 import com.example.sparely.domain.model.EmploymentStatus
+import com.example.sparely.domain.model.LivingSituation
 import com.example.sparely.domain.model.IncomeTrackingMode
 import com.example.sparely.domain.model.PayInterval
 import com.example.sparely.domain.model.PayScheduleSettings
+import com.example.sparely.domain.model.RegionalSettings
 import com.example.sparely.domain.model.RiskLevel
 import com.example.sparely.domain.model.SmartAllocationMode
 import com.example.sparely.domain.model.SparelySettings
@@ -21,6 +23,7 @@ import com.example.sparely.domain.model.SavingsPercentages
 import com.example.sparely.domain.model.SmartTransferDefaults
 import com.example.sparely.domain.model.SmartTransferSnapshot
 import com.example.sparely.domain.model.VaultAllocationMode
+import com.example.sparely.setAppLocale
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -198,6 +201,46 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
+    suspend fun updateLivingSituation(situation: LivingSituation) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferenceKeys.livingSituation] = situation.name
+        }
+    }
+
+    suspend fun updateOccupation(occupation: String?) {
+        context.dataStore.edit { prefs ->
+            if (occupation.isNullOrBlank()) {
+                prefs.remove(PreferenceKeys.occupation)
+            } else {
+                prefs[PreferenceKeys.occupation] = occupation.trim()
+            }
+        }
+    }
+
+    suspend fun updateMainAccountBalance(balance: Double) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferenceKeys.mainAccountBalance] = balance.coerceAtLeast(0.0)
+        }
+    }
+
+    suspend fun updateSavingsAccountBalance(balance: Double) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferenceKeys.savingsAccountBalance] = balance.coerceAtLeast(0.0)
+        }
+    }
+
+    suspend fun updateVaultsBalance(balance: Double) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferenceKeys.vaultsBalance] = balance.coerceAtLeast(0.0)
+        }
+    }
+
+    suspend fun updateSubscriptionTotal(amount: Double) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferenceKeys.subscriptionTotal] = amount.coerceAtLeast(0.0)
+        }
+    }
+
     suspend fun updateHasDebts(hasDebts: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[PreferenceKeys.hasDebts] = hasDebts
@@ -252,6 +295,21 @@ class UserPreferencesRepository(private val context: Context) {
             }
         }
     }
+    
+    suspend fun updateRegionalSettings(countryCode: String, languageCode: String, currencyCode: String, customTaxRate: Double?) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferenceKeys.countryCode] = countryCode
+            prefs[PreferenceKeys.languageCode] = languageCode
+            prefs[PreferenceKeys.currencyCode] = currencyCode
+            if (customTaxRate != null) {
+                prefs[PreferenceKeys.customIncomeTaxRate] = customTaxRate
+            } else {
+                prefs.remove(PreferenceKeys.customIncomeTaxRate)
+            }
+        }
+        // Apply the new locale immediately
+        context.setAppLocale(languageCode)
+    }
 
     suspend fun setOnboardingCompleted(completed: Boolean) {
         context.dataStore.edit { prefs ->
@@ -271,6 +329,37 @@ class UserPreferencesRepository(private val context: Context) {
             hour?.let { prefs[PreferenceKeys.reminderHour] = it.coerceIn(0, 23) }
             frequencyDays?.let { prefs[PreferenceKeys.reminderFrequencyDays] = it.coerceAtLeast(1) }
         }
+    }
+
+    suspend fun updatePaydayReminder(
+        enabled: Boolean,
+        hour: Int,
+        minute: Int,
+        suggestAverage: Boolean
+    ) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferenceKeys.paydayReminderEnabled] = enabled
+            prefs[PreferenceKeys.paydayReminderHour] = hour.coerceIn(0, 23)
+            prefs[PreferenceKeys.paydayReminderMinute] = minute.coerceIn(0, 59)
+            prefs[PreferenceKeys.paydaySuggestAverage] = suggestAverage
+        }
+    }
+
+    suspend fun recordPaycheckHistory(amount: Double) {
+        if (amount <= 0.0) return
+        context.dataStore.edit { prefs ->
+            val accumulated = prefs[PreferenceKeys.payHistoryTotal] ?: 0.0
+            val count = prefs[PreferenceKeys.payHistoryCount] ?: 0
+            prefs[PreferenceKeys.payHistoryTotal] = accumulated + amount
+            prefs[PreferenceKeys.payHistoryCount] = count + 1
+        }
+    }
+
+    suspend fun getPayHistoryStats(): PayHistoryStats {
+        val prefs = context.dataStore.data.first()
+        val count = prefs[PreferenceKeys.payHistoryCount] ?: 0
+        val total = prefs[PreferenceKeys.payHistoryTotal] ?: 0.0
+        return PayHistoryStats(count, total)
     }
 
     suspend fun registerExpenseForSmartTransfer(
@@ -403,12 +492,23 @@ class UserPreferencesRepository(private val context: Context) {
         val remindersEnabled = this[PreferenceKeys.remindersEnabled] ?: defaults.remindersEnabled
         val reminderHour = this[PreferenceKeys.reminderHour] ?: defaults.reminderHour
         val reminderFrequency = this[PreferenceKeys.reminderFrequencyDays] ?: defaults.reminderFrequencyDays
+    val paydayReminderEnabled = this[PreferenceKeys.paydayReminderEnabled] ?: defaults.paydayReminderEnabled
+    val paydayReminderHour = this[PreferenceKeys.paydayReminderHour] ?: defaults.paydayReminderHour
+    val paydayReminderMinute = this[PreferenceKeys.paydayReminderMinute] ?: defaults.paydayReminderMinute
+    val paydaySuggestAverage = this[PreferenceKeys.paydaySuggestAverage] ?: defaults.paydaySuggestAverageIncome
         val age = this[PreferenceKeys.age] ?: defaults.age
         val joinedDate = this[PreferenceKeys.joinedDateEpochDay]?.let { LocalDate.ofEpochDay(it) }
         val education = this[PreferenceKeys.educationStatus]?.let { runCatching { EducationStatus.valueOf(it) }.getOrNull() }
             ?: defaults.educationStatus
         val employment = this[PreferenceKeys.employmentStatus]?.let { runCatching { EmploymentStatus.valueOf(it) }.getOrNull() }
             ?: defaults.employmentStatus
+        val livingSituation = this[PreferenceKeys.livingSituation]?.let { runCatching { LivingSituation.valueOf(it) }.getOrNull() }
+            ?: defaults.livingSituation
+        val occupation = this[PreferenceKeys.occupation]
+        val mainAccountBalance = this[PreferenceKeys.mainAccountBalance] ?: defaults.mainAccountBalance
+        val savingsAccountBalance = this[PreferenceKeys.savingsAccountBalance] ?: defaults.savingsAccountBalance
+        val vaultsBalance = this[PreferenceKeys.vaultsBalance] ?: defaults.vaultsBalance
+        val subscriptionTotal = this[PreferenceKeys.subscriptionTotal] ?: defaults.subscriptionTotal
         val hasDebts = this[PreferenceKeys.hasDebts] ?: defaults.hasDebts
         val emergencyFund = this[PreferenceKeys.emergencyFund] ?: defaults.currentEmergencyFund
         val primaryGoal = this[PreferenceKeys.primaryGoal]
@@ -422,6 +522,9 @@ class UserPreferencesRepository(private val context: Context) {
             ?: defaults.vaultAllocationMode
         val dynamicSavingTaxEnabled = this[PreferenceKeys.dynamicSavingTaxEnabled] ?: defaults.dynamicSavingTaxEnabled
         val lastComputedSavingTaxRate = this[PreferenceKeys.lastComputedSavingTaxRate] ?: defaults.lastComputedSavingTaxRate
+        val payHistoryCount = this[PreferenceKeys.payHistoryCount] ?: defaults.payHistoryCount
+        val payHistoryTotal = this[PreferenceKeys.payHistoryTotal] ?: (defaults.payHistoryAverage * defaults.payHistoryCount)
+        val payHistoryAverage = if (payHistoryCount > 0) payHistoryTotal / payHistoryCount else 0.0
 
         val trackingMode = this[PreferenceKeys.incomeTrackingMode]?.let { runCatching { IncomeTrackingMode.valueOf(it) }.getOrNull() }
             ?: scheduleDefaults.trackingMode
@@ -446,6 +549,15 @@ class UserPreferencesRepository(private val context: Context) {
         val resolvedAge = birthday?.let {
             ChronoUnit.YEARS.between(it, LocalDate.now()).coerceAtLeast(0).toInt()
         } ?: age
+        
+        // Read regional settings from preferences
+        val regionalDefaults = RegionalSettings()
+        val regionalSettings = RegionalSettings(
+            countryCode = this[PreferenceKeys.countryCode] ?: regionalDefaults.countryCode,
+            languageCode = this[PreferenceKeys.languageCode] ?: regionalDefaults.languageCode,
+            currencyCode = this[PreferenceKeys.currencyCode] ?: regionalDefaults.currencyCode,
+            customIncomeTaxRate = this[PreferenceKeys.customIncomeTaxRate]
+        )
 
         return SparelySettings(
             defaultPercentages = SavingsPercentages(
@@ -457,6 +569,12 @@ class UserPreferencesRepository(private val context: Context) {
             age = resolvedAge,
             educationStatus = education,
             employmentStatus = employment,
+            livingSituation = livingSituation,
+            occupation = occupation?.takeIf { it.isNotBlank() },
+            mainAccountBalance = mainAccountBalance,
+            savingsAccountBalance = savingsAccountBalance,
+            vaultsBalance = vaultsBalance,
+            subscriptionTotal = subscriptionTotal,
             riskLevel = riskLevel,
             autoRecommendationsEnabled = autoRecommend,
             includeTaxByDefault = includeTax,
@@ -482,6 +600,12 @@ class UserPreferencesRepository(private val context: Context) {
             remindersEnabled = remindersEnabled,
             reminderHour = reminderHour,
             reminderFrequencyDays = reminderFrequency,
+            paydayReminderEnabled = paydayReminderEnabled,
+            paydayReminderHour = paydayReminderHour,
+            paydayReminderMinute = paydayReminderMinute,
+            paydaySuggestAverageIncome = paydaySuggestAverage,
+            payHistoryCount = payHistoryCount,
+            payHistoryAverage = payHistoryAverage,
             joinedDate = joinedDate,
             hasDebts = hasDebts,
             currentEmergencyFund = emergencyFund,
@@ -493,7 +617,8 @@ class UserPreferencesRepository(private val context: Context) {
             savingTaxRate = savingTaxRate,
             vaultAllocationMode = vaultAllocationMode,
             dynamicSavingTaxEnabled = dynamicSavingTaxEnabled,
-            lastComputedSavingTaxRate = lastComputedSavingTaxRate
+            lastComputedSavingTaxRate = lastComputedSavingTaxRate,
+            regionalSettings = regionalSettings
         )
     }
 
@@ -533,11 +658,21 @@ class UserPreferencesRepository(private val context: Context) {
         val remindersEnabled = booleanPreferencesKey("reminders_enabled")
         val reminderHour = intPreferencesKey("reminder_hour")
         val reminderFrequencyDays = intPreferencesKey("reminder_frequency_days")
+        val paydayReminderEnabled = booleanPreferencesKey("payday_reminder_enabled")
+        val paydayReminderHour = intPreferencesKey("payday_reminder_hour")
+        val paydayReminderMinute = intPreferencesKey("payday_reminder_minute")
+        val paydaySuggestAverage = booleanPreferencesKey("payday_reminder_suggest_average")
         val age = intPreferencesKey("profile_age")
         val onboardingCompleted = booleanPreferencesKey("onboarding_completed")
         val joinedDateEpochDay = longPreferencesKey("joined_date_epoch_day")
         val educationStatus = stringPreferencesKey("profile_education_status")
         val employmentStatus = stringPreferencesKey("profile_employment_status")
+        val livingSituation = stringPreferencesKey("profile_living_situation")
+        val occupation = stringPreferencesKey("profile_occupation")
+        val mainAccountBalance = doublePreferencesKey("profile_main_account_balance")
+        val savingsAccountBalance = doublePreferencesKey("profile_savings_account_balance")
+        val vaultsBalance = doublePreferencesKey("profile_vaults_balance")
+        val subscriptionTotal = doublePreferencesKey("profile_subscription_total")
         val hasDebts = booleanPreferencesKey("profile_has_debts")
         val emergencyFund = doublePreferencesKey("profile_emergency_fund")
         val primaryGoal = stringPreferencesKey("profile_primary_goal")
@@ -556,8 +691,8 @@ class UserPreferencesRepository(private val context: Context) {
         val vaultAllocationMode = stringPreferencesKey("vault_allocation_mode")
         val targetSavingsRate = doublePreferencesKey("target_savings_rate")
         val savingTaxRate = doublePreferencesKey("saving_tax_rate")
-    val dynamicSavingTaxEnabled = booleanPreferencesKey("dynamic_saving_tax_enabled")
-    val lastComputedSavingTaxRate = doublePreferencesKey("last_dynamic_saving_tax_rate")
+        val dynamicSavingTaxEnabled = booleanPreferencesKey("dynamic_saving_tax_enabled")
+        val lastComputedSavingTaxRate = doublePreferencesKey("last_dynamic_saving_tax_rate")
         val autoDepositsEnabled = booleanPreferencesKey("auto_deposits_enabled")
         val autoDepositCheckHour = intPreferencesKey("auto_deposit_check_hour")
         val incomeTrackingMode = stringPreferencesKey("income_tracking_mode")
@@ -574,9 +709,25 @@ class UserPreferencesRepository(private val context: Context) {
         val payLastAmount = doublePreferencesKey("pay_last_amount")
         val payAutoDistribute = booleanPreferencesKey("pay_auto_distribute")
         val payAutoPending = booleanPreferencesKey("pay_auto_pending")
-    val payDynamicSaveEnabled = booleanPreferencesKey("pay_dynamic_save_enabled")
-    val payLastComputedSaveRate = doublePreferencesKey("pay_last_dynamic_save_rate")
+        val payDynamicSaveEnabled = booleanPreferencesKey("pay_dynamic_save_enabled")
+        val payLastComputedSaveRate = doublePreferencesKey("pay_last_dynamic_save_rate")
+        val payHistoryCount = intPreferencesKey("pay_history_count")
+        val payHistoryTotal = doublePreferencesKey("pay_history_total")
+        
+        // Regional Settings
+        val countryCode = stringPreferencesKey("regional_country_code")
+        val languageCode = stringPreferencesKey("regional_language_code")
+        val currencyCode = stringPreferencesKey("regional_currency_code")
+        val customIncomeTaxRate = doublePreferencesKey("regional_custom_income_tax_rate")
     }
 }
 
 private fun Long.toCurrency(): Double = this / 100.0
+
+data class PayHistoryStats(
+    val count: Int,
+    val total: Double
+) {
+    val average: Double
+        get() = if (count > 0) total / count else 0.0
+}

@@ -1,5 +1,6 @@
 package com.example.sparely.domain.logic
 
+import com.example.sparely.domain.model.EmergencyFundGoal
 import com.example.sparely.domain.model.Expense
 import com.example.sparely.domain.model.RecommendationResult
 import com.example.sparely.domain.model.RiskLevel
@@ -19,7 +20,8 @@ class RecommendationEngine {
         expenses: List<Expense>,
         transfers: List<SavingsTransfer>,
         settings: SparelySettings,
-        autoTune: Boolean = true
+        autoTune: Boolean = true,
+        emergencyGoal: EmergencyFundGoal? = null
     ): RecommendationResult {
         val now = LocalDate.now()
         val windowStart = now.minusDays(30)
@@ -40,7 +42,7 @@ class RecommendationEngine {
         val age = settings.age.coerceIn(13, 100)
 
         val recommended = if (autoTune) {
-            computeAutoPercentages(settings, spendToIncome, observedSavingsRate, age)
+            computeAutoPercentages(settings, spendToIncome, observedSavingsRate, age, emergencyGoal)
         } else {
             settings.defaultPercentages.adjustWithinBudget()
         }.adjustWithinBudget(0.45)
@@ -81,6 +83,15 @@ class RecommendationEngine {
             append("% in higher-volatility assets.")
             if (age < 20 && autoTune) {
                 append(" Being $age lets Sparely prioritise education goals over emergency padding.")
+            }
+            emergencyGoal?.let {
+                if (it.shortfallAmount > 0.0) {
+                    append(" Emergency fund is about ")
+                    append(formatCurrency(it.shortfallAmount))
+                    append(" short of the new target; allocations lean into closing that gap.")
+                } else {
+                    append(" Emergency fund target reached—shifting more focus to growth goals.")
+                }
             }
             if (plan.totalRemaining > 0.0) {
                 append(" Set aside roughly ${formatCurrency(plan.totalRemaining)} more this month to stay on track.")
@@ -129,7 +140,8 @@ class RecommendationEngine {
         settings: SparelySettings,
         spendToIncome: Double,
         observedSavingsRate: Double,
-        age: Int
+        age: Int,
+        emergencyGoal: EmergencyFundGoal?
     ): SavingsPercentages {
         val baseEmergency = when (settings.riskLevel) {
             RiskLevel.CONSERVATIVE -> 0.22
@@ -179,7 +191,21 @@ class RecommendationEngine {
         } + ageInvestBias
 
         val emergencyFloor = if (age < 18) 0.0 else 0.1
-        val emergencyPercent = (baseEmergency + emergencyAdjustment + ageEmergencyBias).coerceIn(emergencyFloor, 0.30)
+        val emergencyBoost = emergencyGoal?.let { goal ->
+            if (goal.targetAmount <= 0.0) {
+                0.0
+            } else {
+                val shortfallRatio = (goal.shortfallAmount / goal.targetAmount).coerceIn(0.0, 1.5)
+                when {
+                    shortfallRatio > 1.0 -> 0.06
+                    shortfallRatio > 0.6 -> 0.04
+                    shortfallRatio > 0.3 -> 0.02
+                    shortfallRatio < 0.05 -> -0.015
+                    else -> 0.0
+                }
+            }
+        } ?: 0.0
+        val emergencyPercent = (baseEmergency + emergencyAdjustment + ageEmergencyBias + emergencyBoost).coerceIn(emergencyFloor, 0.35)
         val investPercent = (baseInvest + investAdjustment).coerceIn(0.05, 0.18)
         val tentativeFunPercent = max(0.05, 0.32 - (emergencyPercent + investPercent))
 

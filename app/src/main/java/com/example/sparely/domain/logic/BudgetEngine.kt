@@ -275,6 +275,9 @@ object BudgetEngine {
             val employmentFactor = when (settings.employmentStatus) {
                 EmploymentStatus.SELF_EMPLOYED -> 1.12
                 EmploymentStatus.UNEMPLOYED -> 1.05
+                EmploymentStatus.PART_TIME -> 1.03
+                EmploymentStatus.STUDENT -> 0.98
+                EmploymentStatus.RETIRED -> 1.02
                 else -> 1.0
             }
             val categoryFactor = when (category) {
@@ -381,6 +384,11 @@ object BudgetEngine {
                 shares.boost(ExpenseCategory.TRANSPORTATION, 1.1)
                 shares.boost(ExpenseCategory.TRAVEL, 0.85)
             }
+            EmploymentStatus.PART_TIME -> {
+                shares.boost(ExpenseCategory.GROCERIES, 1.05)
+                shares.boost(ExpenseCategory.ENTERTAINMENT, 0.9)
+                shares.boost(ExpenseCategory.TRANSPORTATION, 1.05)
+            }
             EmploymentStatus.UNEMPLOYED -> {
                 shares.boost(ExpenseCategory.GROCERIES, 1.1)
                 shares.boost(ExpenseCategory.UTILITIES, 1.1)
@@ -436,6 +444,7 @@ object BudgetEngine {
 
         when (settings.employmentStatus) {
             EmploymentStatus.STUDENT -> parts += "Being a student keeps tuition and campus costs front of mind here."
+            EmploymentStatus.PART_TIME -> parts += "Part-time work means juggling leaner cash flow, so we kept limits realistic."
             EmploymentStatus.SELF_EMPLOYED -> parts += "Self-employment swings can hit this category, so we added a cushion."
             EmploymentStatus.UNEMPLOYED -> parts += "While job hunting we trim extras so savings stay on track."
             EmploymentStatus.RETIRED -> parts += "Retirement routines make this category more essential."

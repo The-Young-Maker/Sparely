@@ -40,8 +40,14 @@ interface SmartVaultDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertContribution(entity: VaultContributionEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAdjustment(entity: VaultBalanceAdjustmentEntity): Long
+
     @Query("SELECT * FROM vault_contributions WHERE vaultId = :vaultId ORDER BY date DESC")
     suspend fun getContributionsForVault(vaultId: Long): List<VaultContributionEntity>
+
+    @Query("SELECT * FROM vault_balance_adjustments WHERE vaultId = :vaultId ORDER BY createdAt DESC")
+    suspend fun getAdjustmentsForVault(vaultId: Long): List<VaultBalanceAdjustmentEntity>
 
     @Query("SELECT * FROM vault_contributions WHERE reconciled = 0 AND source = 'AUTO_DEPOSIT'")
     suspend fun getPendingAutoDeposits(): List<VaultContributionEntity>
@@ -55,8 +61,8 @@ interface SmartVaultDao {
     @Query("UPDATE smart_vaults SET currentBalance = currentBalance + :delta, lastContributionDate = :date WHERE id = :vaultId")
     suspend fun incrementVaultBalance(vaultId: Long, delta: Double, date: LocalDate?)
 
-    @Query("UPDATE smart_vaults SET currentBalance = :balance WHERE id = :vaultId")
-    suspend fun setVaultBalance(vaultId: Long, balance: Double)
+    @Query("UPDATE smart_vaults SET currentBalance = :balance, lastContributionDate = :date WHERE id = :vaultId")
+    suspend fun setVaultBalance(vaultId: Long, balance: Double, date: LocalDate?)
 
     @Query(
         "UPDATE smart_vaults SET archived = :archived WHERE id = :vaultId"
