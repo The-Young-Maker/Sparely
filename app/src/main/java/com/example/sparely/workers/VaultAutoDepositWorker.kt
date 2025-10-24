@@ -34,7 +34,8 @@ class VaultAutoDepositWorker(
                 challengeDao = database.challengeDao(),
                 achievementDao = database.achievementDao(),
                 savingsAccountDao = database.savingsAccountDao(),
-                smartVaultDao = database.smartVaultDao()
+                smartVaultDao = database.smartVaultDao(),
+                mainAccountDao = database.mainAccountDao()
             )
 
             val today = LocalDate.now()

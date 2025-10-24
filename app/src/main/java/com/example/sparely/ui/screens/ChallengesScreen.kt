@@ -15,6 +15,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.model.*
 import com.example.sparely.ui.state.SparelyUiState
+import com.example.sparely.ui.theme.MaterialSymbolIcon
+import com.example.sparely.ui.theme.MaterialSymbols
 import java.time.format.DateTimeFormatter
 
 @Composable
@@ -37,7 +39,7 @@ fun ChallengesScreen(
                 horizontalArrangement = Arrangement.End
             ) {
                 IconButton(onClick = { showChallengeDialog = true }) {
-                    Icon(Icons.Default.Add, "New Challenge")
+                    MaterialSymbolIcon(icon = MaterialSymbols.ADD, "New Challenge")
                 }
             }
         }
@@ -129,16 +131,17 @@ fun ChallengeCard(challenge: SavingsChallenge) {
                     )
                 }
                 
-                Icon(
-                    when (challenge.type) {
-                        ChallengeType.FIFTY_TWO_WEEK -> Icons.Default.CalendarMonth
-                        ChallengeType.NO_SPEND_DAYS -> Icons.Default.Block
-                        ChallengeType.DAILY_SAVINGS -> Icons.Default.Today
-                        else -> Icons.Default.EmojiEvents
+                MaterialSymbolIcon(
+                    icon = when (challenge.type) {
+                        ChallengeType.FIFTY_TWO_WEEK -> MaterialSymbols.CALENDAR_MONTH
+                        ChallengeType.NO_SPEND_DAYS -> MaterialSymbols.BLOCK
+                        ChallengeType.DAILY_SAVINGS -> MaterialSymbols.TODAY
+                        else -> MaterialSymbols.TROPHY
                     },
                     contentDescription = null,
                     modifier = Modifier.size(40.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.primary,
+                    size = 40.dp
                 )
             }
             
@@ -166,7 +169,7 @@ fun ChallengeCard(challenge: SavingsChallenge) {
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 LinearProgressIndicator(
-                    progress = { challenge.progressPercent.toFloat() },
+                    progress = challenge.progressPercent.toFloat(),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(12.dp),
@@ -187,11 +190,12 @@ fun ChallengeCard(challenge: SavingsChallenge) {
             if (challenge.streakDays > 0) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.LocalFireDepartment,
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.LOCAL_FIRE_DEPARTMENT,
                         contentDescription = null,
                         tint = Color(0xFFFF9800),
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(20.dp),
+                        size = 20.dp
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
@@ -308,11 +312,12 @@ fun CompletedChallengeCard(challenge: SavingsChallenge) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.CheckCircle,
+                MaterialSymbolIcon(
+                    icon = MaterialSymbols.CHECK_CIRCLE,
                     contentDescription = null,
                     tint = Color(0xFF4CAF50),
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(32.dp),
+                    size = 32.dp
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
@@ -357,7 +362,7 @@ fun AchievementsSection(achievements: List<Achievement>) {
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
-                Icon(Icons.Default.EmojiEvents, contentDescription = null)
+                MaterialSymbolIcon(icon = MaterialSymbols.TROPHY, contentDescription = null)
             }
             
             Spacer(modifier = Modifier.height(12.dp))
@@ -409,8 +414,8 @@ fun EmptyChallengesState(onStartChallenge: () -> Unit) {
                 .padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(
-                Icons.Default.EmojiEvents,
+            MaterialSymbolIcon(
+                icon = MaterialSymbols.TROPHY,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
                 tint = MaterialTheme.colorScheme.primary
@@ -429,7 +434,7 @@ fun EmptyChallengesState(onStartChallenge: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(16.dp))
             Button(onClick = onStartChallenge) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null)
+                MaterialSymbolIcon(icon = MaterialSymbols.PLAY_ARROW, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Start Challenge")
             }
@@ -450,7 +455,7 @@ fun ChallengeSelectionDialog(
                 ChallengeOption(
                     title = "52-Week Challenge",
                     description = "Save incrementally each week",
-                    icon = Icons.Default.CalendarMonth,
+                    icon = MaterialSymbols.CALENDAR_MONTH,
                     onClick = {
                         onSelectChallenge(
                             ChallengeInput(
@@ -467,7 +472,7 @@ fun ChallengeSelectionDialog(
                 ChallengeOption(
                     title = "Daily Savings",
                     description = "Save $5 every day for 30 days",
-                    icon = Icons.Default.Today,
+                    icon = MaterialSymbols.TODAY,
                     onClick = {
                         onSelectChallenge(
                             ChallengeInput(
@@ -495,7 +500,7 @@ fun ChallengeSelectionDialog(
 fun ChallengeOption(
     title: String,
     description: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    @androidx.annotation.DrawableRes icon: Int,
     onClick: () -> Unit
 ) {
     Card(
@@ -508,11 +513,12 @@ fun ChallengeOption(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                icon,
+            MaterialSymbolIcon(
+                icon = icon,
                 contentDescription = null,
                 modifier = Modifier.size(32.dp),
-                tint = MaterialTheme.colorScheme.primary
+                tint = MaterialTheme.colorScheme.primary,
+                size = 32.dp
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column {

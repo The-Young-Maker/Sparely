@@ -21,7 +21,11 @@ data class SmartVault(
     val lastContributionDate: LocalDate? = null,
     val autoDepositSchedule: AutoDepositSchedule? = null,
     val savingTaxRateOverride: Double? = null,
-    val archived: Boolean = false
+    val archived: Boolean = false,
+    // Account information for linking vault to real-world account within the main account
+    val accountType: AccountType? = null,
+    val accountNumber: String? = null,
+    val accountNotes: String? = null
 )
 
 data class AutoDepositSchedule(

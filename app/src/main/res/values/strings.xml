@@ -1,12 +1,327 @@
 <resources>
     <string name="app_name">Sparely</string>
+    
+    <!-- Widget -->
     <string name="widget_savings_label">Sparely savings snapshot</string>
-    <string name="smart_transfer_channel_name">Smart transfer assistant</string>
-    <string name="smart_transfer_channel_description">Keeps pending transfers handy until you mark them done.</string>
-    <string name="smart_transfer_notification_title">Move %1$s to savings</string>
-    <string name="smart_transfer_notification_content">Tracked %1$s (Emergency %2$s / Investing %3$s)</string>
-    <string name="smart_transfer_notification_vault_breakdown">Vault plan:
-%1$s</string>
-    <string name="smart_transfer_notification_mark_done">Mark done</string>
-    <string name="smart_transfer_notification_do_later">I\'ll do it later</string>
+    
+    <!-- Common actions -->
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_done">Done</string>
+    <string name="action_change">Change</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_reset">Reset</string>
+    <string name="action_update">Update</string>
+    
+    <!-- Settings Screen - Vault Automation -->
+    <string name="settings_vault_automation_title">Smart vault automation</string>
+    <string name="settings_vault_mode_dynamic">Dynamic</string>
+    <string name="settings_vault_mode_manual">Manual weights</string>
+    <string name="settings_vault_mode_dynamic_desc">Sparely prioritizes vaults using urgency, priority, and progress.</string>
+    <string name="settings_vault_mode_manual_desc">You control each vault\'s share in its settings.</string>
+    
+    <!-- Settings Screen - Saving Tax -->
+    <string name="settings_saving_tax_title">Automate saving tax rate</string>
+    <string name="settings_saving_tax_auto">Saving tax rate (auto): %1$s</string>
+    <string name="settings_saving_tax_manual">Saving tax rate: %1$s</string>
+    <string name="settings_saving_tax_desc">We skim this percentage from each expense and distribute it across your vaults.</string>
+    <string name="settings_saving_tax_automation_desc">Automation keeps the rate aligned with your latest paychecks and spending trends.</string>
+    
+    <!-- Settings Screen - Auto Recommendations -->
+    <string name="settings_auto_recommendations_title">Auto recommendations</string>
+    <string name="settings_auto_recommendations_toggle">Let Sparely tune percentages</string>
+    <string name="settings_auto_recommendations_latest">Latest suggestion: %1$s emergency / %2$s invest</string>
+    <string name="settings_manual_percentages_title">Manual percentages</string>
+    <string name="settings_category_emergency">Emergency</string>
+    <string name="settings_category_invest">Invest</string>
+    <string name="settings_category_fun">Fun</string>
+    <string name="settings_total">Total %1$s</string>
+    
+    <!-- Settings Screen - Income & Tax -->
+    <string name="settings_income_tax_title">Income &amp; tax</string>
+    <string name="settings_monthly_income_label">Monthly income</string>
+    <string name="settings_update_income">Update income</string>
+    <string name="settings_include_tax">Amounts include tax by default</string>
+    
+    <!-- Settings Screen - Main Account -->
+    <string name="settings_main_account_title">Main Account</string>
+    <string name="settings_main_account_desc">Configure your primary account for tracking balance and transactions.</string>
+    <string name="settings_main_account_balance_label">Current balance</string>
+    <string name="settings_main_account_update_balance">Update balance</string>
+    
+    <!-- Vault Account Details -->
+    <string name="vault_account_details_title">Account Details</string>
+    <string name="vault_account_type_label">Account Type</string>
+    <string name="vault_account_number_label">Account Number (Optional)</string>
+    <string name="vault_account_number_placeholder">Last 4 digits</string>
+    <string name="vault_account_notes_label">Notes (Optional)</string>
+    <string name="vault_account_notes_placeholder">Additional details…</string>
+    <string name="vault_save_account_details">Save account details</string>
+    
+    <!-- Vault Management Screen -->
+    <string name="vault_management_title">Manage Smart Vaults</string>
+    <string name="vault_management_back">Back</string>
+    <string name="vault_management_add">Add Vault</string>
+    <string name="vault_management_empty_title">No Smart Vaults Yet</string>
+    <string name="vault_management_empty_desc">Create your first vault to start automatically saving toward your goals.</string>
+    <string name="vault_edit">Edit</string>
+    <string name="vault_delete">Delete</string>
+    <string name="vault_deposit">Deposit</string>
+    <string name="vault_withdraw">Withdraw</string>
+    <string name="vault_history">History</string>
+    <string name="vault_current">Current: $%1$s</string>
+    <string name="vault_target">Target: $%1$s</string>
+    <string name="vault_due">Due: %1$s</string>
+    <string name="vault_manual_allocation">Manual allocation: %1$s%% per expense</string>
+    <string name="vault_dynamic_allocation">Dynamic auto-allocation based on priority</string>
+    <string name="vault_delete_confirm_title">Delete Vault?</string>
+    <string name="vault_delete_confirm_message">Are you sure you want to delete \"%1$s\"? This will remove all associated contributions.</string>
+    <string name="vault_editor_add_title">Add Smart Vault</string>
+    <string name="vault_editor_edit_title">Edit Smart Vault</string>
+    <string name="vault_name_label">Vault Name</string>
+    <string name="vault_target_amount_label">Target Amount</string>
+    <string name="vault_current_balance_label">Current Balance</string>
+    <string name="vault_priority_label">Priority</string>
+    <string name="vault_type_label">Type</string>
+    <string name="vault_allocation_mode_label">Allocation Mode</string>
+    <string name="vault_allocation_auto">Auto</string>
+    <string name="vault_allocation_manual">Manual</string>
+    <string name="vault_manual_percent_label">Manual Allocation %</string>
+    <string name="vault_manual_percent_hint">Percentage of each expense\'s saving tax to allocate</string>
+    <string name="vault_target_date_label">Target date</string>
+    <string name="vault_select_date">Select date</string>
+    <string name="vault_auto_deposits_label">Automatic deposits</string>
+    <string name="vault_auto_deposits_desc">Simulate recurring bank transfers</string>
+    <string name="vault_deposit_amount_label">Amount per deposit</string>
+    <string name="vault_deposit_frequency_label">Frequency</string>
+    <string name="vault_frequency_weekly">Weekly</string>
+    <string name="vault_frequency_biweekly">Bi-weekly</string>
+    <string name="vault_frequency_monthly">Monthly</string>
+    <string name="vault_manual_deposit_title">Manual Deposit</string>
+    <string name="vault_manual_withdrawal_title">Manual Withdrawal</string>
+    <string name="vault_amount_label">Amount</string>
+    <string name="vault_reason_label">Reason (optional)</string>
+    <string name="vault_reason_hint">e.g., Bank transfer, Goal reached, etc.</string>
+    <string name="vault_deposit_note">This will add funds to the vault and record it in the adjustment history.</string>
+    <string name="vault_withdrawal_note">This will remove funds from the vault and record it in the adjustment history.</string>
+    <string name="vault_select_account_type">Select Account Type (Optional)</string>
+    <string name="vault_account_number_optional">Account Number (Optional)</string>
+    <string name="vault_last_4_digits">Last 4 digits</string>
+    <string name="vault_notes_optional">Notes (Optional)</string>
+    
+    <!-- Settings Screen - Account Types -->
+    <string name="account_type_tfsa">TFSA</string>
+    <string name="account_type_rrsp">RRSP</string>
+    <string name="account_type_fhsa">FHSA</string>
+    <string name="account_type_resp">RESP</string>
+    <string name="account_type_401k">401(k)</string>
+    <string name="account_type_ira">IRA</string>
+    <string name="account_type_roth_ira">Roth IRA</string>
+    <string name="account_type_hsa">HSA</string>
+    <string name="account_type_isa">ISA</string>
+    <string name="account_type_checking">Checking</string>
+    <string name="account_type_savings">Savings</string>
+    <string name="account_type_pension">Pension</string>
+    <string name="account_type_other">Other</string>
+    
+    <!-- Settings Screen - Insights -->
+    <string name="settings_insights_title">Insights</string>
+    <string name="settings_reset_history">Reset expense history</string>
+    
+    <!-- Settings Screen - Profile -->
+    <string name="settings_profile_basics_title">Profile basics</string>
+    <string name="settings_display_name_label">Display name (optional)</string>
+    <string name="settings_birthday_label">Birthday: %1$s</string>
+    <string name="settings_birthday_not_set">Add your birthday</string>
+    <string name="settings_set_birthday">Set birthday</string>
+    <string name="settings_change_birthday">Change birthday</string>
+    <string name="settings_current_age">Current age: %1$d</string>
+    <string name="settings_active_debts">Active debts</string>
+    <string name="settings_debts_desc">We adjust recommendations if debts are in play.</string>
+    <string name="settings_emergency_fund_label">Emergency fund saved</string>
+    <string name="settings_primary_goal_label">Primary savings goal</string>
+    
+    <!-- Settings Screen - Life Context -->
+    <string name="settings_life_context_title">Life context</string>
+    <string name="settings_education_status_label">Education status</string>
+    <string name="settings_employment_status_label">Employment status</string>
+    <string name="settings_life_context_desc">Tweaking these helps Sparely tailor suggestions to your life stage.</string>
+    
+    <!-- Education Status -->
+    <string name="education_high_school">High school</string>
+    <string name="education_university">University/College</string>
+    <string name="education_graduated">Graduated</string>
+    <string name="education_other">Other</string>
+    
+    <!-- Employment Status -->
+    <string name="employment_student">Student</string>
+    <string name="employment_part_time">Part-time</string>
+    <string name="employment_full_time">Full-time</string>
+    <string name="employment_self_employed">Self-employed</string>
+    <string name="employment_unemployed">Unemployed</string>
+    <string name="employment_retired">Retired</string>
+    
+    <!-- Settings Screen - Risk Profile -->
+    <string name="settings_profile_title">Profile</string>
+    <string name="settings_age">Age %1$d</string>
+    <string name="settings_under_18_note">Under 18? Sparely reduces emergency savings suggestions and shifts focus toward study goals.</string>
+    <string name="settings_risk_profile_title">Risk profile</string>
+    <string name="risk_conservative">Conservative</string>
+    <string name="risk_balanced">Balanced</string>
+    <string name="risk_aggressive">Aggressive</string>
+    <string name="risk_conservative_desc">Prioritises safety with higher emergency savings and safer investments.</string>
+    <string name="risk_balanced_desc">Balances growth and safety with diversified allocations.</string>
+    <string name="risk_aggressive_desc">Focuses on growth with higher investing share and more risk tolerance.</string>
+    
+    <!-- Settings Screen - Reminders -->
+    <string name="settings_reminders_title">Daily reminders</string>
+    <string name="settings_reminders_hour">Hour (%1$d:00)</string>
+    <string name="settings_reminders_frequency">Frequency %1$d day(s)</string>
+    
+    <!-- Settings Screen - Automation -->
+    <string name="settings_automation_title">Automation at a glance</string>
+    <string name="settings_save_rate_automatic">Save rate: Automatic</string>
+    <string name="settings_save_rate_manual">Save rate: Manual</string>
+    <string name="settings_saving_tax_automatic">Saving tax: Automatic</string>
+    <string name="settings_saving_tax_manual_label">Saving tax: Manual</string>
+    <string name="settings_paycheck_save_rate_title">Paycheck save rate</string>
+    <string name="settings_estimated_per_pay">≈ %1$s moved each paycheck</string>
+    <string name="settings_estimated_monthly">≈ %1$s per month at this pace</string>
+    <string name="settings_saving_tax_skim_title">Saving tax skim</string>
+    <string name="settings_saving_tax_skim_desc">Taken from each purchase before vault allocation.</string>
+    <string name="settings_why_these_numbers">Why these numbers</string>
+    <string name="settings_automation_insights_trimmed">Automation insights trimmed - view full history from recent paychecks.</string>
+    
+    <!-- Settings Screen - Auto-Deposit -->
+    <string name="settings_auto_deposit_title">Auto-Deposit Checks</string>
+    <string name="settings_auto_deposit_active">Active</string>
+    <string name="settings_auto_deposit_disabled">Disabled</string>
+    <string name="settings_auto_deposit_check_time">Daily check time</string>
+    <string name="settings_auto_deposit_check_now">Check Now</string>
+    <string name="settings_auto_deposit_desc">Sparely checks daily for scheduled auto-deposits and creates pending contributions you can transfer manually.</string>
+    <string name="settings_auto_deposit_enable_desc">Enable to automatically track scheduled vault deposits.</string>
+    <string name="dialog_select_check_time_title">Select check time</string>
+    <string name="dialog_select_check_time_desc">Choose the hour of day (0–23) to check for due auto-deposits:</string>
+    
+    <!-- Settings Screen - Pay Schedule -->
+    <string name="settings_income_paydays_title">Income &amp; paydays</string>
+    <string name="income_mode_manual">Manual each paycheck</string>
+    <string name="income_mode_scheduled">Scheduled</string>
+    <string name="income_mode_hybrid">Hybrid</string>
+    <string name="pay_interval_weekly">Weekly</string>
+    <string name="pay_interval_biweekly">Bi-weekly</string>
+    <string name="pay_interval_semi_monthly">Semi-monthly</string>
+    <string name="pay_interval_monthly">Monthly</string>
+    <string name="pay_interval_custom">Custom</string>
+    <string name="settings_pay_interval_label">Pay interval</string>
+    <string name="settings_typical_net_pay_label">Typical net pay</string>
+    <string name="settings_automate_savings_rate">Automate savings rate</string>
+    <string name="settings_active_savings_rate">Active savings rate %1$s</string>
+    <string name="settings_default_savings_rate">Default savings rate %1$s</string>
+    <string name="settings_savings_rate_auto_desc">Sparely recalculates this target for every paycheck you log.</string>
+    <string name="settings_savings_rate_manual_desc">Adjust the slider, then tap \"Save pay defaults\" below to keep the change.</string>
+    <string name="settings_automation_insights_title">Automation insights</string>
+    <string name="settings_first_day_label">First day</string>
+    <string name="settings_second_day_label">Second day</string>
+    <string name="settings_payday_label">Payday (day of month)</string>
+    <string name="settings_days_between_label">Days between paychecks</string>
+    <string name="settings_next_payday">Next payday</string>
+    <string name="settings_next_payday_not_set">Not set</string>
+    <string name="settings_pick_date">Pick date</string>
+    <string name="settings_auto_distribute">Auto distribute to vaults</string>
+    <string name="settings_create_pending_transfers">Create pending transfers</string>
+    <string name="settings_save_pay_defaults">Save pay defaults</string>
+    <string name="settings_log_paycheck_title">Log a paycheck</string>
+    <string name="settings_amount_received_label">Amount received</string>
+    <string name="settings_payday">Payday</string>
+    <string name="settings_distribute_vault_plan">Distribute using vault plan</string>
+    <string name="settings_keep_pending">Keep contributions pending</string>
+    <string name="settings_record_paycheck">Record paycheck</string>
+    <string name="settings_last_logged_pay">Last logged pay: %1$s on %2$s</string>
+    
+    <!-- Settings Screen - Regional -->
+    <string name="settings_regional_title">Regional Settings</string>
+    <string name="settings_country_label">Country</string>
+    <string name="settings_language_label">Language</string>
+    <string name="settings_currency_label">Currency</string>
+    <string name="settings_tax_rate_label">Tax Rate (%)</string>
+    <string name="dialog_select_country_title">Select Country</string>
+    <string name="dialog_select_language_title">Select Language</string>
+    <string name="action_close">Close</string>
+    
+    <!-- Dashboard Screen -->
+    <string name="dashboard_log_purchase">Log Purchase</string>
+    <string name="dashboard_history">History</string>
+    <string name="dashboard_create_first_budget">Create your first budget</string>
+    <string name="dashboard_browse_challenges">Browse challenges</string>
+    <string name="dashboard_manage">Manage</string>
+    <string name="dashboard_add">Add</string>
+    <string name="dashboard_more_vaults">+%1$d more vault</string>
+    <string name="dashboard_more_vaults_plural">+%1$d more vaults</string>
+    <string name="dashboard_pending_transfer">View %1$d Pending Transfer</string>
+    <string name="dashboard_pending_transfers">View %1$d Pending Transfers</string>
+    <string name="dashboard_recommended_split">Recommended split</string>
+    <string name="dashboard_manual_split">Manual split</string>
+    <string name="dashboard_recurring_patterns">Recurring patterns</string>
+    <string name="dashboard_smart_vaults">Smart Vaults</string>
+    <string name="dashboard_total_saved">Total saved</string>
+    <string name="dashboard_main_account">Main Account</string>
+    <string name="dashboard_savings_rate">%1$.1f%% of monthly income</string>
+    <string name="dashboard_aim_for_target">Aim for %1$s per month to hit target</string>
+    <string name="dashboard_every_days">every %1$dd</string>
+    <string name="dashboard_last_on">Last on %1$s</string>
+    <string name="dashboard_available_liquidity">Available liquidity</string>
+    <string name="dashboard_savings_challenges">Savings challenges</string>
+    <string name="dashboard_challenges_description">Start a challenge to build streaks and unlock achievements.</string>
+    <string name="dashboard_active_challenges">Active Challenges</string>
+    
+    <!-- Additional Dashboard Strings -->
+    <string name="dashboard_net_saved">Net saved %1$s</string>
+    <string name="dashboard_goal_prefix">Goal: </string>
+    <string name="dashboard_smart_saving">Smart saving</string>
+    <string name="dashboard_next_contribution">Next contribution %1$s</string>
+    <string name="dashboard_saved_vs_target">%1$s saved vs target %2$s</string>
+    <string name="dashboard_allocation_manual_mode">Manual mode - tuning your own percentages</string>
+    <string name="dashboard_allocation_guided_mode">Guided mode - Sparely suggests tweaks</string>
+    <string name="dashboard_allocation_automatic_mode">Automatic mode - Sparely adjusts for you</string>
+    <string name="dashboard_allocation_breakdown">%1$s emergency / %2$s invest / %3$s fun</string>
+    <string name="dashboard_upcoming_bills">Upcoming bills</string>
+    <string name="dashboard_tap_manage_recurring">Tap to manage recurring payments</string>
+    <string name="dashboard_tap_add_recurring">Tap to add recurring payments</string>
+    <string name="dashboard_all_caught_up">You\'re all caught up!</string>
+    <string name="dashboard_log_subscriptions_reminders">Log your subscriptions and bills to get reminders.</string>
+    <string name="dashboard_due_on">Due %1$s</string>
+    <string name="dashboard_emergency_runway">Emergency Runway</string>
+    <string name="dashboard_month_goal">%1$.1f month goal • %2$s</string>
+    <string name="dashboard_current_cushion">Current cushion</string>
+    <string name="dashboard_shortfall">Shortfall</string>
+    <string name="dashboard_monthly_target">Monthly target</string>
+    <string name="dashboard_goal_reached">Goal reached! Keep contributing to stay ahead of inflation.</string>
+    <string name="dashboard_savings_breakdown">Savings Breakdown</string>
+    <string name="dashboard_short_term">Short-term</string>
+    <string name="dashboard_long_term">Long-term</string>
+    <string name="dashboard_passive_growth">Passive growth</string>
+    <string name="dashboard_monthly_avg">Monthly avg</string>
+    <string name="dashboard_projected_in_6_months">Projected\n%1$s\nin 6 months</string>
+    <string name="dashboard_financial_health">Financial Health</string>
+    <string name="dashboard_budget_this_month">Budget This Month</string>
+    <string name="dashboard_remaining_of_budget">%1$s of %2$s remaining</string>
+    <string name="dashboard_budget_status">Budget status</string>
+    <string name="dashboard_setup_budgets_description">Set up category budgets to start tracking progress with alerts.</string>
+    <string name="dashboard_challenge_progress">%1$s complete</string>
+    <string name="vault_type_short_term">Short-term</string>
+    <string name="vault_type_long_term">Long-term</string>
+    <string name="vault_type_passive_investment">Passive</string>
+    
+    <!-- History Screen -->
+    <string name="history_all_categories">All categories</string>
+    <string name="history_delete_expense_title">Delete Expense?</string>
+    <string name="history_delete_expense_message">Are you sure you want to delete this expense?</string>
+    <string name="action_delete">Delete</string>
+    
+    <!-- Vault History Screen -->
+    <string name="vault_history_title">%1$s History</string>
+    
+    <!-- Currency Prefix -->
+    <string name="currency_prefix">$</string>
 </resources>

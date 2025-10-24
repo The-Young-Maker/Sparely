@@ -14,6 +14,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.model.*
 import com.example.sparely.ui.state.SparelyUiState
+import com.example.sparely.ui.theme.MaterialSymbolIcon
+import com.example.sparely.ui.theme.MaterialSymbols
 import java.time.YearMonth
 import kotlin.math.abs
 
@@ -46,7 +48,7 @@ fun BudgetScreen(
                 horizontalArrangement = Arrangement.End
             ) {
                 IconButton(onClick = { showAddDialog = true }) {
-                    Icon(Icons.Default.Add, "Add Budget")
+                    MaterialSymbolIcon(icon = MaterialSymbols.ADD, "Add Budget")
                 }
             }
         }
@@ -54,6 +56,44 @@ fun BudgetScreen(
         summary?.let {
             item {
                 BudgetSummaryCard(it)
+            }
+        }
+        
+        // Warning if total budgets exceed monthly income
+        val totalBudgets = uiState.budgets.filter { it.isActive && it.yearMonth == currentMonth }.sumOf { it.monthlyLimit }
+        val monthlyIncome = uiState.settings.monthlyIncome
+        if (totalBudgets > monthlyIncome && monthlyIncome > 0.0) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        MaterialSymbolIcon(icon = MaterialSymbols.WARNING,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                        Column {
+                            Text(
+                                text = "Budget exceeds income",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Text(
+                                text = "Total budgets ($${String.format("%,.2f", totalBudgets)}) exceed your monthly income ($${String.format("%,.2f", monthlyIncome)}). Consider adjusting your budgets or increasing your income.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -219,8 +259,8 @@ fun BudgetSummaryCard(summary: BudgetSummary) {
             if (summary.categoriesOverBudget > 0) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Warning,
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.WARNING,
                         contentDescription = null,
                         tint = Color.White,
                         modifier = Modifier.size(18.dp)
@@ -270,10 +310,10 @@ fun CategoryBudgetCard(
                 ) {
                     StatusBadge(status.status)
                     IconButton(onClick = onEdit) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit budget")
+                        MaterialSymbolIcon(icon = MaterialSymbols.EDIT, contentDescription = "Edit budget")
                     }
                     IconButton(onClick = onDelete) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete budget")
+                        MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = "Delete budget")
                     }
                 }
             }
@@ -484,8 +524,8 @@ fun EmptyBudgetState(onAddBudget: () -> Unit) {
                 .padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(
-                Icons.Default.AccountBalanceWallet,
+            MaterialSymbolIcon(
+                icon = MaterialSymbols.ACCOUNT_BALANCE_WALLET,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
                 tint = MaterialTheme.colorScheme.primary
@@ -504,7 +544,7 @@ fun EmptyBudgetState(onAddBudget: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(16.dp))
             Button(onClick = onAddBudget) {
-                Icon(Icons.Default.Add, contentDescription = null)
+                MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Create Budget")
             }

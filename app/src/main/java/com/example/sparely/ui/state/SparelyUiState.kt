@@ -12,7 +12,6 @@ data class SparelyUiState(
     val savingsPlan: SavingsPlan? = null,
     val smartSavingSummary: SmartSavingSummary? = null,
     val alerts: List<AlertMessage> = emptyList(),
-    val smartTransfer: SmartTransferRecommendation? = null,
     val smartVaults: List<SmartVault> = emptyList(),
     val totalVaultBalance: Double = 0.0,
     val vaultAdjustments: Map<Long, List<VaultBalanceAdjustment>> = emptyMap(),
@@ -37,6 +36,7 @@ data class SparelyUiState(
     val upcomingVaultDeposits: List<VaultContribution> = emptyList(),
     val pendingVaultContributions: List<VaultContribution> = emptyList(),
     val autoDepositCheckHour: Int = 9,
+    val mainAccountTransactions: List<MainAccountTransaction> = emptyList(),
     
     val isLoading: Boolean = true,
     val errorMessage: String? = null

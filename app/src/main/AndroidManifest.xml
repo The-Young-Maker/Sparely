@@ -40,11 +40,7 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/sparely_widget_info" />
         </receiver>
-
-        <receiver
-            android:name=".notifications.SmartTransferNotificationReceiver"
-            android:exported="false" />
-
+        
         <receiver
             android:name=".notifications.VaultTransferNotificationReceiver"
             android:exported="false" />

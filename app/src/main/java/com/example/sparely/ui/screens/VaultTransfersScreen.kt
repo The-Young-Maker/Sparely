@@ -7,9 +7,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import com.example.sparely.ui.theme.MaterialSymbols
+import com.example.sparely.ui.theme.MaterialSymbolIcon
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.example.sparely.ui.components.ExpressiveCard
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,7 +39,7 @@ fun VaultTransfersScreen(
                 title = { Text("Pending Transfers") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        MaterialSymbolIcon(icon = MaterialSymbols.ARROW_BACK, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -98,11 +100,9 @@ fun VaultTransfersScreen(
 
 @Composable
 private fun EmptyStateCard() {
-    Card(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        containerColor = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Column(
             modifier = Modifier
@@ -111,8 +111,7 @@ private fun EmptyStateCard() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.CheckCircle,
+            MaterialSymbolIcon(icon = MaterialSymbols.CHECK_CIRCLE,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
                 tint = MaterialTheme.colorScheme.primary
@@ -141,11 +140,9 @@ private fun SummaryCard(
         .groupBy { it.vaultId }
         .mapValues { (_, contributions) -> contributions.sumOf { it.amount } }
     
-    Card(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
+        containerColor = MaterialTheme.colorScheme.primaryContainer
     ) {
         Column(
             modifier = Modifier
@@ -212,9 +209,9 @@ private fun AggregatedPendingContributionCard(
     val sources = contributions.groupBy { it.source }
     val notes = contributions.mapNotNull { it.note?.takeIf { note -> note.isNotBlank() } }
 
-    Card(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        containerColor = MaterialTheme.colorScheme.surface
     ) {
         Column(
             modifier = Modifier
@@ -293,8 +290,7 @@ private fun AggregatedPendingContributionCard(
                 onClick = { showConfirmAll = true },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
+                MaterialSymbolIcon(icon = MaterialSymbols.CHECK_CIRCLE,
                     contentDescription = null,
                     modifier = Modifier.size(20.dp)
                 )
@@ -396,11 +392,9 @@ private fun AggregatedPendingContributionCard(
 
 @Composable
 private fun InstructionsCard() {
-    Card(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer
-        )
+        containerColor = MaterialTheme.colorScheme.tertiaryContainer
     ) {
         Column(
             modifier = Modifier
@@ -412,8 +406,7 @@ private fun InstructionsCard() {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Info,
+                MaterialSymbolIcon(icon = MaterialSymbols.INFO,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onTertiaryContainer
                 )
@@ -484,11 +477,9 @@ private fun InstructionStep(number: String, text: String) {
 
 @Composable
 private fun NotificationWorkflowButton(onStartWorkflow: () -> Unit) {
-    Card(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer
-        )
+        containerColor = MaterialTheme.colorScheme.secondaryContainer
     ) {
         Column(
             modifier = Modifier
@@ -500,8 +491,7 @@ private fun NotificationWorkflowButton(onStartWorkflow: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Notifications,
+                MaterialSymbolIcon(icon = MaterialSymbols.NOTIFICATIONS,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSecondaryContainer
                 )
@@ -525,8 +515,7 @@ private fun NotificationWorkflowButton(onStartWorkflow: () -> Unit) {
                     containerColor = MaterialTheme.colorScheme.secondary
                 )
             ) {
-                Icon(
-                    imageVector = Icons.Default.PlayArrow,
+                MaterialSymbolIcon(icon = MaterialSymbols.PLAY_ARROW,
                     contentDescription = null,
                     modifier = Modifier.size(20.dp)
                 )

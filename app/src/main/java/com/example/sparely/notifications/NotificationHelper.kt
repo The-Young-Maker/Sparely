@@ -10,17 +10,14 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.sparely.MainActivity
 import com.example.sparely.R
-import com.example.sparely.domain.model.SmartTransferRecommendation
 import java.text.NumberFormat
 
 object NotificationHelper {
     const val REMINDER_CHANNEL_ID = "sparely_reminders"
-    const val SMART_TRANSFER_CHANNEL_ID = "sparely_smart_transfer"
     const val AUTO_DEPOSIT_CHANNEL_ID = "sparely_auto_deposits"
     const val VAULT_TRANSFER_CHANNEL_ID = "sparely_vault_transfers"
     const val PAYDAY_CHANNEL_ID = "sparely_payday_reminders"
     private const val REMINDER_NOTIFICATION_ID = 1001
-    private const val SMART_TRANSFER_NOTIFICATION_ID = 2001
     private const val AUTO_DEPOSIT_NOTIFICATION_ID = 3001
     private const val VAULT_TRANSFER_NOTIFICATION_ID = 4001
     private const val PAYDAY_NOTIFICATION_ID = 4002
@@ -34,14 +31,6 @@ object NotificationHelper {
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "Savings and goal nudges from Sparely"
-            }
-            val smartTransferChannel = NotificationChannel(
-                SMART_TRANSFER_CHANNEL_ID,
-                context.getString(R.string.smart_transfer_channel_name),
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = context.getString(R.string.smart_transfer_channel_description)
-                setShowBadge(false)
             }
             val autoDepositChannel = NotificationChannel(
                 AUTO_DEPOSIT_CHANNEL_ID,
@@ -67,7 +56,6 @@ object NotificationHelper {
                 setShowBadge(false)
             }
             manager.createNotificationChannel(reminderChannel)
-            manager.createNotificationChannel(smartTransferChannel)
             manager.createNotificationChannel(autoDepositChannel)
             manager.createNotificationChannel(paydayChannel)
             manager.createNotificationChannel(vaultTransferChannel)
@@ -84,80 +72,6 @@ object NotificationHelper {
             .setAutoCancel(true)
             .build()
         NotificationManagerCompat.from(context).notify(REMINDER_NOTIFICATION_ID, notification)
-    }
-
-    fun showSmartTransferTracker(
-        context: Context,
-        recommendation: SmartTransferRecommendation,
-        vaultBreakdown: List<Pair<String, Double>>
-    ) {
-        ensureChannels(context)
-        val total = formatAmount(recommendation.awaitingConfirmationAmount)
-        val emergency = formatAmount(recommendation.awaitingEmergencyAmount)
-        val invest = formatAmount(recommendation.awaitingInvestmentAmount)
-        val baseContent = context.getString(
-            R.string.smart_transfer_notification_content,
-            total,
-            emergency,
-            invest
-        )
-        val breakdownText = if (vaultBreakdown.isNotEmpty()) {
-            val bulletList = vaultBreakdown.joinToString(separator = "\n") { (name, amount) ->
-                "- ${name}: ${formatAmount(amount)}"
-            }
-            baseContent + "\n" + context.getString(R.string.smart_transfer_notification_vault_breakdown, bulletList)
-        } else {
-            baseContent
-        }
-
-        val contentIntent = PendingIntent.getActivity(
-            context,
-            0,
-            Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val completeIntent = PendingIntent.getBroadcast(
-            context,
-            1,
-            SmartTransferNotificationReceiver.createIntent(context, SmartTransferNotificationReceiver.ACTION_COMPLETE),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val cancelIntent = PendingIntent.getBroadcast(
-            context,
-            2,
-            SmartTransferNotificationReceiver.createIntent(context, SmartTransferNotificationReceiver.ACTION_CANCEL),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notification = NotificationCompat.Builder(context, SMART_TRANSFER_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_stat_logo)
-            .setContentTitle(context.getString(R.string.smart_transfer_notification_title, total))
-            .setContentText(breakdownText)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(breakdownText))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setContentIntent(contentIntent)
-            .setOngoing(true)
-            .addAction(
-                R.drawable.ic_launcher_foreground,
-                context.getString(R.string.smart_transfer_notification_mark_done),
-                completeIntent
-            )
-            .addAction(
-                R.drawable.ic_launcher_foreground,
-                context.getString(R.string.smart_transfer_notification_do_later),
-                cancelIntent
-            )
-            .build()
-
-        NotificationManagerCompat.from(context).notify(SMART_TRANSFER_NOTIFICATION_ID, notification)
-    }
-
-    fun dismissSmartTransferTracker(context: Context) {
-        NotificationManagerCompat.from(context).cancel(SMART_TRANSFER_NOTIFICATION_ID)
     }
     
     fun showAutoDepositReminder(context: Context, depositCount: Int, totalAmount: Double) {

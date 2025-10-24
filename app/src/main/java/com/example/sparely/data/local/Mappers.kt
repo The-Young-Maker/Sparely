@@ -197,7 +197,10 @@ fun SmartVaultEntity.toDomain(autoDeposit: AutoDepositSchedule? = null): SmartVa
     lastContributionDate = lastContributionDate,
     autoDepositSchedule = autoDeposit,
     savingTaxRateOverride = savingTaxRateOverride,
-    archived = archived
+    archived = archived,
+    accountType = accountType,
+    accountNumber = accountNumber,
+    accountNotes = accountNotes
 )
 
 fun SmartVault.toEntity(): SmartVaultEntity = SmartVaultEntity(
@@ -214,7 +217,10 @@ fun SmartVault.toEntity(): SmartVaultEntity = SmartVaultEntity(
     nextExpectedContribution = nextExpectedContribution,
     lastContributionDate = lastContributionDate,
     savingTaxRateOverride = savingTaxRateOverride,
-    archived = archived
+    archived = archived,
+    accountType = accountType,
+    accountNumber = accountNumber,
+    accountNotes = accountNotes
 )
 
 fun VaultAutoDepositEntity.toDomain(): AutoDepositSchedule = AutoDepositSchedule(
@@ -282,3 +288,27 @@ fun SmartVaultWithSchedule.toDomain(): SmartVault {
     val schedule = schedules.firstOrNull()?.toDomain()
     return vault.toDomain(schedule)
 }
+
+fun MainAccountTransactionEntity.toDomain(): com.example.sparely.domain.model.MainAccountTransaction =
+    com.example.sparely.domain.model.MainAccountTransaction(
+        id = id,
+        type = type,
+        amount = amount,
+        balanceAfter = balanceAfter,
+        timestamp = timestamp,
+        description = description,
+        relatedExpenseId = relatedExpenseId,
+        relatedVaultContributionIds = relatedVaultContributionIds?.split(",")?.mapNotNull { it.toLongOrNull() }
+    )
+
+fun com.example.sparely.domain.model.MainAccountTransaction.toEntity(): MainAccountTransactionEntity =
+    MainAccountTransactionEntity(
+        id = id,
+        type = type,
+        amount = amount,
+        balanceAfter = balanceAfter,
+        timestamp = timestamp,
+        description = description,
+        relatedExpenseId = relatedExpenseId,
+        relatedVaultContributionIds = relatedVaultContributionIds?.joinToString(",")
+    )

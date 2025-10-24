@@ -4,6 +4,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,13 +19,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.TrendingUp
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material.icons.outlined.AccountBalance
-import androidx.compose.material.icons.outlined.Savings
-import androidx.compose.material.icons.outlined.Security
+import com.example.sparely.ui.theme.MaterialSymbols
+import com.example.sparely.ui.theme.MaterialSymbolIcon
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
@@ -51,7 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
+ 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -60,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import com.example.sparely.R
 import com.example.sparely.domain.model.*
 import com.example.sparely.ui.components.SavingsTrendCard
+import com.example.sparely.ui.components.ExpressiveCard
 import com.example.sparely.ui.state.SparelyUiState
 import java.time.format.DateTimeFormatter
 
@@ -72,13 +70,9 @@ fun DashboardScreen(
     onNavigateToChallenges: () -> Unit = {},
     onNavigateToHealth: () -> Unit = {},
     onNavigateToRecurring: () -> Unit = {},
-    onConfirmSmartTransfer: () -> Unit = {},
-    onSnoozeSmartTransfer: () -> Unit = {},
-    onDismissSmartTransfer: () -> Unit = {},
-    onCompleteSmartTransfer: () -> Unit = {},
-    onCancelSmartTransfer: (Boolean) -> Unit = {},
     onManageVaults: () -> Unit = {},
-    onNavigateToVaultTransfers: () -> Unit = {}
+    onNavigateToVaultTransfers: () -> Unit = {},
+    onNavigateToMainAccount: () -> Unit = {}
 ) {
     if (uiState.isLoading) {
         Box(
@@ -93,16 +87,8 @@ fun DashboardScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.surface
-                    )
-                )
-            )
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+            // Use a single tonal background instead of a gradient for clarity
+            .background(MaterialTheme.colorScheme.background),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         item {
@@ -114,34 +100,30 @@ fun DashboardScreen(
             )
         }
 
-        if (uiState.smartVaults.isNotEmpty()) {
+        // or if there are any transactions
+        if (uiState.settings.mainAccountBalance != 0.0 || uiState.mainAccountTransactions.isNotEmpty()) {
             item {
-                SmartVaultsCard(
-                    vaults = uiState.smartVaults,
-                    totalBalance = uiState.totalVaultBalance,
-                    pendingCount = uiState.pendingVaultContributions.size,
-                    onManageVaults = onManageVaults,
-                    onNavigateToTransfers = onNavigateToVaultTransfers
+                MainAccountBalanceCard(
+                    balance = uiState.settings.mainAccountBalance,
+                    onClick = onNavigateToMainAccount
                 )
             }
+        }
+
+        // Always show vault card - even if empty, user can manage vaults
+        item {
+            SmartVaultsCard(
+                vaults = uiState.smartVaults,
+                totalBalance = uiState.totalVaultBalance,
+                pendingCount = uiState.pendingVaultContributions.size,
+                onManageVaults = onManageVaults,
+                onNavigateToTransfers = onNavigateToVaultTransfers
+            )
         }
 
         uiState.smartSavingSummary?.let { summary ->
             item {
                 SmartSavingSnapshotCard(summary = summary, monthlyIncome = uiState.settings.monthlyIncome)
-            }
-        }
-
-        uiState.smartTransfer?.let { smartRecommendation ->
-            item {
-                SmartTransferCard(
-                    recommendation = smartRecommendation,
-                    onConfirm = onConfirmSmartTransfer,
-                    onSnooze = onSnoozeSmartTransfer,
-                    onDismiss = onDismissSmartTransfer,
-                    onComplete = onCompleteSmartTransfer,
-                    onReturnToPending = { onCancelSmartTransfer(true) }
-                )
             }
         }
 
@@ -177,6 +159,18 @@ fun DashboardScreen(
             }
         }
 
+        // Show challenges card - either active challenges or empty state
+        item {
+            if (uiState.activeChallenges.isNotEmpty()) {
+                QuickChallengesCard(
+                    challenges = uiState.activeChallenges,
+                    onClick = onNavigateToChallenges
+                )
+            } else {
+                ChallengesEmptyCard(onClick = onNavigateToChallenges)
+            }
+        }
+
         item {
             UpcomingRecurringCard(
                 items = uiState.upcomingRecurring,
@@ -199,76 +193,59 @@ private fun DashboardHeader(
     Column(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Hero Section with gradient card
-        ElevatedCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(8.dp, RoundedCornerShape(24.dp)),
+        // Hero Section with gradient card (now centralized via ExpressiveCard)
+        ExpressiveCard(
+            modifier = Modifier.fillMaxWidth(),
+            // Use a solid tonal container instead of a gradient for a cleaner Material 3 expressive look.
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
-            )
+            elevation = 8.dp,
+            contentPadding = 24.dp
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                                MaterialTheme.colorScheme.tertiary.copy(alpha = 0.6f)
-                            )
-                        )
-                    )
-                    .padding(24.dp)
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = "Total Saved",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color.White.copy(alpha = 0.9f)
-                            )
-                            Text(
-                                text = formatCurrency(totalBalance),
-                                style = MaterialTheme.typography.displaySmall,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                        Icon(
-                            imageVector = Icons.Outlined.Savings,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = Color.White.copy(alpha = 0.7f)
+                    Column {
+                        Text(
+                            text = stringResource(R.string.dashboard_total_saved),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.95f)
+                        )
+                        Text(
+                            text = formatCurrency(totalBalance),
+                            style = MaterialTheme.typography.displaySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
-                    
-                    if (monthlyIncome > 0) {
-                        val savingsRate = if (totalBalance > 0) (totalBalance / monthlyIncome) * 100 else 0.0
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.TrendingUp,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = Color.White.copy(alpha = 0.9f)
-                            )
-                            Text(
-                                text = "${String.format("%.1f", savingsRate)}% of monthly income",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White.copy(alpha = 0.9f)
-                            )
-                        }
+                    MaterialSymbolIcon(icon = MaterialSymbols.SAVINGS,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    )
+                }
+
+                if (monthlyIncome > 0) {
+                    val savingsRate = if (totalBalance > 0) (totalBalance / monthlyIncome) * 100 else 0.0
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        MaterialSymbolIcon(icon = MaterialSymbols.TRENDING_UP,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = Color.White.copy(alpha = 0.95f)
+                        )
+                        Text(
+                            text = stringResource(R.string.dashboard_savings_rate, savingsRate),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.9f)
+                        )
                     }
                 }
             }
@@ -284,26 +261,24 @@ private fun DashboardHeader(
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
+                MaterialSymbolIcon(icon = MaterialSymbols.ADD,
                     contentDescription = null,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Log Purchase")
+                Text(stringResource(R.string.dashboard_log_purchase))
             }
             Button(
                 onClick = onNavigateToHistory,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.History,
+                MaterialSymbolIcon(icon = MaterialSymbols.HISTORY,
                     contentDescription = null,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("History")
+                Text(stringResource(R.string.dashboard_history))
             }
         }
     }
@@ -320,17 +295,13 @@ private fun SmartVaultsCard(
     val accentYellow = Color(0xFFFACC15)
     val dateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
     
-    ElevatedCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(4.dp, RoundedCornerShape(20.dp)),
+    ExpressiveCard(
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+        elevation = 4.dp,
+        contentPadding = 20.dp
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Header
@@ -350,8 +321,7 @@ private fun SmartVaultsCard(
                             .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Outlined.AccountBalance,
+                        MaterialSymbolIcon(icon = MaterialSymbols.ACCOUNT_BALANCE,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(28.dp)
@@ -363,7 +333,7 @@ private fun SmartVaultsCard(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                "Smart Vaults",
+                                stringResource(R.string.dashboard_smart_vaults),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold
                             )
@@ -383,14 +353,14 @@ private fun SmartVaultsCard(
                             }
                         }
                         Text(
-                            text = "Net saved ${formatCurrency(totalBalance)}",
+                            text = stringResource(R.string.dashboard_net_saved, formatCurrency(totalBalance)),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
                 TextButton(onClick = onManageVaults) {
-                    Text("Manage", fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.dashboard_manage), fontWeight = FontWeight.SemiBold)
                 }
             }
 
@@ -403,8 +373,12 @@ private fun SmartVaultsCard(
             }
             
             if (vaults.size > 3) {
+                val remainingCount = vaults.size - 3
                 Text(
-                    text = "+${vaults.size - 3} more vault${if (vaults.size - 3 == 1) "" else "s"}",
+                    text = if (remainingCount == 1) 
+                        stringResource(R.string.dashboard_more_vaults, remainingCount)
+                    else 
+                        stringResource(R.string.dashboard_more_vaults_plural, remainingCount),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(start = 8.dp)
@@ -418,7 +392,10 @@ private fun SmartVaultsCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("View $pendingCount Pending Transfer${if (pendingCount == 1) "" else "s"}")
+                    Text(if (pendingCount == 1)
+                        stringResource(R.string.dashboard_pending_transfer, pendingCount)
+                    else
+                        stringResource(R.string.dashboard_pending_transfers, pendingCount))
                 }
             }
         }
@@ -465,12 +442,12 @@ private fun VaultItem(
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(
-                            progress = { animatedProgress },
-                            modifier = Modifier.size(52.dp),
-                            color = urgencyColor,
-                            strokeWidth = 5.dp,
-                            trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                            strokeCap = ProgressIndicatorDefaults.CircularDeterminateStrokeCap,
+                        progress = { animatedProgress },
+                        modifier = Modifier.size(52.dp),
+                        color = urgencyColor,
+                        strokeWidth = 5.dp,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        strokeCap = ProgressIndicatorDefaults.CircularDeterminateStrokeCap,
                         )
                         Text(
                             text = String.format("%.0f%%", progress * 100),
@@ -485,7 +462,7 @@ private fun VaultItem(
                             fontWeight = FontWeight.SemiBold
                         )
                         val targetText = buildString {
-                            append("Goal: ")
+                            append(stringResource(R.string.dashboard_goal_prefix))
                             append(formatCurrency(vault.targetAmount))
                             vault.targetDate?.let {
                                 append(" • ${it.format(dateFormatter)}")
@@ -526,14 +503,13 @@ private fun VaultItem(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                    MaterialSymbolIcon(icon = MaterialSymbols.TRENDING_UP,
                         contentDescription = null,
                         modifier = Modifier.size(14.dp),
                         tint = urgencyColor
                     )
                     Text(
-                        text = "Next contribution ${formatCurrency(nextAmount)}",
+                        text = stringResource(R.string.dashboard_next_contribution, formatCurrency(nextAmount)),
                         style = MaterialTheme.typography.labelMedium,
                         color = urgencyColor,
                         fontWeight = FontWeight.Medium
@@ -554,21 +530,21 @@ private fun SmartSavingSnapshotCard(summary: SmartSavingSummary, monthlyIncome: 
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "Smart saving",
+                text = stringResource(R.string.dashboard_smart_saving),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
             )
             Text(
-                text = "${formatPercent(summary.actualSavingsRate)} saved vs target ${formatPercent(summary.targetSavingsRate)}",
+                text = stringResource(R.string.dashboard_saved_vs_target, formatPercent(summary.actualSavingsRate), formatPercent(summary.targetSavingsRate)),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             Text(
                 text = when (summary.allocationMode) {
-                    SmartAllocationMode.MANUAL -> "Manual mode — tuning your own percentages"
-                    SmartAllocationMode.GUIDED -> "Guided mode — Sparely suggests tweaks"
-                    SmartAllocationMode.AUTOMATIC -> "Automatic mode — Sparely adjusts for you"
+                    SmartAllocationMode.MANUAL -> stringResource(R.string.dashboard_allocation_manual_mode)
+                    SmartAllocationMode.GUIDED -> stringResource(R.string.dashboard_allocation_guided_mode)
+                    SmartAllocationMode.AUTOMATIC -> stringResource(R.string.dashboard_allocation_automatic_mode)
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -578,17 +554,17 @@ private fun SmartSavingSnapshotCard(summary: SmartSavingSummary, monthlyIncome: 
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Recommended split", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                    Text(stringResource(R.string.dashboard_recommended_split), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
                     Text(
-                        text = "${formatPercent(summary.recommendedSplit.emergency)} emergency / ${formatPercent(summary.recommendedSplit.invest)} invest / ${formatPercent(summary.recommendedSplit.`fun`)} fun",
+                        text = stringResource(R.string.dashboard_allocation_breakdown, formatPercent(summary.recommendedSplit.emergency), formatPercent(summary.recommendedSplit.invest), formatPercent(summary.recommendedSplit.`fun`)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Manual split", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                    Text(stringResource(R.string.dashboard_manual_split), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
                     Text(
-                        text = "${formatPercent(summary.manualSplit.emergency)} / ${formatPercent(summary.manualSplit.invest)} / ${formatPercent(summary.manualSplit.`fun`)}",
+                        text = stringResource(R.string.dashboard_allocation_breakdown, formatPercent(summary.manualSplit.emergency), formatPercent(summary.manualSplit.invest), formatPercent(summary.manualSplit.`fun`)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
@@ -597,7 +573,7 @@ private fun SmartSavingSnapshotCard(summary: SmartSavingSummary, monthlyIncome: 
             if (monthlyIncome > 0.0) {
                 val monthlyTarget = monthlyIncome * summary.targetSavingsRate
                 Text(
-                    text = "Aim for ${formatCurrency(monthlyTarget)} per month to hit target",
+                    text = stringResource(R.string.dashboard_aim_for_target, formatCurrency(monthlyTarget)),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
@@ -610,19 +586,19 @@ private fun SmartSavingSnapshotCard(summary: SmartSavingSummary, monthlyIncome: 
 private fun RecurringInsightsCard(insights: List<DetectedRecurringTransaction>) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Recurring patterns", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.dashboard_recurring_patterns), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             val previewInsights = insights.take(4)
             val formatter = DateTimeFormatter.ofPattern("MMM d")
             previewInsights.forEach { insight ->
                 Column {
                     Text(insight.description, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                     Text(
-                        text = "${formatCurrency(insight.averageAmount)} every ${insight.cadenceDays}d",
+                        text = "${formatCurrency(insight.averageAmount)} ${stringResource(R.string.dashboard_every_days, insight.cadenceDays)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "Last on ${insight.lastOccurrence.format(formatter)}",
+                        text = stringResource(R.string.dashboard_last_on, insight.lastOccurrence.format(formatter)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -658,24 +634,24 @@ private fun UpcomingRecurringCard(
             ) {
                 Column {
                     Text(
-                        text = "Upcoming bills",
+                        text = stringResource(R.string.dashboard_upcoming_bills),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = if (hasRecurring) "Tap to manage recurring payments" else "Tap to add recurring payments",
+                        text = if (hasRecurring) stringResource(R.string.dashboard_tap_manage_recurring) else stringResource(R.string.dashboard_tap_add_recurring),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 TextButton(onClick = onManageRecurring) {
-                    Text(if (hasRecurring) "Manage" else "Add")
+                    Text(if (hasRecurring) stringResource(R.string.dashboard_manage) else stringResource(R.string.dashboard_add))
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
             if (items.isEmpty()) {
                 Text(
-                    text = if (hasRecurring) "You're all caught up!" else "Log your subscriptions and bills to get reminders.",
+                    text = if (hasRecurring) stringResource(R.string.dashboard_all_caught_up) else stringResource(R.string.dashboard_log_subscriptions_reminders),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -705,7 +681,7 @@ private fun UpcomingRecurringCard(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Due ${upcoming.dueDate.format(formatter)}",
+                                text = stringResource(R.string.dashboard_due_on, upcoming.dueDate.format(formatter)),
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
@@ -715,191 +691,6 @@ private fun UpcomingRecurringCard(
                             modifier = Modifier.padding(vertical = 8.dp),
                             thickness = DividerDefaults.Thickness,
                             color = DividerDefaults.color
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SmartTransferCard(
-    recommendation: SmartTransferRecommendation,
-    onConfirm: () -> Unit,
-    onSnooze: () -> Unit,
-    onDismiss: () -> Unit,
-    onComplete: () -> Unit,
-    onReturnToPending: () -> Unit
-) {
-    val (containerColor, onContainerColor) = when (recommendation.status) {
-        SmartTransferStatus.READY -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
-        SmartTransferStatus.ACCUMULATING -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
-        SmartTransferStatus.STANDBY -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
-        SmartTransferStatus.AWAITING_CONFIRMATION -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
-    }
-    val totalForDisplay = when (recommendation.status) {
-        SmartTransferStatus.AWAITING_CONFIRMATION -> recommendation.awaitingConfirmationAmount
-        else -> recommendation.totalAmount
-    }
-    val totalLabel = formatCurrency(totalForDisplay)
-    val countLabel = if (recommendation.pendingExpenseCount == 1) {
-        "1 purchase"
-    } else {
-        "${recommendation.pendingExpenseCount} purchases"
-    }
-    val holdMinutes = recommendation.holdUntilEpochMillis?.let { expiry ->
-        val remaining = expiry - System.currentTimeMillis()
-        if (remaining > 0) remaining / 60000.0 else 0.0
-    }
-    val headline = when (recommendation.status) {
-        SmartTransferStatus.READY -> "Move $totalLabel to savings"
-        SmartTransferStatus.ACCUMULATING -> "Holding $totalLabel for the next expense"
-        SmartTransferStatus.STANDBY -> "$totalLabel sitting in standby"
-        SmartTransferStatus.AWAITING_CONFIRMATION -> "Don't forget to move $totalLabel"
-    }
-    val supportingText = when (recommendation.status) {
-        SmartTransferStatus.READY -> "Great time to shift the cash before it gets spent elsewhere."
-        SmartTransferStatus.ACCUMULATING -> when {
-            holdMinutes != null && holdMinutes > 0.1 -> "We'll wait about ${String.format("%.1f", holdMinutes)} min in case you log another purchase."
-            else -> "We'll keep the pot warm while you finish logging expenses."
-        }
-        SmartTransferStatus.STANDBY -> {
-            val shortfall = recommendation.shortfallToThreshold
-            if (shortfall > 0.0) {
-                "Needs ${formatCurrency(recommendation.minimumTransferAmount)} total. ${formatCurrency(shortfall)} more will trigger the move."
-            } else {
-                "Below your preferred threshold, but ready whenever you are."
-            }
-        }
-        SmartTransferStatus.AWAITING_CONFIRMATION -> "Keep this pinned while you move the funds, then mark it done."
-    }
-
-    Card(colors = CardDefaults.cardColors(containerColor = containerColor)) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = "Smart transfer",
-                style = MaterialTheme.typography.labelMedium,
-                color = onContainerColor.copy(alpha = 0.7f)
-            )
-            Text(
-                text = headline,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = onContainerColor
-            )
-            Text(
-                text = supportingText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = onContainerColor
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Emergency",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = onContainerColor.copy(alpha = 0.7f)
-                    )
-                    Text(
-                        text = formatCurrency(recommendation.emergencyPortion),
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = onContainerColor
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Investing",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = onContainerColor.copy(alpha = 0.7f)
-                    )
-                    Text(
-                        text = formatCurrency(recommendation.investmentPortion),
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = onContainerColor
-                    )
-                }
-            }
-            Text(
-                text = "Built from $countLabel",
-                style = MaterialTheme.typography.bodySmall,
-                color = onContainerColor.copy(alpha = 0.7f)
-            )
-            when (recommendation.status) {
-                SmartTransferStatus.READY -> {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Button(onClick = onConfirm, modifier = Modifier.weight(1f)) {
-                            Text("Move now")
-                        }
-                        OutlinedButton(onClick = onSnooze, modifier = Modifier.weight(1f)) {
-                            Text("Log another first")
-                        }
-                        TextButton(onClick = onDismiss) {
-                            Text("Dismiss")
-                        }
-                    }
-                }
-                SmartTransferStatus.ACCUMULATING -> {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Button(onClick = onConfirm, modifier = Modifier.weight(1f)) {
-                            Text("Move now")
-                        }
-                        OutlinedButton(onClick = onSnooze, modifier = Modifier.weight(1f)) {
-                            Text("Keep waiting")
-                        }
-                        TextButton(onClick = onDismiss) {
-                            Text("Dismiss")
-                        }
-                    }
-                }
-                SmartTransferStatus.STANDBY -> {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        OutlinedButton(onClick = onConfirm, modifier = Modifier.weight(1f)) {
-                            Text("Move anyway")
-                        }
-                        TextButton(onClick = onDismiss) {
-                            Text("Reset")
-                        }
-                    }
-                }
-                SmartTransferStatus.AWAITING_CONFIRMATION -> {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Button(onClick = onComplete, modifier = Modifier.weight(1f)) {
-                                Text("Mark done")
-                            }
-                            OutlinedButton(onClick = onReturnToPending, modifier = Modifier.weight(1f)) {
-                                Text("I'll do it later")
-                            }
-                            TextButton(onClick = onDismiss) {
-                                Text("Clear")
-                            }
-                        }
-                        Text(
-                            text = "Amounts won't be logged until you tap Mark done.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = onContainerColor.copy(alpha = 0.7f)
                         )
                     }
                 }
@@ -950,8 +741,7 @@ private fun EmergencyFundCard(goal: EmergencyFundGoal, settings: SparelySettings
                             .background(MaterialTheme.colorScheme.errorContainer),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Security,
+                        MaterialSymbolIcon(icon = MaterialSymbols.SECURITY,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.error,
                             modifier = Modifier.size(28.dp)
@@ -959,12 +749,12 @@ private fun EmergencyFundCard(goal: EmergencyFundGoal, settings: SparelySettings
                     }
                     Column {
                         Text(
-                            text = "Emergency Runway",
+                            text = stringResource(R.string.dashboard_emergency_runway),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "${formatMonths(goal.targetMonths)} month goal • ${formatCurrency(goal.targetAmount)}",
+                            text = stringResource(R.string.dashboard_month_goal, goal.targetMonths, formatCurrency(goal.targetAmount)),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -991,14 +781,14 @@ private fun EmergencyFundCard(goal: EmergencyFundGoal, settings: SparelySettings
                     )
                 }
                 LinearProgressIndicator(
-                    progress = { animatedCoverage },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(12.dp)
-                        .clip(RoundedCornerShape(6.dp)),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                    strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
+                progress = { animatedCoverage },
+                modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(12.dp)
+                                        .clip(RoundedCornerShape(6.dp)),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
                 )
             }
 
@@ -1009,19 +799,19 @@ private fun EmergencyFundCard(goal: EmergencyFundGoal, settings: SparelySettings
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     DetailRow(
-                        label = "Current cushion",
+                        label = stringResource(R.string.dashboard_current_cushion),
                         value = formatCurrency(savedAmount)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     DetailRow(
-                        label = "Shortfall",
+                        label = stringResource(R.string.dashboard_shortfall),
                         value = formatCurrency(shortfall),
                         valueColor = if (shortfall > 0.0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                     )
                     if (goal.recommendedMonthlyContribution > 0.0) {
                         Spacer(modifier = Modifier.height(8.dp))
                         DetailRow(
-                            label = "Monthly target",
+                            label = stringResource(R.string.dashboard_monthly_target),
                             value = formatCurrency(goal.recommendedMonthlyContribution),
                             valueColor = MaterialTheme.colorScheme.tertiary
                         )
@@ -1039,14 +829,13 @@ private fun EmergencyFundCard(goal: EmergencyFundGoal, settings: SparelySettings
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                        MaterialSymbolIcon(icon = MaterialSymbols.TRENDING_UP,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
-                            text = "Goal reached! Keep contributing to stay ahead of inflation.",
+                            text = stringResource(R.string.dashboard_goal_reached),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1094,7 +883,7 @@ private fun MetricsRow(uiState: SparelyUiState) {
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
-            text = "Savings Breakdown",
+            text = stringResource(R.string.dashboard_savings_breakdown),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(start = 4.dp)
@@ -1105,16 +894,16 @@ private fun MetricsRow(uiState: SparelyUiState) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             ModernMetricCard(
-                title = "Short-term",
+                title = stringResource(R.string.dashboard_short_term),
                 value = shortTermTotal,
-                icon = Icons.Outlined.Savings,
+                icon = MaterialSymbols.SAVINGS,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.weight(1f)
             )
             ModernMetricCard(
-                title = "Long-term",
+                title = stringResource(R.string.dashboard_long_term),
                 value = longTermTotal,
-                icon = Icons.Outlined.AccountBalance,
+                icon = MaterialSymbols.ACCOUNT_BALANCE,
                 color = MaterialTheme.colorScheme.tertiary,
                 modifier = Modifier.weight(1f)
             )
@@ -1124,17 +913,17 @@ private fun MetricsRow(uiState: SparelyUiState) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             ModernMetricCard(
-                title = "Passive growth",
+                title = stringResource(R.string.dashboard_passive_growth),
                 value = passiveTotal,
-                icon = Icons.AutoMirrored.Filled.TrendingUp,
+                icon = MaterialSymbols.TRENDING_UP,
                 color = MaterialTheme.colorScheme.secondary,
                 modifier = Modifier.weight(1f)
             )
             ModernMetricCard(
-                title = "Monthly avg",
+                title = stringResource(R.string.dashboard_monthly_avg),
                 value = uiState.analytics.averageMonthlyReserve,
-                subtitle = "Projected\n${formatCurrency(uiState.analytics.projectedReserveSixMonths)}\nin 6 months",
-                icon = Icons.AutoMirrored.Filled.TrendingUp,
+                subtitle = stringResource(R.string.dashboard_projected_in_6_months, formatCurrency(uiState.analytics.projectedReserveSixMonths)),
+                icon = MaterialSymbols.TRENDING_UP,
                 color = Color(0xFF4CAF50),
                 modifier = Modifier.weight(1f)
             )
@@ -1146,20 +935,18 @@ private fun MetricsRow(uiState: SparelyUiState) {
 private fun ModernMetricCard(
     title: String,
     value: Double,
-    icon: ImageVector,
+    @androidx.annotation.DrawableRes icon: Int,
     color: Color,
     modifier: Modifier = Modifier,
     subtitle: String? = null
 ) {
-    ElevatedCard(
-        modifier = modifier.shadow(2.dp, RoundedCornerShape(16.dp)),
+    ExpressiveCard(
+        modifier = modifier,
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+        elevation = 2.dp,
+        contentPadding = 16.dp
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
@@ -1172,11 +959,12 @@ private fun ModernMetricCard(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Icon(
-                    imageVector = icon,
+                MaterialSymbolIcon(
+                    icon = icon,
                     contentDescription = null,
                     tint = color,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(20.dp),
+                    size = 20.dp
                 )
             }
             Text(
@@ -1338,7 +1126,7 @@ private fun QuickHealthScoreCard(healthScore: FinancialHealthScore, onClick: () 
         ) {
             Column {
                 Text(
-                    text = "Financial Health",
+                    text = stringResource(R.string.dashboard_financial_health),
                     style = MaterialTheme.typography.titleMedium,
                     color = Color.White
                 )
@@ -1399,7 +1187,7 @@ private fun QuickBudgetCard(budgetSummary: BudgetSummary, onClick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Budget This Month",
+                    text = stringResource(R.string.dashboard_budget_this_month),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -1422,7 +1210,7 @@ private fun QuickBudgetCard(budgetSummary: BudgetSummary, onClick: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "${formatCurrency(budgetSummary.totalRemaining)} of ${formatCurrency(budgetSummary.totalBudget)} remaining",
+                text = stringResource(R.string.dashboard_remaining_of_budget, formatCurrency(budgetSummary.totalRemaining), formatCurrency(budgetSummary.totalBudget)),
                 style = MaterialTheme.typography.bodySmall
             )
         }
@@ -1440,18 +1228,18 @@ private fun BudgetEmptyCard(onClick: () -> Unit) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Budget status",
+                text = stringResource(R.string.dashboard_budget_status),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Set up category budgets to start tracking progress with alerts.",
+                text = stringResource(R.string.dashboard_setup_budgets_description),
                 style = MaterialTheme.typography.bodySmall
             )
             Spacer(modifier = Modifier.height(12.dp))
             TextButton(onClick = onClick) {
-                Text("Create your first budget")
+                Text(stringResource(R.string.dashboard_create_first_budget))
             }
         }
     }
@@ -1469,7 +1257,7 @@ private fun QuickChallengesCard(challenges: List<SavingsChallenge>, onClick: () 
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Active Challenges",
+                text = stringResource(R.string.dashboard_active_challenges),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -1488,7 +1276,7 @@ private fun QuickChallengesCard(challenges: List<SavingsChallenge>, onClick: () 
                         )
                         if (challenge.targetAmount > 0) {
                             Text(
-                                text = "${formatPercent(challenge.progressPercent)} complete",
+                                text = stringResource(R.string.dashboard_challenge_progress, formatPercent(challenge.progressPercent)),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
                             )
@@ -1502,8 +1290,8 @@ private fun QuickChallengesCard(challenges: List<SavingsChallenge>, onClick: () 
                                 fontWeight = FontWeight.Bold,
                                 color = streakColor
                             )
-                            Icon(
-                                Icons.Default.LocalFireDepartment,
+                            MaterialSymbolIcon(
+                                icon = MaterialSymbols.LOCAL_FIRE_DEPARTMENT,
                                 contentDescription = null,
                                 tint = streakColor,
                                 modifier = Modifier.size(20.dp)
@@ -1534,19 +1322,66 @@ private fun ChallengesEmptyCard(onClick: () -> Unit) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Savings challenges",
+                text = stringResource(R.string.dashboard_savings_challenges),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Start a challenge to build streaks and unlock achievements.",
+                text = stringResource(R.string.dashboard_challenges_description),
                 style = MaterialTheme.typography.bodySmall
             )
             Spacer(modifier = Modifier.height(12.dp))
             TextButton(onClick = onClick) {
-                Text("Browse challenges")
+                Text(stringResource(R.string.dashboard_browse_challenges))
             }
+        }
+    }
+}
+
+@Composable
+private fun MainAccountBalanceCard(balance: Double, onClick: () -> Unit = {}) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.dashboard_main_account),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f)
+                )
+                Text(
+                    text = formatCurrency(balance),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Text(
+                    text = stringResource(R.string.dashboard_available_liquidity),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f)
+                )
+            }
+            MaterialSymbolIcon(icon = MaterialSymbols.ACCOUNT_BALANCE,
+                contentDescription = null,
+                modifier = Modifier.size(42.dp),
+                tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f)
+            )
         }
     }
 }
@@ -1564,9 +1399,10 @@ private fun formatCurrency(value: Double): String = "$" + String.format("%,.2f",
 
 private fun formatPercent(value: Double): String = String.format("%.1f%%", value.coerceIn(0.0, 1.0) * 100)
 
+@Composable
 private fun VaultType.displayName(): String = when (this) {
-    VaultType.SHORT_TERM -> "Short-term"
-    VaultType.LONG_TERM -> "Long-term"
-    VaultType.PASSIVE_INVESTMENT -> "Passive"
+    VaultType.SHORT_TERM -> stringResource(R.string.vault_type_short_term)
+    VaultType.LONG_TERM -> stringResource(R.string.vault_type_long_term)
+    VaultType.PASSIVE_INVESTMENT -> stringResource(R.string.vault_type_passive_investment)
 }
 

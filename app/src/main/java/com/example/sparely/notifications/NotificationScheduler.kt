@@ -9,7 +9,6 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
-import com.example.sparely.domain.model.SmartTransferRecommendation
 import com.example.sparely.domain.model.SparelySettings
 import com.example.sparely.domain.logic.PayScheduleCalculator
 import kotlinx.coroutines.flow.first
@@ -46,17 +45,6 @@ class NotificationScheduler(context: Context) {
 
     fun cancel() {
         workManager.cancelUniqueWork(WORK_NAME)
-    }
-
-    fun showSmartTransferTracker(
-        recommendation: SmartTransferRecommendation,
-        vaultBreakdown: List<Pair<String, Double>>
-    ) {
-        NotificationHelper.showSmartTransferTracker(appContext, recommendation, vaultBreakdown)
-    }
-
-    fun dismissSmartTransferTracker() {
-        NotificationHelper.dismissSmartTransferTracker(appContext)
     }
 
     fun schedulePaydayReminder(settings: SparelySettings) {

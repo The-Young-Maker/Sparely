@@ -43,7 +43,8 @@ class SavingsRepository(
     private val challengeDao: ChallengeDao,
     private val achievementDao: AchievementDao,
     private val savingsAccountDao: SavingsAccountDao,
-    private val smartVaultDao: SmartVaultDao
+    private val smartVaultDao: SmartVaultDao,
+    private val mainAccountDao: com.example.sparely.data.local.MainAccountDao
 ) {
     fun observeExpenses(): Flow<List<ExpenseEntity>> = expenseDao.observeExpenses()
 
@@ -170,17 +171,18 @@ class SavingsRepository(
         smartVaultDao.deleteVault(id)
     }
 
-    suspend fun logVaultContribution(contribution: VaultContribution) {
+    suspend fun logVaultContribution(contribution: VaultContribution): Long {
         val entity = contribution.toEntity()
-        smartVaultDao.upsertContribution(entity)
+        val id = smartVaultDao.upsertContribution(entity)
         if (contribution.reconciled) {
             smartVaultDao.incrementVaultBalance(contribution.vaultId, contribution.amount, contribution.date)
         }
+        return id
     }
 
-    suspend fun logVaultContributions(contributions: List<VaultContribution>) {
-        if (contributions.isEmpty()) return
-        contributions.forEach { logVaultContribution(it) }
+    suspend fun logVaultContributions(contributions: List<VaultContribution>): List<Long> {
+        if (contributions.isEmpty()) return emptyList()
+        return contributions.map { logVaultContribution(it) }
     }
     
     suspend fun getPendingVaultContributions(): List<VaultContribution> =
@@ -388,4 +390,22 @@ class SavingsRepository(
             incrementPrimaryAccountBalance(entity.category, entity.amount)
         }
     }
+
+    // Main Account Transaction Methods
+    fun observeMainAccountTransactions(): Flow<List<com.example.sparely.domain.model.MainAccountTransaction>> =
+        mainAccountDao.observeAllTransactions().map { entities ->
+            entities.map { it.toDomain() }
+        }
+
+    suspend fun getRecentMainAccountTransactions(limit: Int = 50): List<com.example.sparely.domain.model.MainAccountTransaction> =
+        mainAccountDao.getRecentTransactions(limit).map { it.toDomain() }
+
+    suspend fun insertMainAccountTransaction(transaction: com.example.sparely.domain.model.MainAccountTransaction): Long =
+        mainAccountDao.insertTransaction(transaction.toEntity())
+
+    suspend fun getLatestMainAccountBalance(): Double =
+        mainAccountDao.getLatestTransaction()?.balanceAfter ?: 0.0
+
+    suspend fun calculateMainAccountBalance(): Double =
+        mainAccountDao.calculateBalanceFromTransactions()
 }

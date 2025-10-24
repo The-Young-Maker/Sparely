@@ -30,7 +30,8 @@ class DefaultAppContainer(context: Context) : AppContainer {
             challengeDao = database.challengeDao(),
             achievementDao = database.achievementDao(),
             savingsAccountDao = database.savingsAccountDao(),
-            smartVaultDao = database.smartVaultDao()
+            smartVaultDao = database.smartVaultDao(),
+            mainAccountDao = database.mainAccountDao()
         )
     }
 

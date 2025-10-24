@@ -28,7 +28,8 @@ data class ExpenseInput(
     val category: ExpenseCategory,
     val date: LocalDate,
     val includesTax: Boolean,
-    val manualPercentages: SavingsPercentages? = null
+    val manualPercentages: SavingsPercentages? = null,
+    val deductFromMainAccount: Boolean = false
 )
 
 /**

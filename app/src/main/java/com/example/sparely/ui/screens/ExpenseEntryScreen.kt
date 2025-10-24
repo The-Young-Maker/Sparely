@@ -55,6 +55,7 @@ fun ExpenseEntryScreen(
     var amountText by remember { mutableStateOf("") }
     var category by remember { mutableStateOf(ExpenseCategory.OTHER) }
     var includeTax by remember { mutableStateOf(settings.includeTaxByDefault) }
+    var deductFromMainAccount by remember { mutableStateOf(false) }
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
     var manualMode by remember { mutableStateOf(!settings.autoRecommendationsEnabled) }
     var emergencyPercent by remember { mutableFloatStateOf(settings.defaultPercentages.emergency.toFloat()) }
@@ -163,6 +164,23 @@ fun ExpenseEntryScreen(
             Text("Amount includes tax?", style = MaterialTheme.typography.bodyMedium)
             Checkbox(checked = includeTax, onCheckedChange = { includeTax = it })
         }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Deduct from main account", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = "Reduce your main account balance by this expense",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Checkbox(
+                checked = deductFromMainAccount,
+                onCheckedChange = { deductFromMainAccount = it }
+            )
+        }
         errorText?.let {
             Text(text = it, color = MaterialTheme.colorScheme.error)
         }
@@ -194,7 +212,8 @@ fun ExpenseEntryScreen(
                         category = category,
                         date = selectedDate,
                         includesTax = includeTax,
-                        manualPercentages = manualPercentages
+                        manualPercentages = manualPercentages,
+                        deductFromMainAccount = deductFromMainAccount
                     )
                 )
             }, modifier = Modifier.weight(1f)) {

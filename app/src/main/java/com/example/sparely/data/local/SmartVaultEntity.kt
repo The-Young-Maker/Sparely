@@ -6,6 +6,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.Relation
+import com.example.sparely.domain.model.AccountType
 import com.example.sparely.domain.model.AutoDepositFrequency
 import com.example.sparely.domain.model.VaultAllocationMode
 import com.example.sparely.domain.model.VaultContributionSource
@@ -30,7 +31,10 @@ data class SmartVaultEntity(
     val nextExpectedContribution: Double?,
     val lastContributionDate: LocalDate?,
     val savingTaxRateOverride: Double?,
-    val archived: Boolean
+    val archived: Boolean,
+    val accountType: AccountType?,
+    val accountNumber: String?,
+    val accountNotes: String?
 )
 
 @Entity(

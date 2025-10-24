@@ -20,9 +20,10 @@ import androidx.room.TypeConverters
         SmartVaultEntity::class,
         VaultAutoDepositEntity::class,
         VaultContributionEntity::class,
-        VaultBalanceAdjustmentEntity::class
+        VaultBalanceAdjustmentEntity::class,
+        MainAccountTransactionEntity::class
     ],
-    version = 6,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -36,6 +37,7 @@ abstract class SparelyDatabase : RoomDatabase() {
     abstract fun achievementDao(): AchievementDao
     abstract fun savingsAccountDao(): SavingsAccountDao
     abstract fun smartVaultDao(): SmartVaultDao
+    abstract fun mainAccountDao(): MainAccountDao
 
     companion object {
         @Volatile

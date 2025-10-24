@@ -39,10 +39,7 @@ import com.example.sparely.data.local.SparelyDatabase
 import com.example.sparely.data.local.ExpenseEntity
 import com.example.sparely.data.preferences.UserPreferencesRepository
 import com.example.sparely.data.local.toDomain
-import com.example.sparely.domain.model.SmartTransferRecommendation
 import com.example.sparely.domain.logic.BudgetEngine
-import com.example.sparely.domain.logic.SmartTransferEngine
-import com.example.sparely.domain.model.SmartTransferStatus
 import com.example.sparely.domain.model.AllocationBreakdown
 import com.example.sparely.domain.model.BudgetOverrunPrompt
 import com.example.sparely.domain.model.BudgetPromptReason
@@ -166,7 +163,6 @@ private data class SavingsWidgetSnapshot(
     val monthSaved: Double,
     val monthSpent: Double,
     val recentExpense: ExpenseSummary?,
-    val smartTransfer: SmartTransferRecommendation?,
     val settings: SparelySettings,
     val budgetPrompt: BudgetPromptSummary?,
     val nextRecurring: NextRecurringSummary?
@@ -246,15 +242,12 @@ private class SavingsWidgetDataRepository(context: Context) {
                     .let { computeUpcomingRecurring(it, now) }
                     .firstOrNull()
                     ?.toWidgetSummary()
-                val smartSnapshot = preferences.getSmartTransferSnapshot()
-                val smartRecommendation = SmartTransferEngine.evaluate(smartSnapshot)
 
                 SavingsWidgetSnapshot(
                     totalSaved = totalSaved,
                     monthSaved = monthSaved,
                     monthSpent = monthSpent,
                     recentExpense = recentExpense,
-                    smartTransfer = smartRecommendation,
                     settings = settings,
                     budgetPrompt = budgetPrompt,
                     nextRecurring = upcomingRecurring
@@ -266,7 +259,6 @@ private class SavingsWidgetDataRepository(context: Context) {
                 monthSaved = 0.0,
                 monthSpent = 0.0,
                 recentExpense = null,
-                smartTransfer = null,
                 settings = SparelySettings(),
                 budgetPrompt = null,
                 nextRecurring = null
@@ -597,20 +589,6 @@ private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Actio
         }
         
         // Smart Insights - Contextual cards
-        snapshot.smartTransfer?.let { smart ->
-            if (smart.status == SmartTransferStatus.READY || smart.status == SmartTransferStatus.AWAITING_CONFIRMATION) {
-                Spacer(modifier = GlanceModifier.height(12.dp))
-                SmartTransferInsightCard(
-                    recommendation = smart,
-                    currencyFormatter = currencyFormatter,
-                    onSurfaceColor = onSurfaceColor,
-                    onSurfaceVariantColor = onSurfaceVariantColor,
-                    primaryColor = primaryColor,
-                    surfaceContainerColor = surfaceContainerColor
-                )
-            }
-        }
-        
         snapshot.budgetPrompt?.let { prompt ->
             Spacer(modifier = GlanceModifier.height(12.dp))
             BudgetAlertCard(
@@ -802,9 +780,9 @@ private fun NextRecurringWidgetCard(
     currencyFormatter: (Double) -> String,
     onSurfaceColor: ColorProvider,
     onSurfaceVariantColor: ColorProvider,
-    accentColor: ColorProvider,
-    neutralContainerColor: ColorProvider
+    accentColor: ColorProvider,    neutralContainerColor: ColorProvider
 ) {
+
     val dueDateLabel = summary.dueDate.format(widgetDateFormatter)
     Column(
         modifier = GlanceModifier
@@ -865,157 +843,6 @@ private fun NextRecurringWidgetCard(
     }
 }
 
-@Composable
-private fun SmartTransferWidgetPanel(
-    recommendation: SmartTransferRecommendation,
-    currencyFormatter: (Double) -> String,
-    onSurfaceColor: ColorProvider,
-    onSurfaceVariantColor: ColorProvider,
-    accentColor: ColorProvider,
-    accentContainerColor: ColorProvider,
-    spentColor: ColorProvider,
-    spentContainerColor: ColorProvider,
-    neutralContainerColor: ColorProvider
-) {
-    val (containerColor, headlineColor) = when (recommendation.status) {
-        SmartTransferStatus.READY -> accentContainerColor to accentColor
-        SmartTransferStatus.ACCUMULATING -> spentContainerColor to spentColor
-        SmartTransferStatus.STANDBY -> neutralContainerColor to onSurfaceVariantColor
-        SmartTransferStatus.AWAITING_CONFIRMATION -> accentContainerColor to accentColor
-    }
-    val totalText = currencyFormatter(recommendation.totalAmount)
-    val countLabel = if (recommendation.pendingExpenseCount == 1) "1 purchase" else "${recommendation.pendingExpenseCount} purchases"
-    val statusDetail = when (recommendation.status) {
-        SmartTransferStatus.READY -> "Ready to shift across. Tap Sparely after you move it."
-        SmartTransferStatus.ACCUMULATING -> {
-            val remainingMillis = recommendation.holdUntilEpochMillis?.let { it - System.currentTimeMillis() } ?: 0L
-            val remainingMinutes = if (remainingMillis > 0) remainingMillis / 60000.0 else 0.0
-            if (remainingMinutes > 0.1) {
-                "Holding for another ${String.format("%.1f", remainingMinutes)} min in case you add more."
-            } else {
-                "Holding briefly for the next expense in your streak."
-            }
-        }
-        SmartTransferStatus.STANDBY -> {
-            val shortfall = recommendation.shortfallToThreshold
-            if (shortfall > 0.0) {
-                "Needs ${currencyFormatter(recommendation.minimumTransferAmount)} total — ${currencyFormatter(shortfall)} to go."
-            } else {
-                "Below your quick-transfer threshold but available anytime."
-            }
-        }
-    SmartTransferStatus.AWAITING_CONFIRMATION -> "Amounts stay parked until you mark them done."
-    }
-
-    Column(
-        modifier = GlanceModifier
-            .fillMaxWidth()
-            .background(containerColor)
-            .cornerRadius(18.dp)
-            .padding(14.dp)
-    ) {
-        Text(
-            text = "Smart transfer",
-            style = TextStyle(
-                color = headlineColor,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium
-            )
-        )
-        Spacer(modifier = GlanceModifier.height(4.dp))
-        Text(
-            text = totalText,
-            style = TextStyle(
-                color = onSurfaceColor,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
-            )
-        )
-        Spacer(modifier = GlanceModifier.height(2.dp))
-        Text(
-            text = statusDetail,
-            style = TextStyle(
-                color = onSurfaceVariantColor,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Normal
-            )
-        )
-        Spacer(modifier = GlanceModifier.height(6.dp))
-        Text(
-            text = "From $countLabel",
-            style = TextStyle(
-                color = headlineColor,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium
-            )
-        )
-        Spacer(modifier = GlanceModifier.height(4.dp))
-        Text(
-            text = "Emergency ${currencyFormatter(recommendation.emergencyPortion)} · Investing ${currencyFormatter(recommendation.investmentPortion)}",
-            style = TextStyle(
-                color = onSurfaceVariantColor,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Normal
-            )
-        )
-    }
-}
-
-@Composable
-private fun SmartTransferInsightCard(
-    recommendation: SmartTransferRecommendation,
-    currencyFormatter: (Double) -> String,
-    onSurfaceColor: ColorProvider,
-    onSurfaceVariantColor: ColorProvider,
-    primaryColor: ColorProvider,
-    surfaceContainerColor: ColorProvider
-) {
-    Column(
-        modifier = GlanceModifier
-            .fillMaxWidth()
-            .background(surfaceContainerColor)
-            .cornerRadius(16.dp)
-            .padding(16.dp)
-    ) {
-        Row(
-            modifier = GlanceModifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Image(
-                provider = ImageProvider(R.drawable.ic_arrow_forward),
-                contentDescription = "Transfer",
-                modifier = GlanceModifier.size(20.dp),
-                colorFilter = androidx.glance.ColorFilter.tint(primaryColor)
-            )
-            Spacer(modifier = GlanceModifier.width(8.dp))
-            Text(
-                text = "Smart Transfer Ready",
-                style = TextStyle(
-                    color = onSurfaceColor,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            )
-        }
-        Spacer(modifier = GlanceModifier.height(6.dp))
-        Text(
-            text = "${currencyFormatter(recommendation.totalAmount)} ready to move",
-            style = TextStyle(
-                color = onSurfaceColor,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
-            )
-        )
-        Spacer(modifier = GlanceModifier.height(4.dp))
-        Text(
-            text = "Emergency ${currencyFormatter(recommendation.emergencyPortion)} · Investing ${currencyFormatter(recommendation.investmentPortion)}",
-            style = TextStyle(
-                color = onSurfaceVariantColor,
-                fontSize = 12.sp
-            )
-        )
-    }
-}
 
 @Composable
 private fun BudgetAlertCard(

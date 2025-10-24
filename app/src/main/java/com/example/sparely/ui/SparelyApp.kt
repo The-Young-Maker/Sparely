@@ -13,6 +13,8 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Schedule
+import com.example.sparely.ui.theme.MaterialSymbols
+import com.example.sparely.ui.theme.MaterialSymbolIcon
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -32,6 +34,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.annotation.DrawableRes
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -49,6 +53,7 @@ import com.example.sparely.ui.screens.FinancialHealthScreen
 import com.example.sparely.ui.screens.GoalsScreen
 import com.example.sparely.ui.screens.HistoryScreen
 import com.example.sparely.ui.screens.OnboardingScreen
+import com.example.sparely.ui.screens.MainAccountScreen
 import com.example.sparely.ui.screens.RecurringExpensesScreen
 import com.example.sparely.ui.screens.VaultManagementScreen
 import com.example.sparely.ui.screens.VaultTransfersScreen
@@ -140,7 +145,11 @@ private fun SparelyScaffold(
                 FloatingActionButton(onClick = {
                     navController.navigate(SparelyDestination.ExpenseEntry.route)
                 }) {
-                    Icon(imageVector = Icons.Default.Save, contentDescription = "Log purchase")
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.SAVINGS,
+                        contentDescription = "Log purchase",
+                        size = 24.dp
+                    )
                 }
             }
         }
@@ -165,7 +174,11 @@ private fun SparelyTopBar(currentDestination: NavDestination?, navController: Na
         navigationIcon = {
             if (!isTopLevel) {
                 IconButton(onClick = { navController.popBackStack() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.ARROW_BACK,
+                        contentDescription = "Back",
+                        size = 24.dp
+                    )
                 }
             }
         },
@@ -201,7 +214,15 @@ private fun SparelyBottomBar(
                     }
                 },
                 icon = {
-                    Icon(imageVector = destination.icon, contentDescription = destination.label)
+                    if (destination.iconDrawable != null) {
+                        MaterialSymbolIcon(
+                            icon = destination.iconDrawable,
+                            contentDescription = destination.label,
+                            size = 24.dp
+                        )
+                    } else if (destination.icon != null) {
+                        Icon(imageVector = destination.icon, contentDescription = destination.label)
+                    }
                 },
                 label = { Text(destination.label) }
             )
@@ -232,13 +253,9 @@ private fun SparelyNavHost(
                 onNavigateToChallenges = { navController.navigate(SparelyDestination.Challenges.route) },
                 onNavigateToHealth = { navController.navigate(SparelyDestination.Health.route) },
                 onNavigateToRecurring = { navController.navigate(SparelyDestination.Recurring.route) },
-                onConfirmSmartTransfer = viewModel::confirmSmartTransfer,
-                onSnoozeSmartTransfer = viewModel::snoozeSmartTransfer,
-                onDismissSmartTransfer = viewModel::dismissSmartTransfer,
-                onCompleteSmartTransfer = viewModel::completeSmartTransfer,
-                onCancelSmartTransfer = viewModel::cancelSmartTransfer,
                 onManageVaults = { navController.navigate("vaultManagement") },
-                onNavigateToVaultTransfers = { navController.navigate("vaultTransfers") }
+                onNavigateToVaultTransfers = { navController.navigate("vaultTransfers") },
+                onNavigateToMainAccount = { navController.navigate("mainAccount") }
             )
         }
         composable(SparelyDestination.History.route) {
@@ -296,8 +313,6 @@ private fun SparelyNavHost(
                 automationNotes = uiState.automationRationale,
                 autoModeEnabled = uiState.settings.autoRecommendationsEnabled,
                 recommendation = uiState.recommendation,
-                savingsPlan = uiState.savingsPlan,
-                manualTransfers = uiState.manualTransfers,
                 alerts = uiState.alerts,
                 onPercentagesChange = viewModel::updatePercentages,
                 onAutoToggle = viewModel::toggleAutoMode,
@@ -310,7 +325,6 @@ private fun SparelyNavHost(
                 onPrimaryGoalChange = viewModel::updatePrimaryGoal,
                 onDisplayNameChange = viewModel::updateDisplayName,
                 onBirthdayChange = viewModel::updateBirthday,
-                onLogTransfer = viewModel::logManualTransfer,
                 onMonthlyIncomeChange = viewModel::updateMonthlyIncome,
                 onIncludeTaxToggle = viewModel::updateIncludeTax,
                 onVaultAllocationModeChange = viewModel::updateVaultAllocationMode,
@@ -325,7 +339,8 @@ private fun SparelyNavHost(
                 onManualAutoDepositTrigger = viewModel::triggerManualAutoDepositCheck,
                 autoDepositsEnabled = uiState.settings.paySchedule.autoDistributeToVaults,
                 autoDepositCheckHour = uiState.autoDepositCheckHour,
-                onRegionalSettingsChange = viewModel::updateRegionalSettings
+                onRegionalSettingsChange = viewModel::updateRegionalSettings,
+                onMainAccountBalanceChange = viewModel::updateMainAccountBalance
             )
         }
         composable(SparelyDestination.ExpenseEntry.route) {
@@ -379,23 +394,34 @@ private fun SparelyNavHost(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
+        composable("mainAccount") {
+            MainAccountScreen(
+                currentBalance = uiState.settings.mainAccountBalance,
+                transactions = uiState.mainAccountTransactions,
+                onDeposit = viewModel::depositToMainAccount,
+                onWithdraw = viewModel::withdrawFromMainAccount,
+                onAdjust = viewModel::adjustMainAccountBalance,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
     }
 }
 
 private enum class SparelyDestination(
     val route: String,
-    val icon: ImageVector,
+    val icon: ImageVector?,
+    val iconDrawable: Int?,
     val label: String
 ) {
-    Dashboard("dashboard", Icons.Default.Home, "Dashboard"),
-    History("history", Icons.Default.BarChart, "History"),
-    Goals("goals", Icons.Default.Save, "Goals"),
-    Budgets("budgets", Icons.Default.AccountBalance, "Budgets"),
-    Challenges("challenges", Icons.Default.EmojiEvents, "Challenges"),
-    Recurring("recurring", Icons.Default.Schedule, "Recurring"),
-    Health("health", Icons.Default.Favorite, "Health"),
-    Settings("settings", Icons.Default.MoreHoriz, "Settings"),
-    ExpenseEntry("expense", Icons.Default.Save, "Log purchase");
+    Dashboard("dashboard", null, MaterialSymbols.HOME, "Dashboard"),
+    History("history", null, MaterialSymbols.BAR_CHART, "History"),
+    Goals("goals", null, MaterialSymbols.SAVINGS, "Goals"),
+    Budgets("budgets", null, MaterialSymbols.ACCOUNT_BALANCE, "Budgets"),
+    Challenges("challenges", null, MaterialSymbols.TROPHY, "Challenges"),
+    Recurring("recurring", null, MaterialSymbols.SCHEDULE, "Recurring"),
+    Health("health", null, MaterialSymbols.FAVORITE, "Health"),
+    Settings("settings", null, MaterialSymbols.SETTINGS, "Settings"),
+    ExpenseEntry("expense", null, MaterialSymbols.SAVINGS, "Log purchase");
 
     companion object {
         fun fromRoute(route: String?): SparelyDestination? {

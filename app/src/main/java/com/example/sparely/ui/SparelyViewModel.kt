@@ -19,7 +19,6 @@ import com.example.sparely.domain.logic.RecommendationEngine
 import com.example.sparely.domain.logic.SavingsAdvisor
 import com.example.sparely.domain.logic.SavingsCalculator
 import com.example.sparely.domain.logic.SavingTaxEngine
-import com.example.sparely.domain.logic.SmartTransferEngine
 import com.example.sparely.domain.logic.DynamicAllocationEngine
 import com.example.sparely.domain.logic.IncomeAutomationEngine
 import com.example.sparely.domain.logic.PayScheduleCalculator
@@ -51,8 +50,6 @@ import com.example.sparely.domain.model.SavingsPercentages
 import com.example.sparely.domain.model.SparelySettings
 import com.example.sparely.domain.model.SmartAllocationMode
 import com.example.sparely.domain.model.SmartSavingSummary
-import com.example.sparely.domain.model.SmartTransferSnapshot
-import com.example.sparely.domain.model.SmartTransferStatus
 import com.example.sparely.domain.model.SmartVault
 import com.example.sparely.domain.model.TransferReminderPreference
 import com.example.sparely.domain.model.UpcomingRecurringExpense
@@ -128,7 +125,6 @@ class SparelyViewModel(
         val goals: List<GoalEntity>,
         val transfers: List<SavingsTransferEntity>,
         val settings: SparelySettings,
-        val smartSnapshot: SmartTransferSnapshot,
         val vaults: List<SmartVault> = emptyList(),
         val budgets: List<CategoryBudget> = emptyList(),
         val recurring: List<RecurringExpense> = emptyList(),
@@ -149,15 +145,13 @@ class SparelyViewModel(
                 savingsRepository.observeExpenses(),
                 savingsRepository.observeGoals(),
                 savingsRepository.observeTransfers(),
-                preferencesRepository.settingsFlow,
-                preferencesRepository.smartTransferFlow
-            ) { expenses, goals, transfers, settings, smartSnapshot ->
+                preferencesRepository.settingsFlow
+            ) { expenses, goals, transfers, settings ->
                 AggregatedFeeds(
                     expenses = expenses,
                     goals = goals,
                     transfers = transfers,
-                    settings = settings,
-                    smartSnapshot = smartSnapshot
+                    settings = settings
                 )
             }
                 .combine(savingsRepository.observeSmartVaults()) { feed, vaults ->
@@ -181,13 +175,16 @@ class SparelyViewModel(
                 .combine(preferencesRepository.autoDepositCheckHourFlow) { (feed, onboardingCompleted), autoDepositCheckHour ->
                     Triple(feed, onboardingCompleted, autoDepositCheckHour)
                 }
+                .combine(savingsRepository.observeMainAccountTransactions()) { (feed, onboardingCompleted, autoDepositCheckHour), mainAccountTransactions ->
+                    Quadruple(feed, onboardingCompleted, autoDepositCheckHour, mainAccountTransactions)
+                }
                 .catch { throwable ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         errorMessage = throwable.message
                     )
                 }
-                .collect { (feed, onboardingCompleted, autoDepositCheckHour) ->
+                .collect { (feed, onboardingCompleted, autoDepositCheckHour, mainAccountTransactions) ->
                     val domainExpenses = feed.expenses.map { it.toDomain() }
                     val domainTransfers = feed.transfers.map { it.toDomain() }
                     val domainGoals = GoalPlanner.toDomainGoals(feed.goals, domainExpenses, domainTransfers)
@@ -234,7 +231,6 @@ class SparelyViewModel(
                     notificationScheduler.schedulePaydayReminder(feed.settings)
 
                     val alerts = AlertsGenerator.buildAlerts(analytics, recommendation, feed.settings, domainGoals)
-                    val smartTransfer = SmartTransferEngine.evaluate(feed.smartSnapshot)
                     var combinedAlerts = (alerts + budgetAlerts)
                         .distinctBy { it.title }
                         .sortedByDescending { it.priority }
@@ -358,7 +354,6 @@ class SparelyViewModel(
                         savingsPlan = plan,
                         smartSavingSummary = smartSavingSummary,
                         alerts = combinedAlerts,
-                        smartTransfer = smartTransfer,
                         smartVaults = feed.vaults,
                         totalVaultBalance = totalVaultBalance,
                         vaultAdjustments = _uiState.value.vaultAdjustments,
@@ -379,6 +374,7 @@ class SparelyViewModel(
                         detectedRecurringTransactions = detectedRecurring,
                         pendingVaultContributions = pendingContributions,
                         autoDepositCheckHour = autoDepositCheckHour,
+                        mainAccountTransactions = mainAccountTransactions,
                         isLoading = false,
                         errorMessage = null
                     )
@@ -596,30 +592,61 @@ class SparelyViewModel(
                 riskLevelUsed = settings.riskLevel
             )
             savingsRepository.upsertExpense(entity)
-            if (input.id == null || input.id == 0L) {
-                preferencesRepository.registerExpenseForSmartTransfer(
-                    emergencyAmount = allocation.emergencyAmount,
-                    investmentAmount = allocation.investmentAmount
+            val insertedExpenseId = entity.id
+            
+            // Get current balance once at the start
+            var currentBalance = savingsRepository.getLatestMainAccountBalance()
+            
+            // Handle main account deduction for expense
+            if (input.deductFromMainAccount) {
+                val newBalance = (currentBalance - input.amount).coerceAtLeast(0.0)
+                val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                    type = com.example.sparely.data.local.MainAccountTransactionType.EXPENSE,
+                    amount = input.amount,
+                    balanceAfter = newBalance,
+                    timestamp = java.time.LocalDateTime.now(),
+                    description = input.description.take(100),
+                    relatedExpenseId = insertedExpenseId
                 )
-                val savingTaxPlans = SavingTaxEngine.calculate(
-                    SavingTaxEngine.Context(
-                        expenseAmount = input.amount,
-                        expenseDate = input.date,
-                        settings = settings,
-                        vaults = currentState.smartVaults
+                savingsRepository.insertMainAccountTransaction(transaction)
+                preferencesRepository.updateMainAccountBalance(newBalance)
+                currentBalance = newBalance // Update for next deduction
+            }
+            
+            val savingTaxPlans = SavingTaxEngine.calculate(
+                SavingTaxEngine.Context(
+                    expenseAmount = input.amount,
+                    expenseDate = input.date,
+                    settings = settings,
+                    vaults = currentState.smartVaults
+                )
+            )
+            if (savingTaxPlans.isNotEmpty()) {
+                val contributions = savingTaxPlans.map { plan ->
+                    VaultContribution(
+                        vaultId = plan.vaultId,
+                        amount = plan.amount,
+                        date = input.date,
+                        source = VaultContributionSource.SAVING_TAX,
+                        note = "Saving tax from ${input.description}".take(120)
                     )
-                )
-                if (savingTaxPlans.isNotEmpty()) {
-                    val contributions = savingTaxPlans.map { plan ->
-                        VaultContribution(
-                            vaultId = plan.vaultId,
-                            amount = plan.amount,
-                            date = input.date,
-                            source = VaultContributionSource.SAVING_TAX,
-                            note = "Saving tax from ${input.description}".take(120)
-                        )
-                    }
-                    savingsRepository.logVaultContributions(contributions)
+                }
+                val contributionIds = savingsRepository.logVaultContributions(contributions)
+                
+                // Deduct total saving tax from main account (using updated balance from expense deduction if applicable)
+                val totalSavingTax = savingTaxPlans.sumOf { it.amount }
+                if (totalSavingTax > 0.0) {
+                    val newBalance = (currentBalance - totalSavingTax).coerceAtLeast(0.0)
+                    val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                        type = com.example.sparely.data.local.MainAccountTransactionType.VAULT_CONTRIBUTION,
+                        amount = totalSavingTax,
+                        balanceAfter = newBalance,
+                        timestamp = java.time.LocalDateTime.now(),
+                        description = "Saving tax to ${savingTaxPlans.size} vault(s)",
+                        relatedVaultContributionIds = contributionIds
+                    )
+                    savingsRepository.insertMainAccountTransaction(transaction)
+                    preferencesRepository.updateMainAccountBalance(newBalance)
                 }
             }
         }
@@ -635,7 +662,6 @@ class SparelyViewModel(
         viewModelScope.launch(dispatcher) {
             savingsRepository.clearExpenses()
             savingsRepository.clearTransfers()
-            preferencesRepository.clearSmartTransferState()
             if (clearGoals) {
                 savingsRepository.clearGoals()
             }
@@ -700,6 +726,62 @@ class SparelyViewModel(
         }
     }
 
+    fun updateMainAccountBalance(balance: Double) {
+        viewModelScope.launch(dispatcher) {
+            preferencesRepository.updateMainAccountBalance(balance)
+        }
+    }
+
+    fun depositToMainAccount(amount: Double, description: String) {
+        if (amount <= 0.0) return
+        viewModelScope.launch(dispatcher) {
+            val currentBalance = savingsRepository.getLatestMainAccountBalance()
+            val newBalance = currentBalance + amount
+            val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                type = com.example.sparely.data.local.MainAccountTransactionType.DEPOSIT,
+                amount = amount,
+                balanceAfter = newBalance,
+                timestamp = java.time.LocalDateTime.now(),
+                description = description.take(100)
+            )
+            savingsRepository.insertMainAccountTransaction(transaction)
+            preferencesRepository.updateMainAccountBalance(newBalance)
+        }
+    }
+
+    fun withdrawFromMainAccount(amount: Double, description: String) {
+        if (amount <= 0.0) return
+        viewModelScope.launch(dispatcher) {
+            val currentBalance = savingsRepository.getLatestMainAccountBalance()
+            val newBalance = (currentBalance - amount).coerceAtLeast(0.0)
+            val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                type = com.example.sparely.data.local.MainAccountTransactionType.WITHDRAWAL,
+                amount = amount,
+                balanceAfter = newBalance,
+                timestamp = java.time.LocalDateTime.now(),
+                description = description.take(100)
+            )
+            savingsRepository.insertMainAccountTransaction(transaction)
+            preferencesRepository.updateMainAccountBalance(newBalance)
+        }
+    }
+
+    fun adjustMainAccountBalance(newBalance: Double, reason: String) {
+        viewModelScope.launch(dispatcher) {
+            val currentBalance = savingsRepository.getLatestMainAccountBalance()
+            val delta = newBalance - currentBalance
+            val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                type = com.example.sparely.data.local.MainAccountTransactionType.ADJUSTMENT,
+                amount = kotlin.math.abs(delta),
+                balanceAfter = newBalance.coerceAtLeast(0.0),
+                timestamp = java.time.LocalDateTime.now(),
+                description = reason.take(100)
+            )
+            savingsRepository.insertMainAccountTransaction(transaction)
+            preferencesRepository.updateMainAccountBalance(newBalance.coerceAtLeast(0.0))
+        }
+    }
+
     fun updatePaySchedule(schedule: PayScheduleSettings) {
         viewModelScope.launch(dispatcher) {
             preferencesRepository.updatePaySchedule(schedule)
@@ -743,6 +825,7 @@ class SparelyViewModel(
                 }
             }
 
+            var vaultContributionAmount = 0.0
             if (autoDistribute) {
                 val saveRate = if (schedule.dynamicSaveRateEnabled) {
                     automationSaveRate
@@ -753,7 +836,8 @@ class SparelyViewModel(
                 if (amountForVaults > 0.0) {
                     val planned = planIncomeContributions(amountForVaults, payday, createPendingTransfers)
                     if (planned.isNotEmpty()) {
-                        savingsRepository.logVaultContributions(planned)
+                        val contributionIds = savingsRepository.logVaultContributions(planned)
+                        vaultContributionAmount = amountForVaults
                         if (createPendingTransfers) {
                             refreshPendingContributions()
                         }
@@ -774,6 +858,36 @@ class SparelyViewModel(
             )
             preferencesRepository.updatePaySchedule(mutatedSchedule)
             preferencesRepository.recordPaycheckHistory(normalizedAmount)
+            
+            // Add paycheck to main account and deduct vault contributions
+            var currentBalance = savingsRepository.getLatestMainAccountBalance()
+            
+            // 1. Add paycheck deposit
+            currentBalance += normalizedAmount
+            val depositTransaction = com.example.sparely.domain.model.MainAccountTransaction(
+                type = com.example.sparely.data.local.MainAccountTransactionType.DEPOSIT,
+                amount = normalizedAmount,
+                balanceAfter = currentBalance,
+                timestamp = java.time.LocalDateTime.now(),
+                description = "Paycheck"
+            )
+            savingsRepository.insertMainAccountTransaction(depositTransaction)
+            preferencesRepository.updateMainAccountBalance(currentBalance)
+            
+            // 2. Deduct vault contributions if auto-distributed
+            if (vaultContributionAmount > 0.0) {
+                currentBalance -= vaultContributionAmount
+                val vaultTransaction = com.example.sparely.domain.model.MainAccountTransaction(
+                    type = com.example.sparely.data.local.MainAccountTransactionType.VAULT_CONTRIBUTION,
+                    amount = vaultContributionAmount,
+                    balanceAfter = currentBalance,
+                    timestamp = java.time.LocalDateTime.now(),
+                    description = "Auto-distributed to vaults from paycheck"
+                )
+                savingsRepository.insertMainAccountTransaction(vaultTransaction)
+                preferencesRepository.updateMainAccountBalance(currentBalance)
+            }
+            
             notificationScheduler.dismissPaydayReminderNotification()
             val refreshedSettings = preferencesRepository.getSettingsSnapshot()
             notificationScheduler.schedulePaydayReminder(refreshedSettings)
@@ -965,66 +1079,6 @@ class SparelyViewModel(
                 note = note
             )
             savingsRepository.logTransfer(transfer)
-        }
-    }
-
-    fun confirmSmartTransfer() {
-        viewModelScope.launch(dispatcher) {
-            preferencesRepository.beginSmartTransferConfirmation()
-            val snapshot = preferencesRepository.getSmartTransferSnapshot()
-            val recommendation = SmartTransferEngine.evaluate(snapshot)
-            if (recommendation != null && recommendation.status == SmartTransferStatus.AWAITING_CONFIRMATION) {
-                val vaultBreakdown = buildPendingVaultBreakdown()
-                notificationScheduler.showSmartTransferTracker(recommendation, vaultBreakdown)
-            }
-        }
-    }
-
-    fun completeSmartTransfer() {
-        viewModelScope.launch(dispatcher) {
-            val (emergency, investment) = preferencesRepository.completeSmartTransferConfirmation()
-            if (emergency > 0.0) {
-                savingsRepository.logTransfer(
-                    SavingsTransferEntity(
-                        category = SavingsCategory.EMERGENCY,
-                        amount = emergency.toCurrencyPrecision(),
-                        date = LocalDate.now()
-                    )
-                )
-            }
-            if (investment > 0.0) {
-                savingsRepository.logTransfer(
-                    SavingsTransferEntity(
-                        category = SavingsCategory.INVESTMENT,
-                        amount = investment.toCurrencyPrecision(),
-                        date = LocalDate.now()
-                    )
-                )
-            }
-            notificationScheduler.dismissSmartTransferTracker()
-        }
-    }
-
-    fun cancelSmartTransfer(returnToPending: Boolean) {
-        viewModelScope.launch(dispatcher) {
-            preferencesRepository.cancelSmartTransferConfirmation(returnToPending)
-            if (!returnToPending) {
-                preferencesRepository.clearSmartTransferState()
-            }
-            notificationScheduler.dismissSmartTransferTracker()
-        }
-    }
-
-    fun snoozeSmartTransfer() {
-        viewModelScope.launch(dispatcher) {
-            preferencesRepository.snoozeSmartTransfer()
-        }
-    }
-
-    fun dismissSmartTransfer() {
-        viewModelScope.launch(dispatcher) {
-            preferencesRepository.clearSmartTransferState()
-            notificationScheduler.dismissSmartTransferTracker()
         }
     }
 
@@ -1306,3 +1360,10 @@ class SparelyViewModelFactory(
         throw IllegalArgumentException("Unknown ViewModel class $modelClass")
     }
 }
+
+private data class Quadruple<A, B, C, D>(
+    val first: A,
+    val second: B,
+    val third: C,
+    val fourth: D
+)

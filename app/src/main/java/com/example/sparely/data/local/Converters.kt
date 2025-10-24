@@ -16,6 +16,8 @@ import com.example.sparely.domain.model.VaultPriority
 import com.example.sparely.domain.model.VaultType
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 
 /**
  * Room converters for enums and date types.
@@ -26,6 +28,12 @@ class Converters {
 
     @TypeConverter
     fun toEpochDay(date: LocalDate?): Long? = date?.toEpochDay()
+
+    @TypeConverter
+    fun fromEpochSecond(value: Long?): LocalDateTime? = value?.let { LocalDateTime.ofEpochSecond(it, 0, ZoneOffset.UTC) }
+
+    @TypeConverter
+    fun toEpochSecond(dateTime: LocalDateTime?): Long? = dateTime?.toEpochSecond(ZoneOffset.UTC)
 
     @TypeConverter
     fun fromRisk(value: String?): RiskLevel? = value?.let { RiskLevel.valueOf(it) }
@@ -110,4 +118,10 @@ class Converters {
 
     @TypeConverter
     fun toVaultAdjustmentType(type: VaultAdjustmentType?): String? = type?.name
+
+    @TypeConverter
+    fun fromMainAccountTransactionType(value: String?): MainAccountTransactionType? = value?.let { MainAccountTransactionType.valueOf(it) }
+
+    @TypeConverter
+    fun toMainAccountTransactionType(type: MainAccountTransactionType?): String? = type?.name
 }

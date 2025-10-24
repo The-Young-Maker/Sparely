@@ -57,6 +57,8 @@ import com.example.sparely.domain.model.ExpenseCategory
 import com.example.sparely.domain.model.RecurringExpense
 import com.example.sparely.domain.model.RecurringExpenseInput
 import com.example.sparely.domain.model.RecurringFrequency
+import com.example.sparely.ui.theme.MaterialSymbolIcon
+import com.example.sparely.ui.theme.MaterialSymbols
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -143,7 +145,7 @@ fun RecurringExpensesScreen(
                 isDialogVisible = true
             }
         ) {
-            Icon(imageVector = Icons.Default.Add, contentDescription = "Add recurring expense")
+            MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = "Add recurring expense")
         }
     }
 
@@ -340,10 +342,10 @@ private fun RecurringExpenseRow(
                         fontWeight = FontWeight.Bold
                     )
                     IconButton(onClick = onEdit) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit recurring expense")
+                        MaterialSymbolIcon(icon = MaterialSymbols.EDIT, contentDescription = "Edit recurring expense")
                     }
                     IconButton(onClick = onDelete) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete recurring expense")
+                        MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = "Delete recurring expense")
                     }
                 }
             }
@@ -368,8 +370,7 @@ private fun RecurringExpenseRow(
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Notifications,
+                        MaterialSymbolIcon(icon = MaterialSymbols.NOTIFICATIONS,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
                         )

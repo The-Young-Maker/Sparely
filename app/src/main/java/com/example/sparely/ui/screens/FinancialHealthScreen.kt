@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.model.*
 import com.example.sparely.ui.state.SparelyUiState
+import com.example.sparely.ui.theme.MaterialSymbolIcon
+import com.example.sparely.ui.theme.MaterialSymbols
 
 @Composable
 fun FinancialHealthScreen(
@@ -263,8 +265,8 @@ fun StrengthCard(strength: String) {
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                Icons.Default.CheckCircle,
+            MaterialSymbolIcon(
+                icon = MaterialSymbols.CHECK_CIRCLE,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp)
@@ -317,8 +319,8 @@ fun ImprovementTipCard(tip: ImprovementTip) {
             )
             Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.Lightbulb,
+                MaterialSymbolIcon(
+                    icon = MaterialSymbols.LIGHTBULB,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.primary

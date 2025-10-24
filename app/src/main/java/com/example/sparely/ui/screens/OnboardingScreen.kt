@@ -9,11 +9,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import com.example.sparely.ui.theme.MaterialSymbols
+import com.example.sparely.ui.theme.MaterialSymbolIcon
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.*
+import com.example.sparely.ui.components.ExpressiveCard
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -329,7 +331,7 @@ fun OnboardingProgressBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                MaterialSymbolIcon(icon = MaterialSymbols.ARROW_BACK, contentDescription = "Back")
             }
             Text(
                 text = "Step $currentStep of $totalSteps",
@@ -636,8 +638,8 @@ private fun SmartVaultsStep(
         onRemove: () -> Unit,
         showRemove: Boolean
     ) {
-        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(20.dp)) {
+        ExpressiveCard(modifier = Modifier.fillMaxWidth(), elevation = 6.dp, contentPadding = 20.dp) {
+            Column {
                 if (draft.recommended) {
                     AssistChip(onClick = {}, enabled = false, label = { Text("Recommended") })
                     Spacer(modifier = Modifier.height(12.dp))
@@ -647,7 +649,7 @@ private fun SmartVaultsStep(
                     value = draft.name,
                     onValueChange = { onDraftChange(draft.copy(name = it)) },
                     label = { Text("Vault name") },
-                    leadingIcon = { Icon(Icons.Default.AccountBalanceWallet, contentDescription = null) },
+                    leadingIcon = { MaterialSymbolIcon(icon = MaterialSymbols.ACCOUNT_BALANCE_WALLET, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -659,14 +661,14 @@ private fun SmartVaultsStep(
                         onValueChange = { onDraftChange(draft.copy(targetAmount = it)) },
                         label = { Text("Target amount") },
                         modifier = Modifier.weight(1f),
-                        leadingIcon = { Icon(Icons.Default.Flag, contentDescription = null) }
+                        leadingIcon = { MaterialSymbolIcon(icon = MaterialSymbols.FLAG, contentDescription = null) }
                     )
                     OutlinedTextField(
                         value = draft.currentBalance,
                         onValueChange = { onDraftChange(draft.copy(currentBalance = it)) },
                         label = { Text("Current balance") },
                         modifier = Modifier.weight(1f),
-                        leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null) }
+                        leadingIcon = { MaterialSymbolIcon(icon = MaterialSymbols.ATTACH_MONEY, contentDescription = null) }
                     )
                 }
 
@@ -956,7 +958,7 @@ fun NameStep(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             leadingIcon = {
-                Icon(Icons.Default.Person, contentDescription = null)
+                MaterialSymbolIcon(icon = MaterialSymbols.PERSON, contentDescription = null)
             }
         )
         
@@ -1036,7 +1038,7 @@ fun IncomeStep(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             leadingIcon = {
-                Icon(Icons.Default.AttachMoney, contentDescription = null)
+                MaterialSymbolIcon(icon = MaterialSymbols.ATTACH_MONEY, contentDescription = null)
             }
         )
         
@@ -1046,7 +1048,7 @@ fun IncomeStep(
             onClick = { showBirthdayPicker = true },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Icon(Icons.Default.CalendarMonth, contentDescription = null)
+            MaterialSymbolIcon(icon = MaterialSymbols.CALENDAR_MONTH, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text(birthdayLabel)
         }
@@ -1085,7 +1087,7 @@ fun IncomeStep(
             singleLine = true,
             enabled = birthday == null,
             leadingIcon = {
-                Icon(Icons.Default.Cake, contentDescription = null)
+                MaterialSymbolIcon(icon = MaterialSymbols.CAKE, contentDescription = null)
             },
             supportingText = { Text(ageHelper) }
         )
@@ -1101,8 +1103,8 @@ fun IncomeStep(
                 modifier = Modifier.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    Icons.Default.Lock,
+                MaterialSymbolIcon(
+                    icon = MaterialSymbols.LOCK,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp)
@@ -1287,8 +1289,8 @@ fun RiskLevelOption(
                 )
             }
             if (isSelected) {
-                Icon(
-                    Icons.Default.CheckCircle,
+                MaterialSymbolIcon(
+                    icon = MaterialSymbols.CHECK_CIRCLE,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(32.dp)
@@ -1429,7 +1431,7 @@ private fun FinancialSituationStep(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             leadingIcon = {
-                Icon(Icons.Default.Work, contentDescription = null)
+                MaterialSymbolIcon(icon = MaterialSymbols.WORK, contentDescription = null)
             }
         )
 
@@ -1454,7 +1456,7 @@ private fun FinancialSituationStep(
                 label = { Text("No") },
                 modifier = Modifier.weight(1f),
                 leadingIcon = if (!hasDebts) {
-                    { Icon(Icons.Default.Check, contentDescription = null) }
+                    { MaterialSymbolIcon(icon = MaterialSymbols.CHECK, contentDescription = null) }
                 } else null
             )
             FilterChip(
@@ -1463,7 +1465,7 @@ private fun FinancialSituationStep(
                 label = { Text("Yes") },
                 modifier = Modifier.weight(1f),
                 leadingIcon = if (hasDebts) {
-                    { Icon(Icons.Default.Check, contentDescription = null) }
+                    { MaterialSymbolIcon(icon = MaterialSymbols.CHECK, contentDescription = null) }
                 } else null
             )
         }
@@ -1479,7 +1481,7 @@ private fun FinancialSituationStep(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             leadingIcon = {
-                Icon(Icons.Default.AccountBalanceWallet, contentDescription = null)
+                MaterialSymbolIcon(icon = MaterialSymbols.ACCOUNT_BALANCE_WALLET, contentDescription = null)
             },
             supportingText = {
                 Text("How much do you already have saved for emergencies?")
@@ -1513,7 +1515,7 @@ private fun FinancialSituationStep(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             leadingIcon = {
-                Icon(Icons.Default.AccountBalance, contentDescription = null)
+                MaterialSymbolIcon(icon = MaterialSymbols.ACCOUNT_BALANCE, contentDescription = null)
             }
         )
 
@@ -1528,7 +1530,7 @@ private fun FinancialSituationStep(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             leadingIcon = {
-                Icon(Icons.Default.Savings, contentDescription = null)
+                MaterialSymbolIcon(icon = MaterialSymbols.SAVINGS, contentDescription = null)
             }
         )
 
@@ -1543,7 +1545,7 @@ private fun FinancialSituationStep(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             leadingIcon = {
-                Icon(Icons.Default.Lock, contentDescription = null)
+                MaterialSymbolIcon(icon = MaterialSymbols.LOCK, contentDescription = null)
             }
         )
 
@@ -1574,8 +1576,8 @@ private fun FinancialSituationStep(
             )
         } else {
             subscriptions.forEachIndexed { index, draft ->
-                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                ExpressiveCard(modifier = Modifier.fillMaxWidth(), elevation = 4.dp, contentPadding = 16.dp) {
+                    Column {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1587,7 +1589,7 @@ private fun FinancialSituationStep(
                                 fontWeight = FontWeight.Medium
                             )
                             IconButton(onClick = { onRemoveSubscription(draft.id) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Remove subscription")
+                                MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = "Remove subscription")
                             }
                         }
 
@@ -1613,7 +1615,7 @@ private fun FinancialSituationStep(
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             leadingIcon = {
-                                Icon(Icons.Default.AttachMoney, contentDescription = null)
+                                MaterialSymbolIcon(icon = MaterialSymbols.ATTACH_MONEY, contentDescription = null)
                             }
                         )
                     }
@@ -1624,7 +1626,7 @@ private fun FinancialSituationStep(
         }
 
         OutlinedButton(onClick = onAddSubscription, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.Add, contentDescription = null)
+            MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text("Add subscription")
         }
@@ -1691,7 +1693,7 @@ fun GoalStep(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             leadingIcon = {
-                Icon(Icons.Default.Flag, contentDescription = null)
+                MaterialSymbolIcon(icon = MaterialSymbols.FLAG, contentDescription = null)
             },
             supportingText = {
                 Text("You can add more detailed goals later")
@@ -1714,8 +1716,8 @@ fun GoalStep(
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.CheckCircle,
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.CHECK_CIRCLE,
                         contentDescription = null,
                         tint = accentColor,
                         modifier = Modifier.size(28.dp)
@@ -1748,7 +1750,7 @@ fun GoalStep(
                 contentColor = MaterialTheme.colorScheme.onPrimary
             )
         ) {
-            Icon(Icons.Default.RocketLaunch, contentDescription = null)
+            MaterialSymbolIcon(icon = MaterialSymbols.ROCKET_LAUNCH, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text("Start Saving!", style = MaterialTheme.typography.titleMedium)
         }
@@ -1770,8 +1772,7 @@ private fun CountrySelectionStep(
     ) {
         Spacer(modifier = Modifier.height(32.dp))
         
-        Icon(
-            imageVector = Icons.Default.Public,
+        MaterialSymbolIcon(icon = MaterialSymbols.PUBLIC,
             contentDescription = null,
             modifier = Modifier.size(80.dp),
             tint = MaterialTheme.colorScheme.primary
@@ -1836,8 +1837,7 @@ private fun CountrySelectionStep(
                     }
                     
                     if (selectedCountry?.countryCode == country.countryCode) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
+                        MaterialSymbolIcon(icon = MaterialSymbols.CHECK_CIRCLE,
                             contentDescription = "Selected",
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -1873,8 +1873,7 @@ private fun WelcomeStep(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            imageVector = Icons.Default.Savings,
+        MaterialSymbolIcon(icon = MaterialSymbols.SAVINGS,
             contentDescription = null,
             modifier = Modifier.size(120.dp),
             tint = MaterialTheme.colorScheme.primary

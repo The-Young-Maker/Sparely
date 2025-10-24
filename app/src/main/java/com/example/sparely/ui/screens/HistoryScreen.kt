@@ -19,10 +19,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.TrendingUp
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Receipt
+import com.example.sparely.ui.theme.MaterialSymbols
+import com.example.sparely.ui.theme.MaterialSymbolIcon
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
@@ -30,6 +28,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.ElevatedCard
+import com.example.sparely.ui.components.ExpressiveCard
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -49,8 +48,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
+ 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.model.AnalyticsSnapshot
@@ -59,6 +59,7 @@ import com.example.sparely.domain.model.Expense
 import com.example.sparely.domain.model.ExpenseCategory
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import com.example.sparely.R
 
 @Composable
 fun HistoryScreen(
@@ -80,15 +81,8 @@ fun HistoryScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.surface
-                    )
-                )
-            )
+            // Use a single tonal background instead of a gradient
+            .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -162,11 +156,10 @@ private fun FilterRow(
         ) {
             AssistChip(
                 onClick = { onCategorySelected(null) },
-                label = { Text("All categories") },
+                label = { Text(stringResource(R.string.history_all_categories)) },
                 leadingIcon = {
                     if (categoryFilter == null) {
-                        Icon(
-                            imageVector = Icons.Outlined.Delete,
+                        MaterialSymbolIcon(icon = MaterialSymbols.DELETE,
                             contentDescription = null
                         )
                     }
@@ -200,29 +193,15 @@ private fun ModernSummaryCard(
         label = "savingsRate"
     )
     
-    ElevatedCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(20.dp)),
+    ExpressiveCard(
+        modifier = Modifier.fillMaxWidth(),
+        // Use a single tonal container for clarity instead of a gradient
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+        elevation = 6.dp,
+        contentPadding = 20.dp
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
-                            MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
-                        )
-                    )
-                )
-                .padding(20.dp)
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -239,8 +218,7 @@ private fun ModernSummaryCard(
                                 .background(MaterialTheme.colorScheme.primaryContainer),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Receipt,
+                            MaterialSymbolIcon(icon = MaterialSymbols.RECEIPT,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(28.dp)
@@ -329,8 +307,7 @@ private fun ModernSummaryCard(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                            MaterialSymbolIcon(icon = MaterialSymbols.TRENDING_UP,
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp),
                                 tint = MaterialTheme.colorScheme.primary
@@ -383,23 +360,20 @@ private fun ModernSummaryCard(
             }
         }
     }
-}
+
 
 @Composable
 private fun ModernExpenseCard(expense: Expense, onDelete: () -> Unit) {
     val formatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
     val savingsRate = expense.allocation.totalSetAside / expense.amount
     
-    ElevatedCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(2.dp, RoundedCornerShape(16.dp)),
+    ExpressiveCard(
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+        elevation = 2.dp,
+        contentPadding = 18.dp
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Column {
             // Header Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -436,8 +410,7 @@ private fun ModernExpenseCard(expense: Expense, onDelete: () -> Unit) {
                     }
                 }
                 IconButton(onClick = onDelete) {
-                    Icon(
-                        imageVector = Icons.Outlined.Delete,
+                    MaterialSymbolIcon(icon = MaterialSymbols.DELETE,
                         contentDescription = "Delete",
                         tint = MaterialTheme.colorScheme.error
                     )
@@ -474,8 +447,7 @@ private fun ModernExpenseCard(expense: Expense, onDelete: () -> Unit) {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                        MaterialSymbolIcon(icon = MaterialSymbols.TRENDING_UP,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
                             tint = MaterialTheme.colorScheme.primary
@@ -628,10 +600,10 @@ private fun DeleteExpenseConfirmationDialog(
     
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Delete Expense?") },
+        title = { Text(stringResource(R.string.history_delete_expense_title)) },
         text = {
             Column {
-                Text("Are you sure you want to delete this expense?")
+                Text(stringResource(R.string.history_delete_expense_message))
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     text = expense.description,
@@ -647,12 +619,12 @@ private fun DeleteExpenseConfirmationDialog(
         },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text("Delete")
+                Text(stringResource(R.string.action_delete))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.action_cancel))
             }
         }
     )

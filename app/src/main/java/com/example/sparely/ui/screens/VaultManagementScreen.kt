@@ -7,16 +7,21 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import com.example.sparely.ui.theme.MaterialSymbols
+import com.example.sparely.ui.theme.MaterialSymbolIcon
+
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.example.sparely.ui.components.ExpressiveCard
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.example.sparely.R
 import com.example.sparely.domain.model.*
 import java.time.Instant
 import java.time.LocalDate
@@ -43,10 +48,10 @@ fun VaultManagementScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Manage Smart Vaults") },
+                title = { Text(stringResource(R.string.vault_management_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        MaterialSymbolIcon(icon = MaterialSymbols.ARROW_BACK, contentDescription = stringResource(R.string.vault_management_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -56,7 +61,7 @@ fun VaultManagementScreen(
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Add Vault")
+                MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = stringResource(R.string.vault_management_add))
             }
         }
     ) { paddingValues ->
@@ -111,7 +116,7 @@ fun VaultManagementScreen(
     vaultToDelete?.let { vault ->
         AlertDialog(
             onDismissRequest = { vaultToDelete = null },
-            icon = { Icon(Icons.Default.Delete, contentDescription = null) },
+            icon = { MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = null) },
             title = { Text("Delete Vault?") },
             text = {
                 Text("Are you sure you want to delete \"${vault.name}\"? This will remove all associated contributions.")
@@ -156,11 +161,9 @@ fun VaultManagementScreen(
 
 @Composable
 private fun EmptyVaultsCard() {
-    Card(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        containerColor = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Column(
             modifier = Modifier
@@ -169,19 +172,18 @@ private fun EmptyVaultsCard() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.AccountBalance,
+            MaterialSymbolIcon(icon = MaterialSymbols.ACCOUNT_BALANCE,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
                 tint = MaterialTheme.colorScheme.primary
             )
             Text(
-                text = "No Smart Vaults Yet",
+                text = stringResource(R.string.vault_management_empty_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "Create your first vault to start automatically saving toward your goals.",
+                text = stringResource(R.string.vault_management_empty_desc),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -202,11 +204,9 @@ private fun VaultCard(
     val dateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
     val progress = if (vault.targetAmount <= 0) 0f else (vault.currentBalance / vault.targetAmount).toFloat().coerceIn(0f, 1f)
     
-    Card(
+    ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        containerColor = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Column(
             modifier = Modifier
@@ -233,22 +233,22 @@ private fun VaultCard(
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     IconButton(onClick = onEdit) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit")
+                        MaterialSymbolIcon(icon = MaterialSymbols.EDIT, contentDescription = "Edit")
                     }
                     IconButton(onClick = onDelete) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                        MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                     }
                 }
             }
 
             LinearProgressIndicator(
-            progress = { progress },
-            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(8.dp),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
+                progress = progress,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
             )
 
             Row(
@@ -315,8 +315,7 @@ private fun VaultCard(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
+                                MaterialSymbolIcon(icon = MaterialSymbols.ADD,
                                     contentDescription = "Deposit",
                                     tint = MaterialTheme.colorScheme.primary
                                 )
@@ -339,8 +338,7 @@ private fun VaultCard(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Remove,
+                                MaterialSymbolIcon(icon = MaterialSymbols.REMOVE,
                                     contentDescription = "Withdraw",
                                     tint = MaterialTheme.colorScheme.error
                                 )
@@ -363,8 +361,7 @@ private fun VaultCard(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.List,
+                                MaterialSymbolIcon(icon = MaterialSymbols.LIST,
                                     contentDescription = "History"
                                 )
                                 Text(
@@ -402,11 +399,16 @@ private fun VaultEditorDialog(
     var autoDepositAmount by remember { mutableStateOf(vault?.autoDepositSchedule?.amount?.toString() ?: "") }
     var autoDepositFrequency by remember { mutableStateOf(vault?.autoDepositSchedule?.frequency ?: AutoDepositFrequency.WEEKLY) }
     
+    var accountType by remember { mutableStateOf(vault?.accountType) }
+    var accountNumber by remember { mutableStateOf(vault?.accountNumber ?: "") }
+    var accountNotes by remember { mutableStateOf(vault?.accountNotes ?: "") }
+    var showAccountTypeDialog by remember { mutableStateOf(false) }
+    
     val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
     val isValid = name.isNotBlank() && targetAmount.toDoubleOrNull()?.let { it > 0 } == true
 
     Dialog(onDismissRequest = onDismiss) {
-        Card(
+        ExpressiveCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = 650.dp),
@@ -420,7 +422,7 @@ private fun VaultEditorDialog(
             ) {
                 item {
                     Text(
-                        text = if (vault == null) "Add Smart Vault" else "Edit Smart Vault",
+                        text = if (vault == null) stringResource(R.string.vault_editor_add_title) else stringResource(R.string.vault_editor_edit_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -430,7 +432,7 @@ private fun VaultEditorDialog(
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
-                        label = { Text("Vault Name") },
+                        label = { Text(stringResource(R.string.vault_name_label)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
@@ -440,7 +442,7 @@ private fun VaultEditorDialog(
                     OutlinedTextField(
                         value = targetAmount,
                         onValueChange = { targetAmount = it },
-                        label = { Text("Target Amount") },
+                        label = { Text(stringResource(R.string.vault_target_amount_label)) },
                         prefix = { Text("$") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
@@ -451,7 +453,7 @@ private fun VaultEditorDialog(
                     OutlinedTextField(
                         value = currentBalance,
                         onValueChange = { currentBalance = it },
-                        label = { Text("Current Balance") },
+                        label = { Text(stringResource(R.string.vault_current_balance_label)) },
                         prefix = { Text("$") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
@@ -521,10 +523,52 @@ private fun VaultEditorDialog(
                 }
 
                 item {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        )
+                    ExpressiveCard(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                stringResource(R.string.vault_account_details_title),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            
+                            OutlinedButton(
+                                onClick = { showAccountTypeDialog = true },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(accountType?.displayName ?: stringResource(R.string.vault_select_account_type))
+                            }
+                            
+                            OutlinedTextField(
+                                value = accountNumber,
+                                onValueChange = { accountNumber = it },
+                                label = { Text(stringResource(R.string.vault_account_number_optional)) },
+                                placeholder = { Text(stringResource(R.string.vault_last_4_digits)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                            
+                            OutlinedTextField(
+                                value = accountNotes,
+                                onValueChange = { accountNotes = it },
+                                label = { Text(stringResource(R.string.vault_notes_optional)) },
+                                placeholder = { Text(stringResource(R.string.vault_account_notes_placeholder)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                maxLines = 3
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    ExpressiveCard(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     ) {
                         Column(
                             modifier = Modifier
@@ -560,10 +604,8 @@ private fun VaultEditorDialog(
                 }
 
                 item {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        )
+                    ExpressiveCard(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     ) {
                         Column(
                             modifier = Modifier
@@ -665,7 +707,10 @@ private fun VaultEditorDialog(
                                     lastContributionDate = vault?.lastContributionDate,
                                     autoDepositSchedule = autoSchedule,
                                     savingTaxRateOverride = vault?.savingTaxRateOverride,
-                                    archived = vault?.archived ?: false
+                                    archived = vault?.archived ?: false,
+                                    accountType = accountType,
+                                    accountNumber = accountNumber.trim().takeIf { it.isNotBlank() },
+                                    accountNotes = accountNotes.trim().takeIf { it.isNotBlank() }
                                 )
                                 onSave(newVault)
                             },
@@ -705,6 +750,51 @@ private fun VaultEditorDialog(
             DatePicker(state = datePickerState)
         }
     }
+    
+    if (showAccountTypeDialog) {
+        AlertDialog(
+            onDismissRequest = { showAccountTypeDialog = false },
+            icon = { MaterialSymbolIcon(icon = MaterialSymbols.ACCOUNT_BALANCE, contentDescription = null) },
+            title = { Text("Select Account Type") },
+            text = {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(AccountType.entries.size) { index ->
+                        val type = AccountType.entries[index]
+                        OutlinedButton(
+                            onClick = {
+                                accountType = type
+                                showAccountTypeDialog = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.Start
+                            ) {
+                                Text(
+                                    text = type.displayName,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = type.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAccountTypeDialog = false }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -722,10 +812,11 @@ private fun ManualAdjustmentDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = {
-            Icon(
-                imageVector = if (isDeposit) Icons.Default.Add else Icons.Default.Clear,
-                contentDescription = null
-            )
+            if (isDeposit) {
+                MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null)
+            } else {
+                Icon(imageVector = Icons.Default.Clear, contentDescription = null)
+            }
         },
         title = {
             Text(if (isDeposit) "Manual Deposit" else "Manual Withdrawal")
