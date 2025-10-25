@@ -167,12 +167,14 @@ private fun SparelyScaffold(
 @Composable
 private fun SparelyTopBar(currentDestination: NavDestination?, navController: NavHostController) {
     val destination = SparelyDestination.fromRoute(currentDestination?.route)
-    val title = destination?.label ?: "Sparely"
-    val isTopLevel = destination == null || destination in bottomBarDestinations
-    TopAppBar(
-        title = { Text(text = title) },
-        navigationIcon = {
-            if (!isTopLevel) {
+    val currentRoute = currentDestination?.route
+    val isTopLevel = destination != null && destination in bottomBarDestinations
+    
+    // Only show top bar on subpages (non-top-level)
+    if (!isTopLevel) {
+        TopAppBar(
+            title = { },
+            navigationIcon = {
                 IconButton(onClick = { navController.popBackStack() }) {
                     MaterialSymbolIcon(
                         icon = MaterialSymbols.ARROW_BACK,
@@ -180,10 +182,10 @@ private fun SparelyTopBar(currentDestination: NavDestination?, navController: Na
                         size = 24.dp
                     )
                 }
-            }
-        },
-        colors = TopAppBarDefaults.topAppBarColors()
-    )
+            },
+            colors = TopAppBarDefaults.topAppBarColors()
+        )
+    }
 }
 
 

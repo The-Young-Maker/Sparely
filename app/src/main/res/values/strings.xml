@@ -1,5 +1,8 @@
 <resources>
     <string name="app_name">Sparely</string>
+    <string name="dashboard_title">Overview</string>
+    <string name="dashboard_subtitle">Stay on top of your savings momentum</string>
+    <string name="dashboard_action_view_history">View history</string>
     
     <!-- Widget -->
     <string name="widget_savings_label">Sparely savings snapshot</string>
@@ -324,4 +327,10 @@
     
     <!-- Currency Prefix -->
     <string name="currency_prefix">$</string>
+    <string name="vault_management_subtitle" />
+    <string name="vault_management_overview_title" />
+    <string name="vault_management_overview_subtitle" />
+    <string name="vault_management_metric_total" />
+    <string name="vault_management_metric_active" />
+    <string name="vault_management_metric_upcoming" />
 </resources>

@@ -128,7 +128,7 @@ fun SmartVaultSetup.toSmartVault(): SmartVault = SmartVault(
     nextExpectedContribution = null,
     lastContributionDate = null,
     autoDepositSchedule = null,
-    savingTaxRateOverride = savingTaxRateOverride?.coerceIn(0.0, 1.0),
+    savingTaxRateOverride = savingTaxRateOverride?.coerceIn(0.0, 1.0) ?: 0.01, // Enable by default at 1%
     archived = false
 )
 

@@ -1,28 +1,64 @@
 package com.example.sparely.ui.screens
 
-import android.annotation.SuppressLint
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import com.example.sparely.ui.theme.MaterialSymbols
-import com.example.sparely.ui.theme.MaterialSymbolIcon
-
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import com.example.sparely.ui.components.ExpressiveCard
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.runtime.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.ProgressIndicatorDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.example.sparely.R
-import com.example.sparely.domain.model.*
+import com.example.sparely.domain.model.AutoDepositFrequency
+import com.example.sparely.domain.model.SmartVault
+import com.example.sparely.domain.model.VaultAllocationMode
+import com.example.sparely.domain.model.VaultPriority
+import com.example.sparely.domain.model.VaultType
+import com.example.sparely.ui.components.ExpressiveCard
+import com.example.sparely.ui.components.SingleLineText
+import com.example.sparely.ui.theme.MaterialSymbolIcon
+import com.example.sparely.ui.theme.MaterialSymbols
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -40,184 +76,95 @@ fun VaultManagementScreen(
     onManualWithdrawal: ((Long, Double, String) -> Unit)? = null,
     onViewHistory: ((Long) -> Unit)? = null
 ) {
-    var showAddDialog by remember { mutableStateOf(false) }
-    var editingVault by remember { mutableStateOf<SmartVault?>(null) }
-    var vaultToDelete by remember { mutableStateOf<SmartVault?>(null) }
-    var vaultForManualAdjustment by remember { mutableStateOf<Pair<SmartVault, Boolean>?>(null) }
+    var vaultToEdit by remember { mutableStateOf<SmartVault?>(null) }
+    var vaultToDeposit by remember { mutableStateOf<SmartVault?>(null) }
+    var vaultToWithdraw by remember { mutableStateOf<SmartVault?>(null) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.vault_management_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        MaterialSymbolIcon(icon = MaterialSymbols.ARROW_BACK, contentDescription = stringResource(R.string.vault_management_back))
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+    LazyColumn(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        items(vaults.size) { index ->
+            val vault = vaults[index]
+            VaultCard(
+                vault = vault,
+                onEdit = { vaultToEdit = vault },
+                onDelete = { onDeleteVault(vault.id) },
+                onDeposit = onManualDeposit?.let { { vaultToDeposit = vault } },
+                onWithdraw = onManualWithdrawal?.let { { vaultToWithdraw = vault } },
+                onViewHistory = onViewHistory?.let { { it(vault.id) } }
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = stringResource(R.string.vault_management_add))
-            }
-        }
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            if (vaults.isEmpty()) {
-                item {
-                    EmptyVaultsCard()
-                }
-            } else {
-                items(vaults) { vault ->
-                    VaultCard(
-                        vault = vault,
-                        onEdit = { editingVault = vault },
-                        onDelete = { vaultToDelete = vault },
-                        onDeposit = if (onManualDeposit != null) {{ vaultForManualAdjustment = vault to true }} else null,
-                        onWithdraw = if (onManualWithdrawal != null) {{ vaultForManualAdjustment = vault to false }} else null,
-                        onViewHistory = if (onViewHistory != null) {{ onViewHistory(vault.id) }} else null
-                    )
-                }
-            }
         }
     }
 
-    if (showAddDialog) {
-        VaultEditorDialog(
-            vault = null,
-            onSave = { newVault ->
-                onAddVault(newVault)
-                showAddDialog = false
-            },
-            onDismiss = { showAddDialog = false }
-        )
-    }
-
-    editingVault?.let { vault ->
+    // Edit dialog
+    vaultToEdit?.let { vault ->
         VaultEditorDialog(
             vault = vault,
-            onSave = { updated ->
-                onUpdateVault(updated)
-                editingVault = null
+            onSave = { updatedVault ->
+                onUpdateVault(updatedVault)
+                vaultToEdit = null
             },
-            onDismiss = { editingVault = null }
+            onDismiss = { vaultToEdit = null }
         )
     }
 
-    vaultToDelete?.let { vault ->
-        AlertDialog(
-            onDismissRequest = { vaultToDelete = null },
-            icon = { MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = null) },
-            title = { Text("Delete Vault?") },
-            text = {
-                Text("Are you sure you want to delete \"${vault.name}\"? This will remove all associated contributions.")
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onDeleteVault(vault.id)
-                        vaultToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("Delete")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { vaultToDelete = null }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-    
-    vaultForManualAdjustment?.let { (vault, isDeposit) ->
+    // Deposit dialog
+    vaultToDeposit?.let { vault ->
         ManualAdjustmentDialog(
             vaultName = vault.name,
-            isDeposit = isDeposit,
+            isDeposit = true,
             onConfirm = { amount, reason ->
-                if (isDeposit) {
-                    onManualDeposit?.invoke(vault.id, amount, reason)
-                } else {
-                    onManualWithdrawal?.invoke(vault.id, amount, reason)
-                }
-                vaultForManualAdjustment = null
+                onManualDeposit?.invoke(vault.id, amount, reason)
+                vaultToDeposit = null
             },
-            onDismiss = { vaultForManualAdjustment = null }
+            onDismiss = { vaultToDeposit = null }
+        )
+    }
+
+    // Withdrawal dialog
+    vaultToWithdraw?.let { vault ->
+        ManualAdjustmentDialog(
+            vaultName = vault.name,
+            isDeposit = false,
+            onConfirm = { amount, reason ->
+                onManualWithdrawal?.invoke(vault.id, amount, reason)
+                vaultToWithdraw = null
+            },
+            onDismiss = { vaultToWithdraw = null }
         )
     }
 }
 
-@Composable
-private fun EmptyVaultsCard() {
-    ExpressiveCard(
-        modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceVariant
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            MaterialSymbolIcon(icon = MaterialSymbols.ACCOUNT_BALANCE,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                text = stringResource(R.string.vault_management_empty_title),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = stringResource(R.string.vault_management_empty_desc),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@SuppressLint("DefaultLocale")
 @Composable
 private fun VaultCard(
     vault: SmartVault,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onDeposit: (() -> Unit)? = null,
-    onWithdraw: (() -> Unit)? = null,
-    onViewHistory: (() -> Unit)? = null
+    onEdit: (() -> Unit)?,
+    onDelete: (() -> Unit)?,
+    onDeposit: (() -> Unit)?,
+    onWithdraw: (() -> Unit)?,
+    onViewHistory: (() -> Unit)?
 ) {
-    val dateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
-    val progress = if (vault.targetAmount <= 0) 0f else (vault.currentBalance / vault.targetAmount).toFloat().coerceIn(0f, 1f)
-    
-    ExpressiveCard(
+    val colorScheme = MaterialTheme.colorScheme
+    val progress = if (vault.targetAmount > 0) (vault.currentBalance / vault.targetAmount).toFloat() else 0f
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
+
+    ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceVariant
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = colorScheme.surface
+        )
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -225,29 +172,34 @@ private fun VaultCard(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
-                    Text(
-                        text = "${vault.priority.name} priority • ${vault.type.name.replace("_", " ")}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    IconButton(onClick = onEdit) {
-                        MaterialSymbolIcon(icon = MaterialSymbols.EDIT, contentDescription = "Edit")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        VaultBadgeChip(label = vault.priority.name, icon = MaterialSymbols.FLAG, tint = MaterialTheme.colorScheme.tertiary)
+                        VaultBadgeChip(label = vault.type.name.replace("_", " "), icon = MaterialSymbols.ACCOUNT_BALANCE, tint = MaterialTheme.colorScheme.secondary)
                     }
-                    IconButton(onClick = onDelete) {
-                        MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    onEdit?.let {
+                        IconButton(onClick = it) {
+                            MaterialSymbolIcon(icon = MaterialSymbols.EDIT, contentDescription = stringResource(R.string.vault_edit), size = 20.dp)
+                        }
+                    }
+                    onDelete?.let {
+                        IconButton(onClick = it) {
+                            MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = stringResource(R.string.vault_delete), size = 20.dp, tint = colorScheme.error)
+                        }
                     }
                 }
             }
 
             LinearProgressIndicator(
-                progress = progress,
+                progress = { progress },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(8.dp),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(999.dp)),
+                color = colorScheme.primary,
+                trackColor = colorScheme.onSurface.copy(alpha = 0.08f),
                 strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
             )
 
@@ -297,79 +249,202 @@ private fun VaultCard(
                     color = MaterialTheme.colorScheme.primary
                 )
             }
-            
+
             // Manual adjustment buttons
             if (onDeposit != null || onWithdraw != null || onViewHistory != null) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     onDeposit?.let {
-                        IconButton(
-                            onClick = it,
-                            modifier = Modifier
-                                .weight(1f)
-                                .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                MaterialSymbolIcon(icon = MaterialSymbols.ADD,
-                                    contentDescription = "Deposit",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                                Text(
-                                    "Deposit",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
+                        VaultActionButton(
+                            modifier = Modifier.weight(1f),
+                            label = stringResource(R.string.vault_deposit),
+                            icon = MaterialSymbols.ADD,
+                            tint = MaterialTheme.colorScheme.primary,
+                            onClick = it
+                        )
                     }
                     onWithdraw?.let {
-                        IconButton(
-                            onClick = it,
-                            modifier = Modifier
-                                .weight(1f)
-                                .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                MaterialSymbolIcon(icon = MaterialSymbols.REMOVE,
-                                    contentDescription = "Withdraw",
-                                    tint = MaterialTheme.colorScheme.error
-                                )
-                                Text(
-                                    "Withdraw",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            }
-                        }
+                        VaultActionButton(
+                            modifier = Modifier.weight(1f),
+                            label = stringResource(R.string.vault_withdraw),
+                            icon = MaterialSymbols.REMOVE,
+                            tint = MaterialTheme.colorScheme.error,
+                            onClick = it
+                        )
                     }
                     onViewHistory?.let {
-                        IconButton(
-                            onClick = it,
-                            modifier = Modifier
-                                .weight(1f)
-                                .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                MaterialSymbolIcon(icon = MaterialSymbols.LIST,
-                                    contentDescription = "History"
-                                )
-                                Text(
-                                    "History",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
+                        VaultActionButton(
+                            modifier = Modifier.weight(1f),
+                            label = stringResource(R.string.vault_history),
+                            icon = MaterialSymbols.LIST,
+                            tint = MaterialTheme.colorScheme.secondary,
+                            onClick = it
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VaultActionButton(
+    modifier: Modifier = Modifier,
+    label: String,
+    @DrawableRes icon: Int,
+    tint: Color,
+    onClick: () -> Unit
+) {
+    FilledTonalButton(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 50.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = ButtonDefaults.filledTonalButtonColors(
+            containerColor = tint.copy(alpha = 0.12f),
+            contentColor = tint
+        ),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        MaterialSymbolIcon(
+            icon = icon,
+            contentDescription = label,
+            size = 18.dp,
+            tint = tint
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        SingleLineText(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = tint
+        )
+    }
+}
+
+@Composable
+private fun VaultBadgeChip(
+    modifier: Modifier = Modifier,
+    label: String,
+    @DrawableRes icon: Int,
+    tint: Color
+) {
+    Surface(
+        modifier = modifier,
+        color = tint.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(999.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            MaterialSymbolIcon(
+                icon = icon,
+                contentDescription = null,
+                size = 16.dp,
+                tint = tint
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = tint
+            )
+        }
+    }
+}
+
+@Composable
+private fun ManualAdjustmentDialog(
+    vaultName: String,
+    isDeposit: Boolean,
+    onConfirm: (Double, String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var amountText by remember { mutableStateOf("") }
+    var reason by remember { mutableStateOf("") }
+
+    val title = if (isDeposit) 
+        stringResource(R.string.vault_manual_deposit_title)
+    else 
+        stringResource(R.string.vault_manual_withdrawal_title)
+    
+    val note = if (isDeposit)
+        stringResource(R.string.vault_deposit_note)
+    else
+        stringResource(R.string.vault_withdrawal_note)
+
+    Dialog(onDismissRequest = onDismiss) {
+        ExpressiveCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = vaultName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                    label = { Text(stringResource(R.string.vault_amount_label)) },
+                    prefix = { Text("$") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal)
+                )
+
+                OutlinedTextField(
+                    value = reason,
+                    onValueChange = { reason = it },
+                    label = { Text(stringResource(R.string.vault_reason_label)) },
+                    placeholder = { Text(stringResource(R.string.vault_reason_hint)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = false,
+                    maxLines = 3
+                )
+
+                Text(
+                    text = note,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(stringResource(android.R.string.cancel))
+                    }
+
+                    Button(
+                        onClick = {
+                            val amount = amountText.toDoubleOrNull()
+                            if (amount != null && amount > 0) {
+                                onConfirm(amount, reason.trim())
                             }
-                        }
+                        },
+                        modifier = Modifier.weight(1f),
+                        enabled = amountText.toDoubleOrNull()?.let { it > 0 } == true
+                    ) {
+                        Text(stringResource(android.R.string.ok))
                     }
                 }
             }
@@ -394,16 +469,16 @@ private fun VaultEditorDialog(
     var hasTargetDate by remember { mutableStateOf(vault?.targetDate != null) }
     var targetDate by remember { mutableStateOf(vault?.targetDate) }
     var showDatePicker by remember { mutableStateOf(false) }
-    
+
     var hasAutoDeposit by remember { mutableStateOf(vault?.autoDepositSchedule != null) }
     var autoDepositAmount by remember { mutableStateOf(vault?.autoDepositSchedule?.amount?.toString() ?: "") }
     var autoDepositFrequency by remember { mutableStateOf(vault?.autoDepositSchedule?.frequency ?: AutoDepositFrequency.WEEKLY) }
-    
+
     var accountType by remember { mutableStateOf(vault?.accountType) }
     var accountNumber by remember { mutableStateOf(vault?.accountNumber ?: "") }
     var accountNotes by remember { mutableStateOf(vault?.accountNotes ?: "") }
     var showAccountTypeDialog by remember { mutableStateOf(false) }
-    
+
     val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
     val isValid = name.isNotBlank() && targetAmount.toDoubleOrNull()?.let { it > 0 } == true
 
@@ -512,371 +587,61 @@ private fun VaultEditorDialog(
                     item {
                         OutlinedTextField(
                             value = manualPercent,
-                            onValueChange = { manualPercent = it },
-                            label = { Text("Manual Allocation %") },
+                            onValueChange = { manualPercent = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                            label = { Text(stringResource(R.string.vault_manual_percent_label)) },
                             suffix = { Text("%") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
-                            supportingText = { Text("Percentage of each expense's saving tax to allocate") }
+                            keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal)
                         )
-                    }
-                }
-
-                item {
-                    ExpressiveCard(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Text(
-                                stringResource(R.string.vault_account_details_title),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium
-                            )
-                            
-                            OutlinedButton(
-                                onClick = { showAccountTypeDialog = true },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(accountType?.displayName ?: stringResource(R.string.vault_select_account_type))
-                            }
-                            
-                            OutlinedTextField(
-                                value = accountNumber,
-                                onValueChange = { accountNumber = it },
-                                label = { Text(stringResource(R.string.vault_account_number_optional)) },
-                                placeholder = { Text(stringResource(R.string.vault_last_4_digits)) },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true
-                            )
-                            
-                            OutlinedTextField(
-                                value = accountNotes,
-                                onValueChange = { accountNotes = it },
-                                label = { Text(stringResource(R.string.vault_notes_optional)) },
-                                placeholder = { Text(stringResource(R.string.vault_account_notes_placeholder)) },
-                                modifier = Modifier.fillMaxWidth(),
-                                maxLines = 3
-                            )
-                        }
-                    }
-                }
-
-                item {
-                    ExpressiveCard(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("Target date", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                                Switch(
-                                    checked = hasTargetDate,
-                                    onCheckedChange = { 
-                                        hasTargetDate = it
-                                        if (!it) targetDate = null
-                                    }
-                                )
-                            }
-                            
-                            if (hasTargetDate) {
-                                OutlinedButton(
-                                    onClick = { showDatePicker = true },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(targetDate?.format(dateFormatter) ?: "Select date")
-                                }
-                            }
-                        }
-                    }
-                }
-
-                item {
-                    ExpressiveCard(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text("Automatic deposits", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                                    Text(
-                                        "Simulate recurring bank transfers",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Switch(
-                                    checked = hasAutoDeposit,
-                                    onCheckedChange = { hasAutoDeposit = it }
-                                )
-                            }
-                            
-                            if (hasAutoDeposit) {
-                                OutlinedTextField(
-                                    value = autoDepositAmount,
-                                    onValueChange = { autoDepositAmount = it },
-                                    label = { Text("Amount per deposit") },
-                                    prefix = { Text("$") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true
-                                )
-                                
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text("Frequency", style = MaterialTheme.typography.labelMedium)
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        FilterChip(
-                                            selected = autoDepositFrequency == AutoDepositFrequency.WEEKLY,
-                                            onClick = { autoDepositFrequency = AutoDepositFrequency.WEEKLY },
-                                            label = { Text("Weekly") }
-                                        )
-                                        FilterChip(
-                                            selected = autoDepositFrequency == AutoDepositFrequency.BIWEEKLY,
-                                            onClick = { autoDepositFrequency = AutoDepositFrequency.BIWEEKLY },
-                                            label = { Text("Bi-weekly") }
-                                        )
-                                        FilterChip(
-                                            selected = autoDepositFrequency == AutoDepositFrequency.MONTHLY,
-                                            onClick = { autoDepositFrequency = AutoDepositFrequency.MONTHLY },
-                                            label = { Text("Monthly") }
-                                        )
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
 
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        TextButton(
+                        OutlinedButton(
                             onClick = onDismiss,
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("Cancel")
+                            Text(stringResource(android.R.string.cancel))
                         }
+
                         Button(
                             onClick = {
-                                val autoSchedule = if (hasAutoDeposit && autoDepositAmount.toDoubleOrNull()?.let { it > 0 } == true) {
-                                    AutoDepositSchedule(
-                                        amount = autoDepositAmount.toDoubleOrNull() ?: 0.0,
-                                        frequency = autoDepositFrequency,
-                                        startDate = LocalDate.now(),
-                                        endDate = null,
-                                        sourceAccountId = null,
-                                        lastExecutionDate = null
-                                    )
+                                val target = targetAmount.toDoubleOrNull() ?: return@Button
+                                val balance = currentBalance.toDoubleOrNull() ?: 0.0
+                                val manualAlloc = if (allocationMode == VaultAllocationMode.MANUAL) {
+                                    manualPercent.toDoubleOrNull()?.div(100.0)?.coerceIn(0.0, 1.0)
                                 } else null
-                                
-                                val newVault = SmartVault(
+
+                                val updatedVault = SmartVault(
                                     id = vault?.id ?: 0L,
                                     name = name.trim(),
-                                    targetAmount = targetAmount.toDoubleOrNull() ?: 0.0,
-                                    currentBalance = currentBalance.toDoubleOrNull() ?: 0.0,
-                                    targetDate = if (hasTargetDate) targetDate else null,
+                                    targetAmount = target,
+                                    currentBalance = balance,
                                     priority = priority,
                                     type = type,
                                     allocationMode = allocationMode,
-                                    manualAllocationPercent = if (allocationMode == VaultAllocationMode.MANUAL) {
-                                        manualPercent.toDoubleOrNull()?.div(100.0)?.coerceIn(0.0, 1.0)
-                                    } else null,
-                                    nextExpectedContribution = vault?.nextExpectedContribution,
-                                    lastContributionDate = vault?.lastContributionDate,
-                                    autoDepositSchedule = autoSchedule,
-                                    savingTaxRateOverride = vault?.savingTaxRateOverride,
-                                    archived = vault?.archived ?: false,
+                                    manualAllocationPercent = manualAlloc,
+                                    targetDate = targetDate,
                                     accountType = accountType,
-                                    accountNumber = accountNumber.trim().takeIf { it.isNotBlank() },
-                                    accountNotes = accountNotes.trim().takeIf { it.isNotBlank() }
+                                    accountNumber = accountNumber.takeIf { it.isNotBlank() },
+                                    accountNotes = accountNotes.takeIf { it.isNotBlank() },
+                                    autoDepositSchedule = null // Simplified for now
                                 )
-                                onSave(newVault)
+                                onSave(updatedVault)
                             },
                             modifier = Modifier.weight(1f),
                             enabled = isValid
                         ) {
-                            Text("Save")
+                            Text(stringResource(android.R.string.ok))
                         }
                     }
                 }
             }
         }
     }
-    
-    if (showDatePicker) {
-        val initialMillis = targetDate?.atStartOfDay(java.time.ZoneOffset.UTC)?.toInstant()?.toEpochMilli()
-        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    val selectedMillis = datePickerState.selectedDateMillis
-                    targetDate = selectedMillis?.let { 
-                        java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneOffset.UTC).toLocalDate() 
-                    }
-                    showDatePicker = false
-                }) {
-                    Text("OK")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel")
-                }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
-    
-    if (showAccountTypeDialog) {
-        AlertDialog(
-            onDismissRequest = { showAccountTypeDialog = false },
-            icon = { MaterialSymbolIcon(icon = MaterialSymbols.ACCOUNT_BALANCE, contentDescription = null) },
-            title = { Text("Select Account Type") },
-            text = {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(AccountType.entries.size) { index ->
-                        val type = AccountType.entries[index]
-                        OutlinedButton(
-                            onClick = {
-                                accountType = type
-                                showAccountTypeDialog = false
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalAlignment = Alignment.Start
-                            ) {
-                                Text(
-                                    text = type.displayName,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = type.description,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showAccountTypeDialog = false }) {
-                    Text("Close")
-                }
-            }
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ManualAdjustmentDialog(
-    vaultName: String,
-    isDeposit: Boolean,
-    onConfirm: (amount: Double, reason: String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var amount by remember { mutableStateOf("") }
-    var reason by remember { mutableStateOf("") }
-    val isValid = amount.toDoubleOrNull()?.let { it > 0 } == true
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = {
-            if (isDeposit) {
-                MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null)
-            } else {
-                Icon(imageVector = Icons.Default.Clear, contentDescription = null)
-            }
-        },
-        title = {
-            Text(if (isDeposit) "Manual Deposit" else "Manual Withdrawal")
-        },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = vaultName,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = { amount = it },
-                    label = { Text("Amount") },
-                    prefix = { Text("$") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    isError = amount.isNotEmpty() && amount.toDoubleOrNull() == null
-                )
-                
-                OutlinedTextField(
-                    value = reason,
-                    onValueChange = { reason = it },
-                    label = { Text("Reason (optional)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    maxLines = 3,
-                    placeholder = { Text("e.g., Bank transfer, Goal reached, etc.") }
-                )
-                
-                Text(
-                    text = if (isDeposit) {
-                        "This will add funds to the vault and record it in the adjustment history."
-                    } else {
-                        "This will remove funds from the vault and record it in the adjustment history."
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val parsedAmount = amount.toDoubleOrNull() ?: 0.0
-                    onConfirm(parsedAmount, reason.trim())
-                },
-                enabled = isValid
-            ) {
-                Text(if (isDeposit) "Deposit" else "Withdraw")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
 }

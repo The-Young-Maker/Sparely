@@ -40,6 +40,9 @@ android {
     buildFeatures {
         compose = true
     }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.14"
+    }
 }
 
 kapt {
@@ -64,6 +67,8 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.compose.foundation.layout)
+    implementation(libs.play.services.base)
+    implementation(libs.androidx.compose.ui.text.google.fonts)
     kapt(libs.androidx.room.compiler)
     implementation(libs.androidx.work.runtime.ktx)
     testImplementation(libs.junit)

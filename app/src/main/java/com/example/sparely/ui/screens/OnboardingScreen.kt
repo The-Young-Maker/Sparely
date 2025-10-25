@@ -638,7 +638,7 @@ private fun SmartVaultsStep(
         onRemove: () -> Unit,
         showRemove: Boolean
     ) {
-        ExpressiveCard(modifier = Modifier.fillMaxWidth(), elevation = 6.dp, contentPadding = 20.dp) {
+        ExpressiveCard(modifier = Modifier.fillMaxWidth(), tonalElevation = 6.dp, contentPadding = 20.dp) {
             Column {
                 if (draft.recommended) {
                     AssistChip(onClick = {}, enabled = false, label = { Text("Recommended") })
@@ -1576,7 +1576,7 @@ private fun FinancialSituationStep(
             )
         } else {
             subscriptions.forEachIndexed { index, draft ->
-                ExpressiveCard(modifier = Modifier.fillMaxWidth(), elevation = 4.dp, contentPadding = 16.dp) {
+                ExpressiveCard(modifier = Modifier.fillMaxWidth(), tonalElevation = 4.dp, contentPadding = 16.dp) {
                     Column {
                         Row(
                             modifier = Modifier.fillMaxWidth(),

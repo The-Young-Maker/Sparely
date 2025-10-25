@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,10 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import com.example.sparely.ui.theme.MaterialSymbols
-import com.example.sparely.ui.theme.MaterialSymbolIcon
-import androidx.compose.ui.unit.dp
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
@@ -31,36 +28,47 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ProgressIndicatorDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
- 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.sparely.R
 import com.example.sparely.domain.model.*
-import com.example.sparely.ui.components.SavingsTrendCard
 import com.example.sparely.ui.components.ExpressiveCard
+import com.example.sparely.ui.components.SavingsTrendCard
+import com.example.sparely.ui.components.SingleLineText
 import com.example.sparely.ui.state.SparelyUiState
+import com.example.sparely.ui.theme.MaterialSymbolIcon
+import com.example.sparely.ui.theme.MaterialSymbols
+import com.example.sparely.ui.theme.spacing
 import java.time.format.DateTimeFormatter
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     uiState: SparelyUiState,
@@ -83,150 +91,171 @@ fun DashboardScreen(
         }
         return
     }
+    val spacing = MaterialTheme.spacing
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            // Use a single tonal background instead of a gradient for clarity
-            .background(MaterialTheme.colorScheme.background),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
-    ) {
-        item {
-            DashboardHeader(
-                totalBalance = uiState.totalVaultBalance,
-                monthlyIncome = uiState.settings.monthlyIncome,
-                onAddExpense = onAddExpense,
-                onNavigateToHistory = onNavigateToHistory
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.surface,
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                text = { SingleLineText(stringResource(R.string.dashboard_log_purchase)) },
+                icon = {
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.ADD,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                onClick = onAddExpense,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             )
         }
-
-        // or if there are any transactions
-        if (uiState.settings.mainAccountBalance != 0.0 || uiState.mainAccountTransactions.isNotEmpty()) {
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = spacing.lg,
+                end = spacing.lg,
+                top = 0.dp,
+                bottom = innerPadding.calculateBottomPadding() + spacing.xl
+            ),
+            verticalArrangement = Arrangement.spacedBy(spacing.lg)
+        ) {
             item {
-                MainAccountBalanceCard(
-                    balance = uiState.settings.mainAccountBalance,
-                    onClick = onNavigateToMainAccount
+                DashboardHeroSection(
+                    totalBalance = uiState.totalVaultBalance,
+                    monthlyIncome = uiState.settings.monthlyIncome,
+                    onAddExpense = onAddExpense,
+                    onNavigateToHistory = onNavigateToHistory,
+                    onManageVaults = onManageVaults
+                )
+            }
+
+            if (uiState.settings.mainAccountBalance != 0.0 || uiState.mainAccountTransactions.isNotEmpty()) {
+                item {
+                    MainAccountBalanceCard(
+                        balance = uiState.settings.mainAccountBalance,
+                        onClick = onNavigateToMainAccount
+                    )
+                }
+            }
+
+            item {
+                SmartVaultsCard(
+                    vaults = uiState.smartVaults,
+                    totalBalance = uiState.totalVaultBalance,
+                    pendingCount = uiState.pendingVaultContributions.size,
+                    onManageVaults = onManageVaults,
+                    onNavigateToTransfers = onNavigateToVaultTransfers
+                )
+            }
+
+            uiState.smartSavingSummary?.let { summary ->
+                item {
+                    SmartSavingSnapshotCard(
+                        summary = summary,
+                        monthlyIncome = uiState.settings.monthlyIncome
+                    )
+                }
+            }
+
+            uiState.emergencyFundGoal?.let { goal ->
+                item {
+                    EmergencyFundCard(goal = goal, settings = uiState.settings)
+                }
+            }
+
+            uiState.financialHealthScore?.let { healthScore ->
+                item {
+                    QuickHealthScoreCard(healthScore, onNavigateToHealth)
+                }
+            }
+
+            item {
+                MetricsRow(uiState)
+            }
+
+            if (uiState.detectedRecurringTransactions.isNotEmpty()) {
+                item {
+                    RecurringInsightsCard(insights = uiState.detectedRecurringTransactions)
+                }
+            }
+
+            val budgetSummary = uiState.budgetSummary
+            item {
+                if (budgetSummary != null) {
+                    QuickBudgetCard(budgetSummary, onNavigateToBudgets)
+                } else {
+                    BudgetEmptyCard(onNavigateToBudgets)
+                }
+            }
+
+            item {
+                if (uiState.activeChallenges.isNotEmpty()) {
+                    QuickChallengesCard(
+                        challenges = uiState.activeChallenges,
+                        onClick = onNavigateToChallenges
+                    )
+                } else {
+                    ChallengesEmptyCard(onClick = onNavigateToChallenges)
+                }
+            }
+
+            item {
+                UpcomingRecurringCard(
+                    items = uiState.upcomingRecurring,
+                    hasRecurring = uiState.recurringExpenses.isNotEmpty(),
+                    onManageRecurring = onNavigateToRecurring
                 )
             }
         }
-
-        // Always show vault card - even if empty, user can manage vaults
-        item {
-            SmartVaultsCard(
-                vaults = uiState.smartVaults,
-                totalBalance = uiState.totalVaultBalance,
-                pendingCount = uiState.pendingVaultContributions.size,
-                onManageVaults = onManageVaults,
-                onNavigateToTransfers = onNavigateToVaultTransfers
-            )
-        }
-
-        uiState.smartSavingSummary?.let { summary ->
-            item {
-                SmartSavingSnapshotCard(summary = summary, monthlyIncome = uiState.settings.monthlyIncome)
-            }
-        }
-
-        uiState.emergencyFundGoal?.let { goal ->
-            item {
-                EmergencyFundCard(goal = goal, settings = uiState.settings)
-            }
-        }
-        
-        // Financial Health Score - New Feature!
-        uiState.financialHealthScore?.let { healthScore ->
-            item {
-                QuickHealthScoreCard(healthScore, onNavigateToHealth)
-            }
-        }
-        
-        item {
-            MetricsRow(uiState)
-        }
-
-        if (uiState.detectedRecurringTransactions.isNotEmpty()) {
-            item {
-                RecurringInsightsCard(insights = uiState.detectedRecurringTransactions)
-            }
-        }
-        
-        val budgetSummary = uiState.budgetSummary
-        item {
-            if (budgetSummary != null) {
-                QuickBudgetCard(budgetSummary, onNavigateToBudgets)
-            } else {
-                BudgetEmptyCard(onNavigateToBudgets)
-            }
-        }
-
-        // Show challenges card - either active challenges or empty state
-        item {
-            if (uiState.activeChallenges.isNotEmpty()) {
-                QuickChallengesCard(
-                    challenges = uiState.activeChallenges,
-                    onClick = onNavigateToChallenges
-                )
-            } else {
-                ChallengesEmptyCard(onClick = onNavigateToChallenges)
-            }
-        }
-
-        item {
-            UpcomingRecurringCard(
-                items = uiState.upcomingRecurring,
-                hasRecurring = uiState.recurringExpenses.isNotEmpty(),
-                onManageRecurring = onNavigateToRecurring
-            )
-        }
-
-        item { Spacer(modifier = Modifier.height(32.dp)) }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+
+
 @Composable
-private fun DashboardHeader(
+private fun DashboardHeroSection(
     totalBalance: Double,
     monthlyIncome: Double,
     onAddExpense: () -> Unit,
-    onNavigateToHistory: () -> Unit
+    onNavigateToHistory: () -> Unit,
+    onManageVaults: () -> Unit
 ) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Hero Section with gradient card (now centralized via ExpressiveCard)
+    val spacing = MaterialTheme.spacing
+
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         ExpressiveCard(
             modifier = Modifier.fillMaxWidth(),
-            // Use a solid tonal container instead of a gradient for a cleaner Material 3 expressive look.
             containerColor = MaterialTheme.colorScheme.primaryContainer,
-            shape = RoundedCornerShape(24.dp),
-            elevation = 8.dp,
-            contentPadding = 24.dp
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            contentPadding = spacing.lg,
+            tonalElevation = 12.dp
         ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                         Text(
                             text = stringResource(R.string.dashboard_total_saved),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.95f)
+                            style = MaterialTheme.typography.labelMedium
                         )
                         Text(
                             text = formatCurrency(totalBalance),
                             style = MaterialTheme.typography.displaySmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            fontWeight = FontWeight.Bold
                         )
                     }
-                    MaterialSymbolIcon(icon = MaterialSymbols.SAVINGS,
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.SAVINGS,
                         contentDescription = null,
                         modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
                     )
                 }
 
@@ -234,51 +263,62 @@ private fun DashboardHeader(
                     val savingsRate = if (totalBalance > 0) (totalBalance / monthlyIncome) * 100 else 0.0
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(spacing.xs)
                     ) {
-                        MaterialSymbolIcon(icon = MaterialSymbols.TRENDING_UP,
+                        MaterialSymbolIcon(
+                            icon = MaterialSymbols.TRENDING_UP,
                             contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = Color.White.copy(alpha = 0.95f)
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Text(
                             text = stringResource(R.string.dashboard_savings_rate, savingsRate),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.9f)
+                            style = MaterialTheme.typography.bodyMedium
                         )
                     }
                 }
             }
         }
-        
-        // Quick Action Buttons
+
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm)
         ) {
             FilledTonalButton(
                 onClick = onAddExpense,
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(16.dp)
+                modifier = Modifier.weight(1f)
             ) {
-                MaterialSymbolIcon(icon = MaterialSymbols.ADD,
+                MaterialSymbolIcon(
+                    icon = MaterialSymbols.ADD,
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.dashboard_log_purchase))
+                Spacer(modifier = Modifier.width(spacing.xs))
+                SingleLineText(stringResource(R.string.dashboard_log_purchase))
             }
-            Button(
-                onClick = onNavigateToHistory,
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(16.dp)
+            OutlinedButton(
+                onClick = onManageVaults,
+                modifier = Modifier.weight(1f)
             ) {
-                MaterialSymbolIcon(icon = MaterialSymbols.HISTORY,
+                MaterialSymbolIcon(
+                    icon = MaterialSymbols.ACCOUNT_BALANCE,
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.dashboard_history))
+                Spacer(modifier = Modifier.width(spacing.xs))
+                SingleLineText(stringResource(R.string.dashboard_manage))
+            }
+            TextButton(
+                onClick = onNavigateToHistory,
+                modifier = Modifier.weight(1f)
+            ) {
+                MaterialSymbolIcon(
+                    icon = MaterialSymbols.HISTORY,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(spacing.xs))
+                SingleLineText(stringResource(R.string.dashboard_history))
             }
         }
     }
@@ -294,15 +334,15 @@ private fun SmartVaultsCard(
 ) {
     val accentYellow = Color(0xFFFACC15)
     val dateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
-    
+    val spacing = MaterialTheme.spacing
+
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        elevation = 4.dp,
-        contentPadding = 20.dp
+        contentPadding = spacing.lg
     ) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(spacing.md)
         ) {
             // Header
             Row(
@@ -312,7 +352,7 @@ private fun SmartVaultsCard(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(spacing.sm)
                 ) {
                     Box(
                         modifier = Modifier
@@ -329,7 +369,7 @@ private fun SmartVaultsCard(
                     }
                     Column {
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(spacing.xs),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
@@ -344,7 +384,7 @@ private fun SmartVaultsCard(
                                 ) {
                                     Text(
                                         text = pendingCount.toString(),
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        modifier = Modifier.padding(horizontal = spacing.xs, vertical = spacing.xxs),
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onErrorContainer
@@ -360,31 +400,34 @@ private fun SmartVaultsCard(
                     }
                 }
                 TextButton(onClick = onManageVaults) {
-                    Text(stringResource(R.string.dashboard_manage), fontWeight = FontWeight.SemiBold)
+                    SingleLineText(
+                        text = stringResource(R.string.dashboard_manage),
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+                    )
                 }
             }
 
             // Vault List
             val previewVaults = vaults.take(3)
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                 previewVaults.forEach { vault ->
                     VaultItem(vault = vault, accentYellow = accentYellow, dateFormatter = dateFormatter)
                 }
             }
-            
+
             if (vaults.size > 3) {
                 val remainingCount = vaults.size - 3
                 Text(
-                    text = if (remainingCount == 1) 
+                    text = if (remainingCount == 1)
                         stringResource(R.string.dashboard_more_vaults, remainingCount)
-                    else 
+                    else
                         stringResource(R.string.dashboard_more_vaults_plural, remainingCount),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 8.dp)
+                    modifier = Modifier.padding(start = spacing.xs)
                 )
             }
-            
+
             if (pendingCount > 0) {
                 HorizontalDivider()
                 Button(
@@ -392,10 +435,12 @@ private fun SmartVaultsCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(if (pendingCount == 1)
+                    val label = if (pendingCount == 1) {
                         stringResource(R.string.dashboard_pending_transfer, pendingCount)
-                    else
-                        stringResource(R.string.dashboard_pending_transfers, pendingCount))
+                    } else {
+                        stringResource(R.string.dashboard_pending_transfers, pendingCount)
+                    }
+                    SingleLineText(label)
                 }
             }
         }
@@ -408,28 +453,29 @@ private fun VaultItem(
     accentYellow: Color,
     dateFormatter: DateTimeFormatter
 ) {
-    val progress = if (vault.targetAmount <= 0) 0f 
+    val spacing = MaterialTheme.spacing
+    val progress = if (vault.targetAmount <= 0) 0f
                   else (vault.currentBalance / vault.targetAmount).toFloat().coerceIn(0f, 1f)
-    
+
     val animatedProgress by animateFloatAsState(
         targetValue = progress,
         animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
         label = "progress"
     )
-    
+
     val urgencyColor = when (vault.priority) {
         VaultPriority.CRITICAL -> MaterialTheme.colorScheme.error
         VaultPriority.HIGH -> accentYellow
         VaultPriority.MEDIUM -> MaterialTheme.colorScheme.primary
         VaultPriority.LOW -> MaterialTheme.colorScheme.secondary
     }
-    
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(spacing.md)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -438,7 +484,7 @@ private fun VaultItem(
                 Row(
                     modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(spacing.sm)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(
@@ -496,12 +542,12 @@ private fun VaultItem(
                     }
                 }
             }
-            
+
             vault.nextExpectedContribution?.takeIf { it > 0 }?.let { nextAmount ->
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(spacing.xs))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(spacing.xxs)
                 ) {
                     MaterialSymbolIcon(icon = MaterialSymbols.TRENDING_UP,
                         contentDescription = null,
@@ -584,8 +630,12 @@ private fun SmartSavingSnapshotCard(summary: SmartSavingSummary, monthlyIncome: 
 
 @Composable
 private fun RecurringInsightsCard(insights: List<DetectedRecurringTransaction>) {
+    val spacing = MaterialTheme.spacing
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            modifier = Modifier.padding(spacing.md),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm)
+        ) {
             Text(stringResource(R.string.dashboard_recurring_patterns), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             val previewInsights = insights.take(4)
             val formatter = DateTimeFormatter.ofPattern("MMM d")
@@ -605,7 +655,7 @@ private fun RecurringInsightsCard(insights: List<DetectedRecurringTransaction>) 
                 }
                 if (insight != previewInsights.last()) {
                     HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 8.dp),
+                        modifier = Modifier.padding(vertical = spacing.xs),
                         thickness = DividerDefaults.Thickness,
                         color = DividerDefaults.color
                     )
@@ -622,11 +672,12 @@ private fun UpcomingRecurringCard(
     onManageRecurring: () -> Unit
 ) {
     val formatter = DateTimeFormatter.ofPattern("MMM d")
+    val spacing = MaterialTheme.spacing
     Card(
         onClick = onManageRecurring,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(spacing.md)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -645,10 +696,15 @@ private fun UpcomingRecurringCard(
                     )
                 }
                 TextButton(onClick = onManageRecurring) {
-                    Text(if (hasRecurring) stringResource(R.string.dashboard_manage) else stringResource(R.string.dashboard_add))
+                    val label = if (hasRecurring) {
+                        stringResource(R.string.dashboard_manage)
+                    } else {
+                        stringResource(R.string.dashboard_add)
+                    }
+                    SingleLineText(label)
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(spacing.sm))
             if (items.isEmpty()) {
                 Text(
                     text = if (hasRecurring) stringResource(R.string.dashboard_all_caught_up) else stringResource(R.string.dashboard_log_subscriptions_reminders),
@@ -688,7 +744,7 @@ private fun UpcomingRecurringCard(
                     }
                     if (upcoming != items.last()) {
                         HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 8.dp),
+                            modifier = Modifier.padding(vertical = spacing.xs),
                             thickness = DividerDefaults.Thickness,
                             color = DividerDefaults.color
                         )
@@ -701,6 +757,7 @@ private fun UpcomingRecurringCard(
 
 @Composable
 private fun EmergencyFundCard(goal: EmergencyFundGoal, settings: SparelySettings) {
+    val spacing = MaterialTheme.spacing
     val coverage = goal.coverageRatio.coerceIn(0.0, 1.0)
     val animatedCoverage by animateFloatAsState(
         targetValue = coverage.toFloat(),
@@ -713,16 +770,16 @@ private fun EmergencyFundCard(goal: EmergencyFundGoal, settings: SparelySettings
 
     ElevatedCard(
         modifier = Modifier
-            .fillMaxWidth()
-            .shadow(4.dp, RoundedCornerShape(20.dp)),
+            .fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surface
-        )
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.padding(spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(spacing.md)
         ) {
             // Header with icon
             Row(
@@ -732,7 +789,7 @@ private fun EmergencyFundCard(goal: EmergencyFundGoal, settings: SparelySettings
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(spacing.sm)
                 ) {
                     Box(
                         modifier = Modifier
@@ -763,7 +820,7 @@ private fun EmergencyFundCard(goal: EmergencyFundGoal, settings: SparelySettings
             }
 
             // Animated Progress Bar
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -797,19 +854,19 @@ private fun EmergencyFundCard(goal: EmergencyFundGoal, settings: SparelySettings
                 shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(spacing.md)) {
                     DetailRow(
                         label = stringResource(R.string.dashboard_current_cushion),
                         value = formatCurrency(savedAmount)
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(spacing.xs))
                     DetailRow(
                         label = stringResource(R.string.dashboard_shortfall),
                         value = formatCurrency(shortfall),
                         valueColor = if (shortfall > 0.0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                     )
                     if (goal.recommendedMonthlyContribution > 0.0) {
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(spacing.xs))
                         DetailRow(
                             label = stringResource(R.string.dashboard_monthly_target),
                             value = formatCurrency(goal.recommendedMonthlyContribution),
@@ -825,9 +882,9 @@ private fun EmergencyFundCard(goal: EmergencyFundGoal, settings: SparelySettings
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
                 ) {
                     Row(
-                        modifier = Modifier.padding(12.dp),
+                        modifier = Modifier.padding(spacing.sm),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(spacing.sm)
                     ) {
                         MaterialSymbolIcon(icon = MaterialSymbols.TRENDING_UP,
                             contentDescription = null,
@@ -873,6 +930,7 @@ private fun DetailRow(
 
 @Composable
 private fun MetricsRow(uiState: SparelyUiState) {
+    val spacing = MaterialTheme.spacing
     val totalsByType = uiState.smartVaults
         .groupBy { it.type }
         .mapValues { (_, vaults) -> vaults.sumOf { it.currentBalance } }
@@ -881,52 +939,72 @@ private fun MetricsRow(uiState: SparelyUiState) {
     val longTermTotal = totalsByType[VaultType.LONG_TERM] ?: 0.0
     val passiveTotal = totalsByType[VaultType.PASSIVE_INVESTMENT] ?: 0.0
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            text = stringResource(R.string.dashboard_savings_breakdown),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 4.dp)
-        )
-        
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.lg)) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm)
         ) {
-            ModernMetricCard(
-                title = stringResource(R.string.dashboard_short_term),
-                value = shortTermTotal,
-                icon = MaterialSymbols.SAVINGS,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.weight(1f)
-            )
-            ModernMetricCard(
-                title = stringResource(R.string.dashboard_long_term),
-                value = longTermTotal,
-                icon = MaterialSymbols.ACCOUNT_BALANCE,
-                color = MaterialTheme.colorScheme.tertiary,
-                modifier = Modifier.weight(1f)
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.SAVINGS,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            Text(
+                text = "Savings breakdown",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
             )
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            ModernMetricCard(
-                title = stringResource(R.string.dashboard_passive_growth),
-                value = passiveTotal,
-                icon = MaterialSymbols.TRENDING_UP,
-                color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.weight(1f)
-            )
-            ModernMetricCard(
-                title = stringResource(R.string.dashboard_monthly_avg),
-                value = uiState.analytics.averageMonthlyReserve,
-                subtitle = stringResource(R.string.dashboard_projected_in_6_months, formatCurrency(uiState.analytics.projectedReserveSixMonths)),
-                icon = MaterialSymbols.TRENDING_UP,
-                color = Color(0xFF4CAF50),
-                modifier = Modifier.weight(1f)
-            )
+
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.md)
+            ) {
+                ModernMetricCard(
+                    title = "Short-term",
+                    value = shortTermTotal,
+                    icon = MaterialSymbols.SAVINGS,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f)
+                )
+                ModernMetricCard(
+                    title = "Long-term",
+                    value = longTermTotal,
+                    icon = MaterialSymbols.ACCOUNT_BALANCE,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.md)
+            ) {
+                ModernMetricCard(
+                    title = "Passive growth",
+                    value = passiveTotal,
+                    icon = MaterialSymbols.TRENDING_UP,
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.weight(1f)
+                )
+                ModernMetricCard(
+                    title = "Monthly avg",
+                    value = uiState.analytics.averageMonthlyReserve,
+                    subtitle = "Projected in 6mo: ${formatCurrency(uiState.analytics.projectedReserveSixMonths)}",
+                    icon = MaterialSymbols.TRENDING_UP,
+                    color = Color(0xFF4CAF50),
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
     }
 }
@@ -940,14 +1018,15 @@ private fun ModernMetricCard(
     modifier: Modifier = Modifier,
     subtitle: String? = null
 ) {
+    val spacing = MaterialTheme.spacing
     ExpressiveCard(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
-        elevation = 2.dp,
-        contentPadding = 16.dp
+        tonalElevation = 4.dp,
+        contentPadding = spacing.md
     ) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(spacing.xs)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1172,6 +1251,7 @@ private fun QuickBudgetCard(budgetSummary: BudgetSummary, onClick: () -> Unit) {
             contentColor = MaterialTheme.colorScheme.onErrorContainer
         )
     }
+    val spacing = MaterialTheme.spacing
 
     Card(
         onClick = onClick,
@@ -1180,7 +1260,7 @@ private fun QuickBudgetCard(budgetSummary: BudgetSummary, onClick: () -> Unit) {
             contentColor = statusColors.contentColor
         )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(spacing.md)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1198,7 +1278,7 @@ private fun QuickBudgetCard(budgetSummary: BudgetSummary, onClick: () -> Unit) {
                     color = statusColors.indicatorColor
                 )
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(spacing.xs))
             LinearProgressIndicator(
             progress = { budgetSummary.percentageUsed.toFloat().coerceIn(0f, 1f) },
             modifier = Modifier
@@ -1208,7 +1288,7 @@ private fun QuickBudgetCard(budgetSummary: BudgetSummary, onClick: () -> Unit) {
             trackColor = ProgressIndicatorDefaults.linearTrackColor,
             strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(spacing.xs))
             Text(
                 text = stringResource(R.string.dashboard_remaining_of_budget, formatCurrency(budgetSummary.totalRemaining), formatCurrency(budgetSummary.totalBudget)),
                 style = MaterialTheme.typography.bodySmall
@@ -1219,6 +1299,7 @@ private fun QuickBudgetCard(budgetSummary: BudgetSummary, onClick: () -> Unit) {
 
 @Composable
 private fun BudgetEmptyCard(onClick: () -> Unit) {
+    val spacing = MaterialTheme.spacing
     Card(
         onClick = onClick,
         colors = CardDefaults.cardColors(
@@ -1226,20 +1307,20 @@ private fun BudgetEmptyCard(onClick: () -> Unit) {
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(spacing.md)) {
             Text(
                 text = stringResource(R.string.dashboard_budget_status),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(spacing.xs))
             Text(
                 text = stringResource(R.string.dashboard_setup_budgets_description),
                 style = MaterialTheme.typography.bodySmall
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(spacing.sm))
             TextButton(onClick = onClick) {
-                Text(stringResource(R.string.dashboard_create_first_budget))
+                SingleLineText(stringResource(R.string.dashboard_create_first_budget))
             }
         }
     }
@@ -1248,6 +1329,7 @@ private fun BudgetEmptyCard(onClick: () -> Unit) {
 @Composable
 private fun QuickChallengesCard(challenges: List<SavingsChallenge>, onClick: () -> Unit) {
     val streakColor = MaterialTheme.colorScheme.tertiary
+    val spacing = MaterialTheme.spacing
     Card(
         onClick = onClick,
         colors = CardDefaults.cardColors(
@@ -1255,13 +1337,13 @@ private fun QuickChallengesCard(challenges: List<SavingsChallenge>, onClick: () 
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
         )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(spacing.md)) {
             Text(
                 text = stringResource(R.string.dashboard_active_challenges),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(spacing.sm))
             challenges.forEach { challenge ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1301,7 +1383,7 @@ private fun QuickChallengesCard(challenges: List<SavingsChallenge>, onClick: () 
                 }
                 if (challenge != challenges.last()) {
                     HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 8.dp),
+                        modifier = Modifier.padding(vertical = spacing.xs),
                         thickness = DividerDefaults.Thickness,
                         color = DividerDefaults.color
                     )
@@ -1313,6 +1395,7 @@ private fun QuickChallengesCard(challenges: List<SavingsChallenge>, onClick: () 
 
 @Composable
 private fun ChallengesEmptyCard(onClick: () -> Unit) {
+    val spacing = MaterialTheme.spacing
     Card(
         onClick = onClick,
         colors = CardDefaults.cardColors(
@@ -1320,20 +1403,20 @@ private fun ChallengesEmptyCard(onClick: () -> Unit) {
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(spacing.md)) {
             Text(
                 text = stringResource(R.string.dashboard_savings_challenges),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(spacing.xs))
             Text(
                 text = stringResource(R.string.dashboard_challenges_description),
                 style = MaterialTheme.typography.bodySmall
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(spacing.sm))
             TextButton(onClick = onClick) {
-                Text(stringResource(R.string.dashboard_browse_challenges))
+                SingleLineText(stringResource(R.string.dashboard_browse_challenges))
             }
         }
     }
@@ -1341,6 +1424,7 @@ private fun ChallengesEmptyCard(onClick: () -> Unit) {
 
 @Composable
 private fun MainAccountBalanceCard(balance: Double, onClick: () -> Unit = {}) {
+    val spacing = MaterialTheme.spacing
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1353,12 +1437,12 @@ private fun MainAccountBalanceCard(balance: Double, onClick: () -> Unit = {}) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
+                .padding(spacing.lg),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(spacing.xxs)
             ) {
                 Text(
                     text = stringResource(R.string.dashboard_main_account),

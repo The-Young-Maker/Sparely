@@ -3,7 +3,7 @@ package com.example.sparely.domain.logic
 import com.example.sparely.domain.model.SmartVault
 import com.example.sparely.domain.model.SparelySettings
 import java.time.LocalDate
-import kotlin.math.floor
+import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /**
@@ -34,7 +34,9 @@ object SavingTaxEngine {
         }
         if (eligibleVaults.isEmpty()) return emptyList()
 
-        val baseAmount = context.expenseAmount * baseRate
+        // Calculate base amount and round UP to nearest dollar for final transfer amount
+        val rawBaseAmount = context.expenseAmount * baseRate
+        val baseAmount = ceil(rawBaseAmount)
         if (baseAmount < context.minimumContribution) return emptyList()
 
         val weights = DynamicAllocationEngine.calculateWeights(
@@ -61,28 +63,18 @@ object SavingTaxEngine {
         val baseCents = (baseAmount * 100).roundToInt()
         if (baseCents <= 0) return emptyList()
 
+        // Round UP to cents for each vault contribution
         val drafts = normalized.map { (vaultId, weight) ->
             val rawCents = weight * baseCents
-            val floorCents = floor(rawCents).toInt()
+            val ceilCents = ceil(rawCents).toInt()
             ContributionDraft(
                 vaultId = vaultId,
-                cents = floorCents,
-                fractional = rawCents - floorCents
+                cents = ceilCents,
+                fractional = rawCents - ceilCents
             )
         }.toMutableList()
 
-        var remainder = baseCents - drafts.sumOf { it.cents }
-        if (remainder > 0 && drafts.isNotEmpty()) {
-            val sorted = drafts.sortedByDescending { it.fractional }
-            var index = 0
-            while (remainder > 0) {
-                val draft = sorted[index % sorted.size]
-                draft.cents += 1
-                remainder -= 1
-                index++
-            }
-        }
-
+        // No need for remainder distribution since we're rounding up each contribution
         return drafts
             .filter { it.cents > 0 }
             .map { PlannedContribution(it.vaultId, it.cents / 100.0) }

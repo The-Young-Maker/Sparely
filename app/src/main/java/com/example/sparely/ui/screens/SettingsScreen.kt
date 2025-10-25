@@ -1648,6 +1648,7 @@ private fun RegionalSettingsCard(
                     )
                     Text(
                         text = availableLanguages.find { it.first == regionalSettings.languageCode }?.second 
+                            ?: currentCountry?.languageName
                             ?: regionalSettings.languageCode,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

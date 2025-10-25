@@ -198,7 +198,7 @@ private fun ModernSummaryCard(
         // Use a single tonal container for clarity instead of a gradient
         containerColor = MaterialTheme.colorScheme.secondaryContainer,
         shape = RoundedCornerShape(20.dp),
-        elevation = 6.dp,
+        tonalElevation = 6.dp,
         contentPadding = 20.dp
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -370,7 +370,7 @@ private fun ModernExpenseCard(expense: Expense, onDelete: () -> Unit) {
     ExpressiveCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        elevation = 2.dp,
+        tonalElevation = 2.dp,
         contentPadding = 18.dp
     ) {
         Column {

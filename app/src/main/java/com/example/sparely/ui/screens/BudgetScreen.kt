@@ -1,18 +1,26 @@
 package com.example.sparely.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import com.example.sparely.domain.model.*
+import com.example.sparely.ui.components.ExpressiveCard
+import com.example.sparely.ui.components.SingleLineText
 import com.example.sparely.ui.state.SparelyUiState
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.theme.MaterialSymbols
@@ -37,18 +45,28 @@ fun BudgetScreen(
     val currentMonth = YearMonth.now()
     
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Add budget button
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
-                IconButton(onClick = { showAddDialog = true }) {
-                    MaterialSymbolIcon(icon = MaterialSymbols.ADD, "Add Budget")
+                FilledTonalButton(
+                    onClick = { showAddDialog = true },
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+                ) {
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.ADD,
+                        contentDescription = "Add Budget",
+                        size = 18.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    SingleLineText(text = "Add Budget")
                 }
             }
         }
@@ -64,20 +82,23 @@ fun BudgetScreen(
         val monthlyIncome = uiState.settings.monthlyIncome
         if (totalBudgets > monthlyIncome && monthlyIncome > 0.0) {
             item {
-                Card(
-                    colors = CardDefaults.cardColors(
+                ElevatedCard(
+                    colors = CardDefaults.elevatedCardColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer
                     ),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        MaterialSymbolIcon(icon = MaterialSymbols.WARNING,
+                        MaterialSymbolIcon(
+                            icon = MaterialSymbols.WARNING,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error
+                            tint = MaterialTheme.colorScheme.error,
+                            size = 24.dp
                         )
                         Column {
                             Text(
@@ -87,7 +108,7 @@ fun BudgetScreen(
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )
                             Text(
-                                text = "Total budgets ($${String.format("%,.2f", totalBudgets)}) exceed your monthly income ($${String.format("%,.2f", monthlyIncome)}). Consider adjusting your budgets or increasing your income.",
+                                text = "Total budgets (${formatCurrency(totalBudgets)}) exceed your monthly income (${formatCurrency(monthlyIncome)}). Consider adjusting your budgets.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )
@@ -97,7 +118,19 @@ fun BudgetScreen(
             }
         }
 
-        if (suggestions.isNotEmpty()) {
+        // Filter suggestions to only show those with meaningful differences
+        val meaningfulSuggestions = suggestions.filter { suggestion ->
+            val existing = budgetLookup[suggestion.category to currentMonth]
+            if (existing == null) {
+                // Show if no budget exists
+                true
+            } else {
+                // Only show if difference is significant (more than $1)
+                abs(suggestion.suggestedLimit - existing.monthlyLimit) >= 1.0
+            }
+        }
+
+        if (meaningfulSuggestions.isNotEmpty()) {
             item {
                 Text(
                     text = "Smart suggestions",
@@ -106,7 +139,7 @@ fun BudgetScreen(
                 )
             }
 
-            items(suggestions, key = { it.category.name }) { suggestion ->
+            items(meaningfulSuggestions, key = { it.category.name }) { suggestion ->
                 val existing = budgetLookup[suggestion.category to currentMonth]
                 BudgetSuggestionCard(
                     suggestion = suggestion,
@@ -181,97 +214,112 @@ fun BudgetScreen(
 
 @Composable
 fun BudgetSummaryCard(summary: BudgetSummary) {
-    Card(
+    val gradientColors = when (summary.overallHealth) {
+        BudgetHealthStatus.HEALTHY -> listOf(Color(0xFF4CAF50), Color(0xFF66BB6A))
+        BudgetHealthStatus.WARNING -> listOf(Color(0xFFFFC107), Color(0xFFFFD54F))
+        BudgetHealthStatus.CRITICAL -> listOf(Color(0xFFFF9800), Color(0xFFFFB74D))
+        BudgetHealthStatus.OVER_BUDGET -> listOf(Color(0xFFF44336), Color(0xFFE57373))
+    }
+
+    ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = when (summary.overallHealth) {
-                BudgetHealthStatus.HEALTHY -> Color(0xFF4CAF50)
-                BudgetHealthStatus.WARNING -> Color(0xFFFFC107)
-                BudgetHealthStatus.CRITICAL -> Color(0xFFFF9800)
-                BudgetHealthStatus.OVER_BUDGET -> Color(0xFFF44336)
-            }
-        )
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp)
         ) {
-            Text(
-                text = YearMonth.now().month.name.lowercase().replaceFirstChar { it.uppercase() },
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        text = "Total Budget",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.9f)
-                    )
-                    Text(
-                        text = formatCurrency(summary.totalBudget),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = "Spent",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.9f)
-                    )
-                    Text(
-                        text = formatCurrency(summary.totalSpent),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            LinearProgressIndicator(
-                progress = { (summary.percentageUsed.toFloat()).coerceIn(0f, 1f) },
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(12.dp),
-                color = Color.White,
-                trackColor = Color.White.copy(alpha = 0.3f)
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Text(
-                text = "${formatPercent(summary.percentageUsed)} of budget used • ${formatCurrency(summary.totalRemaining)} remaining",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.9f)
-            )
-
-            if (summary.categoriesOverBudget > 0) {
+                    .padding(20.dp)
+            ) {
+                Text(
+                    text = YearMonth.now().month.name.lowercase().replaceFirstChar { it.uppercase() } + " Budget",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text(
+                            text = "Total Budget",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.9f)
+                        )
+                        Text(
+                            text = formatCurrency(summary.totalBudget),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = "Spent",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.9f)
+                        )
+                        Text(
+                            text = formatCurrency(summary.totalSpent),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
+                
                 Spacer(modifier = Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.WARNING,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "${summary.categoriesOverBudget} ${if (summary.categoriesOverBudget == 1) "category" else "categories"} over budget",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White
-                    )
+                
+                LinearProgressIndicator(
+                    progress = { (summary.percentageUsed.toFloat()).coerceIn(0f, 1f) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(10.dp)
+                        .clip(RoundedCornerShape(999.dp)),
+                    color = Color.White,
+                    trackColor = Color.White.copy(alpha = 0.3f)
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Text(
+                    text = "${formatPercent(summary.percentageUsed)} of budget used • ${formatCurrency(summary.totalRemaining)} remaining",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.9f)
+                )
+
+                if (summary.categoriesOverBudget > 0) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Surface(
+                        color = Color.White.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            MaterialSymbolIcon(
+                                icon = MaterialSymbols.WARNING,
+                                contentDescription = null,
+                                tint = Color.White,
+                                size = 18.dp
+                            )
+                            Text(
+                                text = "${summary.categoriesOverBudget} ${if (summary.categoriesOverBudget == 1) "category" else "categories"} over budget",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = Color.White
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -284,7 +332,10 @@ fun CategoryBudgetCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
+    ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -293,7 +344,7 @@ fun CategoryBudgetCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = status.category.name.lowercase().replaceFirstChar { it.uppercase() },
+                        text = status.category.displayName(),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -310,10 +361,19 @@ fun CategoryBudgetCard(
                 ) {
                     StatusBadge(status.status)
                     IconButton(onClick = onEdit) {
-                        MaterialSymbolIcon(icon = MaterialSymbols.EDIT, contentDescription = "Edit budget")
+                        MaterialSymbolIcon(
+                            icon = MaterialSymbols.EDIT,
+                            contentDescription = "Edit budget",
+                            size = 20.dp
+                        )
                     }
                     IconButton(onClick = onDelete) {
-                        MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = "Delete budget")
+                        MaterialSymbolIcon(
+                            icon = MaterialSymbols.DELETE,
+                            contentDescription = "Delete budget",
+                            size = 20.dp,
+                            tint = MaterialTheme.colorScheme.error
+                        )
                     }
                 }
             }
@@ -324,13 +384,15 @@ fun CategoryBudgetCard(
                 progress = { (status.percentageUsed.toFloat()).coerceIn(0f, 1f) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(8.dp),
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(999.dp)),
                 color = when (status.status) {
                     BudgetHealthStatus.HEALTHY -> Color(0xFF4CAF50)
                     BudgetHealthStatus.WARNING -> Color(0xFFFFC107)
                     BudgetHealthStatus.CRITICAL -> Color(0xFFFF9800)
                     BudgetHealthStatus.OVER_BUDGET -> Color(0xFFF44336)
-                }
+                },
+                trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
             )
             
             Spacer(modifier = Modifier.height(8.dp))
@@ -394,7 +456,10 @@ fun BudgetSuggestionCard(
         )
     }
 
-    Card {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -476,8 +541,12 @@ fun BudgetSuggestionCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Button(onClick = { onApply(suggestion.suggestedLimit) }) {
-                Text(if (currentBudget == null) "Create with suggestion" else "Apply suggestion")
+            FilledTonalButton(
+                onClick = { onApply(suggestion.suggestedLimit) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                SingleLineText(text = if (currentBudget == null) "Create with suggestion" else "Apply suggestion")
             }
         }
     }
@@ -485,36 +554,35 @@ fun BudgetSuggestionCard(
 
 @Composable
 fun StatusBadge(status: BudgetHealthStatus) {
-    AssistChip(
-        onClick = {},
-        label = {
-            Text(
-                text = when (status) {
-                    BudgetHealthStatus.HEALTHY -> "On Track"
-                    BudgetHealthStatus.WARNING -> "Warning"
-                    BudgetHealthStatus.CRITICAL -> "Critical"
-                    BudgetHealthStatus.OVER_BUDGET -> "Over"
-                },
-                style = MaterialTheme.typography.labelSmall
-            )
+    Surface(
+        color = when (status) {
+            BudgetHealthStatus.HEALTHY -> Color(0xFF4CAF50)
+            BudgetHealthStatus.WARNING -> Color(0xFFFFC107)
+            BudgetHealthStatus.CRITICAL -> Color(0xFFFF9800)
+            BudgetHealthStatus.OVER_BUDGET -> Color(0xFFF44336)
         },
-        colors = AssistChipDefaults.assistChipColors(
-            containerColor = when (status) {
-                BudgetHealthStatus.HEALTHY -> Color(0xFF4CAF50)
-                BudgetHealthStatus.WARNING -> Color(0xFFFFC107)
-                BudgetHealthStatus.CRITICAL -> Color(0xFFFF9800)
-                BudgetHealthStatus.OVER_BUDGET -> Color(0xFFF44336)
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Text(
+            text = when (status) {
+                BudgetHealthStatus.HEALTHY -> "On Track"
+                BudgetHealthStatus.WARNING -> "Warning"
+                BudgetHealthStatus.CRITICAL -> "Critical"
+                BudgetHealthStatus.OVER_BUDGET -> "Over"
             },
-            labelColor = Color.White
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
         )
-    )
+    }
 }
 
 @Composable
 fun EmptyBudgetState(onAddBudget: () -> Unit) {
-    Card(
+    ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
@@ -527,7 +595,7 @@ fun EmptyBudgetState(onAddBudget: () -> Unit) {
             MaterialSymbolIcon(
                 icon = MaterialSymbols.ACCOUNT_BALANCE_WALLET,
                 contentDescription = null,
-                modifier = Modifier.size(64.dp),
+                size = 64.dp,
                 tint = MaterialTheme.colorScheme.primary
             )
             Spacer(modifier = Modifier.height(16.dp))
@@ -543,10 +611,13 @@ fun EmptyBudgetState(onAddBudget: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = onAddBudget) {
-                MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null)
+            FilledTonalButton(
+                onClick = onAddBudget,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null, size = 18.dp)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Create Budget")
+                SingleLineText(text = "Create Budget")
             }
         }
     }
@@ -562,71 +633,99 @@ fun AddBudgetDialog(
     var amount by remember { mutableStateOf("") }
     var expanded by remember { mutableStateOf(false) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Set Budget") },
-        text = {
-            Column {
-                Text("Category")
-                Spacer(modifier = Modifier.height(8.dp))
-                ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = it }
-                ) {
-                    OutlinedTextField(
-                        value = selectedCategory.name.lowercase().replaceFirstChar { it.uppercase() },
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+    Dialog(onDismissRequest = onDismiss) {
+        ExpressiveCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "Set Budget",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Column {
+                    Text(
+                        text = "Category",
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(bottom = 8.dp)
                     )
-                    ExposedDropdownMenu(
+                    ExposedDropdownMenuBox(
                         expanded = expanded,
-                        onDismissRequest = { expanded = false }
+                        onExpandedChange = { expanded = it }
                     ) {
-                        ExpenseCategory.values().forEach { category ->
-                            DropdownMenuItem(
-                                text = { Text(category.name.lowercase().replaceFirstChar { it.uppercase() }) },
-                                onClick = {
-                                    selectedCategory = category
-                                    expanded = false
-                                }
-                            )
+                        OutlinedTextField(
+                            value = selectedCategory.displayName(),
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
+                            ExpenseCategory.values().forEach { category ->
+                                DropdownMenuItem(
+                                    text = { Text(category.displayName()) },
+                                    onClick = {
+                                        selectedCategory = category
+                                        expanded = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
+
                 OutlinedTextField(
                     value = amount,
-                    onValueChange = { amount = it },
+                    onValueChange = { amount = it.filter { ch -> ch.isDigit() || ch == '.' } },
                     label = { Text("Monthly Limit") },
                     prefix = { Text("$") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    amount.toDoubleOrNull()?.let { limitAmount ->
-                        onConfirm(BudgetInput(selectedCategory, limitAmount))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Cancel")
                     }
-                },
-                enabled = amount.toDoubleOrNull() != null && amount.toDoubleOrNull()!! > 0
-            ) {
-                Text("Set Budget")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                    Button(
+                        onClick = {
+                            amount.toDoubleOrNull()?.let { limitAmount ->
+                                if (limitAmount > 0) {
+                                    onConfirm(BudgetInput(selectedCategory, limitAmount))
+                                }
+                            }
+                        },
+                        enabled = amount.toDoubleOrNull()?.let { it > 0 } == true,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Set Budget")
+                    }
+                }
             }
         }
-    )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -639,51 +738,76 @@ fun EditBudgetDialog(
 ) {
     var amount by remember { mutableStateOf(budget.monthlyLimit.toString()) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text("Edit ${budget.category.name.lowercase().replaceFirstChar { it.uppercase() }} budget")
-        },
-        text = {
-            Column {
-                Text("Monthly Limit")
-                Spacer(modifier = Modifier.height(8.dp))
+    Dialog(onDismissRequest = onDismiss) {
+        ExpressiveCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "Edit ${budget.category.displayName()} budget",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+
                 OutlinedTextField(
                     value = amount,
-                    onValueChange = { amount = it },
+                    onValueChange = { amount = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                    label = { Text("Monthly Limit") },
                     prefix = { Text("$") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    amount.toDoubleOrNull()?.let { value ->
-                        if (value > 0) {
-                            onConfirm(value)
-                        }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDelete,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("Delete")
                     }
-                },
-                enabled = amount.toDoubleOrNull()?.let { it > 0 } == true
-            ) {
-                Text("Save")
-            }
-        },
-        dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = onDelete) {
-                    Text("Delete")
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Cancel")
+                    }
                 }
-                TextButton(onClick = onDismiss) {
-                    Text("Cancel")
+
+                Button(
+                    onClick = {
+                        amount.toDoubleOrNull()?.let { value ->
+                            if (value > 0) {
+                                onConfirm(value)
+                            }
+                        }
+                    },
+                    enabled = amount.toDoubleOrNull()?.let { it > 0 } == true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Save")
                 }
             }
         }
-    )
+    }
 }
 
-private fun formatCurrency(value: Double): String = "$" + String.format("%,.2f", value)
+private fun formatCurrency(value: Double): String = "$" + String.format("%,.0f", value)
 private fun formatPercent(value: Double): String = String.format("%.1f%%", value.coerceIn(0.0, 2.0) * 100)
 
 private fun SuggestionConfidence.displayLabel(): String = when (this) {
@@ -691,4 +815,7 @@ private fun SuggestionConfidence.displayLabel(): String = when (this) {
     SuggestionConfidence.MEDIUM -> "Medium confidence"
     SuggestionConfidence.LOW -> "Emerging trend"
 }
+
+// Extension function for ExpenseCategory.displayName() - using the one from RecurringScreen.kt
+// (It's defined as a public function there, so we can use it directly)
 

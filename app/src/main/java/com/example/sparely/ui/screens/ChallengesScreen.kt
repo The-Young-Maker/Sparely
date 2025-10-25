@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -167,14 +168,15 @@ fun ChallengeCard(challenge: SavingsChallenge) {
                 }
                 
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 LinearProgressIndicator(
-                    progress = challenge.progressPercent.toFloat(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(12.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                progress = { challenge.progressPercent.toFloat() },
+                modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(12.dp),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
                 )
                 
                 Spacer(modifier = Modifier.height(8.dp))
