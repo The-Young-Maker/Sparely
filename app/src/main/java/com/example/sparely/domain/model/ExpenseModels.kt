@@ -15,7 +15,8 @@ data class Expense(
     val allocation: AllocationBreakdown,
     val appliedPercentages: SavingsPercentages,
     val autoRecommended: Boolean,
-    val riskLevelUsed: RiskLevel
+    val riskLevelUsed: RiskLevel,
+    val deductedFromVaultId: Long? = null
 )
 
 /**
@@ -29,7 +30,8 @@ data class ExpenseInput(
     val date: LocalDate,
     val includesTax: Boolean,
     val manualPercentages: SavingsPercentages? = null,
-    val deductFromMainAccount: Boolean = false
+    val deductFromMainAccount: Boolean = false,
+    val deductFromVaultId: Long? = null
 )
 
 /**

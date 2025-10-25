@@ -29,12 +29,16 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -57,6 +61,7 @@ import com.example.sparely.domain.model.ExpenseCategory
 import com.example.sparely.domain.model.RecurringExpense
 import com.example.sparely.domain.model.RecurringExpenseInput
 import com.example.sparely.domain.model.RecurringFrequency
+import com.example.sparely.domain.model.SmartVault
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.theme.MaterialSymbols
 import java.time.Instant
@@ -84,6 +89,7 @@ private data class RecurringUpcomingPreview(
 @Composable
 fun RecurringExpensesScreen(
     recurringExpenses: List<RecurringExpense>,
+    smartVaults: List<SmartVault> = emptyList(),
     onAddRecurring: (RecurringExpenseInput) -> Unit,
     onUpdateRecurring: (RecurringExpense) -> Unit,
     onDeleteRecurring: (Long) -> Unit,
@@ -152,6 +158,7 @@ fun RecurringExpensesScreen(
     if (isDialogVisible) {
         RecurringExpenseDialog(
             expense = editingExpense,
+            smartVaults = smartVaults,
             onDismiss = {
                 isDialogVisible = false
                 editingExpense = null
@@ -170,7 +177,11 @@ fun RecurringExpensesScreen(
                             endDate = input.endDate,
                             autoLog = input.autoLog,
                             reminderDaysBefore = input.reminderDaysBefore,
-                            notes = input.notes
+                            notes = input.notes,
+                            includesTax = input.includesTax,
+                            deductFromMainAccount = input.deductFromMainAccount,
+                            deductedFromVaultId = input.deductedFromVaultId,
+                            manualPercentages = input.manualPercentages
                         )
                     )
                 }
@@ -445,6 +456,7 @@ private fun EmptyRecurringState(onAddRecurring: () -> Unit) {
 @Composable
 private fun RecurringExpenseDialog(
     expense: RecurringExpense?,
+    smartVaults: List<SmartVault>,
     onDismiss: () -> Unit,
     onConfirm: (RecurringExpenseInput, RecurringExpense?) -> Unit
 ) {
@@ -457,7 +469,13 @@ private fun RecurringExpenseDialog(
     var reminderDays by remember { mutableStateOf(expense?.reminderDaysBefore?.toString() ?: "2") }
     var autoLog by remember { mutableStateOf(expense?.autoLog ?: true) }
     var notes by remember { mutableStateOf(expense?.notes.orEmpty()) }
+    var includesTax by remember { mutableStateOf(expense?.includesTax ?: false) }
+    var deductFromMainAccount by remember { mutableStateOf(expense?.deductFromMainAccount ?: false) }
+    var deductFromVaultId by remember { mutableStateOf(expense?.deductedFromVaultId) }
+    var vaultDropdownExpanded by remember { mutableStateOf(false) }
     var showError by remember { mutableStateOf(false) }
+
+    val activeVaults = remember(smartVaults) { smartVaults.filter { !it.archived } }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -513,6 +531,94 @@ private fun RecurringExpenseDialog(
                     Text("Auto-log to history", style = MaterialTheme.typography.bodyMedium)
                     Switch(checked = autoLog, onCheckedChange = { autoLog = it })
                 }
+                
+                // Expense-related fields
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Includes tax", style = MaterialTheme.typography.bodyMedium)
+                    Switch(checked = includesTax, onCheckedChange = { includesTax = it })
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Deduct from main account", style = MaterialTheme.typography.bodyMedium)
+                    Switch(checked = deductFromMainAccount, onCheckedChange = { deductFromMainAccount = it })
+                }
+                
+                // Vault selection dropdown (matching ExpenseEntryScreen)
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text("Deduct from vault (optional)", style = MaterialTheme.typography.labelLarge)
+                    Text(
+                        text = if (activeVaults.isEmpty()) "No active vaults available" else "Choose a vault to deduct from",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (activeVaults.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        ExposedDropdownMenuBox(
+                            expanded = vaultDropdownExpanded,
+                            onExpandedChange = { vaultDropdownExpanded = it }
+                        ) {
+                            OutlinedTextField(
+                                value = deductFromVaultId?.let { id -> 
+                                    activeVaults.find { it.id == id }?.name ?: "None"
+                                } ?: "None",
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = vaultDropdownExpanded) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                                label = { Text("Select vault") }
+                            )
+                            ExposedDropdownMenu(
+                                expanded = vaultDropdownExpanded,
+                                onDismissRequest = { vaultDropdownExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { 
+                                        Column {
+                                            Text("None")
+                                            Text(
+                                                text = "Don't deduct from any vault",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        deductFromVaultId = null
+                                        vaultDropdownExpanded = false
+                                    }
+                                )
+                                activeVaults.forEach { vault ->
+                                    DropdownMenuItem(
+                                        text = { 
+                                            Column {
+                                                Text(vault.name)
+                                                Text(
+                                                    text = "Balance: $${String.format("%.2f", vault.currentBalance)}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            deductFromVaultId = vault.id
+                                            vaultDropdownExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
@@ -541,7 +647,10 @@ private fun RecurringExpenseDialog(
                     endDate = endDate,
                     autoLog = autoLog,
                     reminderDaysBefore = reminder,
-                    notes = notes.takeIf { it.isNotBlank() }
+                    notes = notes.takeIf { it.isNotBlank() },
+                    includesTax = includesTax,
+                    deductFromMainAccount = deductFromMainAccount,
+                    deductedFromVaultId = deductFromVaultId
                 )
                 onConfirm(input, expense)
             }) {

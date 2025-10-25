@@ -20,5 +20,13 @@ data class RecurringExpenseEntity(
     val autoLog: Boolean = true,
     val reminderDaysBefore: Int = 2,
     val merchantName: String? = null,
-    val notes: String? = null
+    val notes: String? = null,
+    // Expense-related fields (same as ExpenseEntity)
+    val includesTax: Boolean = false,
+    val deductFromMainAccount: Boolean = false,
+    val deductedFromVaultId: Long? = null,
+    val manualPercentEmergency: Double? = null,
+    val manualPercentInvest: Double? = null,
+    val manualPercentFun: Double? = null,
+    val manualSafeSplit: Double? = null
 )

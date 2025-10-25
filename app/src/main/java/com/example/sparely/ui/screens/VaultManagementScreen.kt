@@ -21,10 +21,14 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -32,6 +36,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ProgressIndicatorDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,6 +52,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.example.sparely.R
@@ -79,23 +85,80 @@ fun VaultManagementScreen(
     var vaultToEdit by remember { mutableStateOf<SmartVault?>(null) }
     var vaultToDeposit by remember { mutableStateOf<SmartVault?>(null) }
     var vaultToWithdraw by remember { mutableStateOf<SmartVault?>(null) }
+    var showCreateDialog by remember { mutableStateOf(false) }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        items(vaults.size) { index ->
-            val vault = vaults[index]
-            VaultCard(
-                vault = vault,
-                onEdit = { vaultToEdit = vault },
-                onDelete = { onDeleteVault(vault.id) },
-                onDeposit = onManualDeposit?.let { { vaultToDeposit = vault } },
-                onWithdraw = onManualWithdrawal?.let { { vaultToWithdraw = vault } },
-                onViewHistory = onViewHistory?.let { { it(vault.id) } }
-            )
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showCreateDialog = true },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.ADD,
+                        contentDescription = "Create vault",
+                        size = 24.dp
+                    )
+                    Text("Create Vault", style = MaterialTheme.typography.labelLarge)
+                }
+            }
         }
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(paddingValues),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Text(
+                    text = "Manage your savings vaults",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Create and organize vaults to track your savings goals",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (vaults.isEmpty()) {
+                item {
+                    EmptyVaultsCard(onCreateVault = { showCreateDialog = true })
+                }
+            } else {
+                items(vaults.size) { index ->
+                    val vault = vaults[index]
+                    VaultCard(
+                        vault = vault,
+                        onEdit = { vaultToEdit = vault },
+                        onDelete = { onDeleteVault(vault.id) },
+                        onDeposit = onManualDeposit?.let { { vaultToDeposit = vault } },
+                        onWithdraw = onManualWithdrawal?.let { { vaultToWithdraw = vault } },
+                        onViewHistory = onViewHistory?.let { { it(vault.id) } }
+                    )
+                }
+            }
+        }
+    }
+
+    // Create dialog
+    if (showCreateDialog) {
+        VaultEditorDialog(
+            vault = null,
+            onSave = { newVault ->
+                onAddVault(newVault)
+                showCreateDialog = false
+            },
+            onDismiss = { showCreateDialog = false }
+        )
     }
 
     // Edit dialog
@@ -134,6 +197,52 @@ fun VaultManagementScreen(
             },
             onDismiss = { vaultToWithdraw = null }
         )
+    }
+}
+
+@Composable
+private fun EmptyVaultsCard(onCreateVault: () -> Unit) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            MaterialSymbolIcon(
+                icon = MaterialSymbols.ACCOUNT_BALANCE_WALLET,
+                contentDescription = null,
+                size = 64.dp,
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+            )
+            Text(
+                text = "No vaults yet",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Create your first savings vault to start organizing your money and tracking your financial goals",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Button(
+                onClick = onCreateVault,
+                modifier = Modifier.fillMaxWidth(0.6f)
+            ) {
+                MaterialSymbolIcon(
+                    icon = MaterialSymbols.ADD,
+                    contentDescription = null,
+                    size = 18.dp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Create Your First Vault")
+            }
+        }
     }
 }
 
@@ -463,121 +572,234 @@ private fun VaultEditorDialog(
     var targetAmount by remember { mutableStateOf(vault?.targetAmount?.toString() ?: "") }
     var currentBalance by remember { mutableStateOf(vault?.currentBalance?.toString() ?: "0") }
     var priority by remember { mutableStateOf(vault?.priority ?: VaultPriority.MEDIUM) }
-    var type by remember { mutableStateOf(vault?.type ?: VaultType.SHORT_TERM) }
-    var allocationMode by remember { mutableStateOf(vault?.allocationMode ?: VaultAllocationMode.DYNAMIC_AUTO) }
-    var manualPercent by remember { mutableStateOf(vault?.manualAllocationPercent?.let { (it * 100).toString() } ?: "") }
-    var hasTargetDate by remember { mutableStateOf(vault?.targetDate != null) }
+    var type by remember { mutableStateOf(vault?.type ?: VaultType.GOAL) }
+    var allocationMode by remember { mutableStateOf(vault?.allocationMode ?: VaultAllocationMode.MANUAL) }
+    var manualPercent by remember { mutableStateOf(vault?.manualAllocationPercent?.let { (it * 100).toString() } ?: "10") }
     var targetDate by remember { mutableStateOf(vault?.targetDate) }
-    var showDatePicker by remember { mutableStateOf(false) }
-
-    var hasAutoDeposit by remember { mutableStateOf(vault?.autoDepositSchedule != null) }
-    var autoDepositAmount by remember { mutableStateOf(vault?.autoDepositSchedule?.amount?.toString() ?: "") }
-    var autoDepositFrequency by remember { mutableStateOf(vault?.autoDepositSchedule?.frequency ?: AutoDepositFrequency.WEEKLY) }
-
-    var accountType by remember { mutableStateOf(vault?.accountType) }
-    var accountNumber by remember { mutableStateOf(vault?.accountNumber ?: "") }
     var accountNotes by remember { mutableStateOf(vault?.accountNotes ?: "") }
-    var showAccountTypeDialog by remember { mutableStateOf(false) }
+
+    var priorityMenuExpanded by remember { mutableStateOf(false) }
+    var typeMenuExpanded by remember { mutableStateOf(false) }
+    var allocationMenuExpanded by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
     val isValid = name.isNotBlank() && targetAmount.toDoubleOrNull()?.let { it > 0 } == true
 
+    if (showDatePicker) {
+        android.app.DatePickerDialog(
+            androidx.compose.ui.platform.LocalContext.current,
+            { _, year, month, day ->
+                targetDate = LocalDate.of(year, month + 1, day)
+                showDatePicker = false
+            },
+            (targetDate ?: LocalDate.now()).year,
+            (targetDate ?: LocalDate.now()).monthValue - 1,
+            (targetDate ?: LocalDate.now()).dayOfMonth
+        ).apply {
+            setOnDismissListener { showDatePicker = false }
+        }.show()
+    }
+
     Dialog(onDismissRequest = onDismiss) {
-        ExpressiveCard(
+        ElevatedCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 650.dp),
-            shape = RoundedCornerShape(16.dp)
+                .heightIn(max = 700.dp),
+            shape = RoundedCornerShape(24.dp)
         ) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 item {
-                    Text(
-                        text = if (vault == null) stringResource(R.string.vault_editor_add_title) else stringResource(R.string.vault_editor_edit_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = if (vault == null) "Create New Vault" else "Edit Vault",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Configure your savings vault settings",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
                 item {
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
-                        label = { Text(stringResource(R.string.vault_name_label)) },
+                        label = { Text("Vault name") },
+                        placeholder = { Text("e.g., Emergency Fund, Vacation") },
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                }
-
-                item {
-                    OutlinedTextField(
-                        value = targetAmount,
-                        onValueChange = { targetAmount = it },
-                        label = { Text(stringResource(R.string.vault_target_amount_label)) },
-                        prefix = { Text("$") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                }
-
-                item {
-                    OutlinedTextField(
-                        value = currentBalance,
-                        onValueChange = { currentBalance = it },
-                        label = { Text(stringResource(R.string.vault_current_balance_label)) },
-                        prefix = { Text("$") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                }
-
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Priority", style = MaterialTheme.typography.labelLarge)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            VaultPriority.entries.forEach { p ->
-                                FilterChip(
-                                    selected = priority == p,
-                                    onClick = { priority = p },
-                                    label = { Text(p.name) }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Type", style = MaterialTheme.typography.labelLarge)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            VaultType.entries.forEach { t ->
-                                FilterChip(
-                                    selected = type == t,
-                                    onClick = { type = t },
-                                    label = { Text(t.name.replace("_", " ")) }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Allocation Mode", style = MaterialTheme.typography.labelLarge)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(
-                                selected = allocationMode == VaultAllocationMode.DYNAMIC_AUTO,
-                                onClick = { allocationMode = VaultAllocationMode.DYNAMIC_AUTO },
-                                label = { Text("Auto") }
+                        singleLine = true,
+                        leadingIcon = {
+                            MaterialSymbolIcon(
+                                icon = MaterialSymbols.ACCOUNT_BALANCE_WALLET,
+                                contentDescription = null,
+                                size = 20.dp
                             )
-                            FilterChip(
-                                selected = allocationMode == VaultAllocationMode.MANUAL,
-                                onClick = { allocationMode = VaultAllocationMode.MANUAL },
-                                label = { Text("Manual") }
+                        }
+                    )
+                }
+
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = targetAmount,
+                            onValueChange = { targetAmount = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                            label = { Text("Target amount") },
+                            prefix = { Text("$") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal)
+                        )
+                        if (vault != null) {
+                            OutlinedTextField(
+                                value = currentBalance,
+                                onValueChange = { currentBalance = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                                label = { Text("Current balance") },
+                                prefix = { Text("$") },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal)
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    ExposedDropdownMenuBox(
+                        expanded = typeMenuExpanded,
+                        onExpandedChange = { typeMenuExpanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = type.name.replace("_", " "),
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Vault type") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeMenuExpanded) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(),
+                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = typeMenuExpanded,
+                            onDismissRequest = { typeMenuExpanded = false }
+                        ) {
+                            VaultType.entries.forEach { vaultType ->
+                                DropdownMenuItem(
+                                    text = { Text(vaultType.name.replace("_", " ")) },
+                                    onClick = {
+                                        type = vaultType
+                                        typeMenuExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    ExposedDropdownMenuBox(
+                        expanded = priorityMenuExpanded,
+                        onExpandedChange = { priorityMenuExpanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = priority.name,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Priority") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = priorityMenuExpanded) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(),
+                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = priorityMenuExpanded,
+                            onDismissRequest = { priorityMenuExpanded = false }
+                        ) {
+                            VaultPriority.entries.forEach { vaultPriority ->
+                                DropdownMenuItem(
+                                    text = { Text(vaultPriority.name) },
+                                    onClick = {
+                                        priority = vaultPriority
+                                        priorityMenuExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    ExposedDropdownMenuBox(
+                        expanded = allocationMenuExpanded,
+                        onExpandedChange = { allocationMenuExpanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = if (allocationMode == VaultAllocationMode.MANUAL) "Manual" else "Auto",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Allocation mode") },
+                            supportingText = {
+                                Text(
+                                    if (allocationMode == VaultAllocationMode.MANUAL)
+                                        "Fixed percentage per expense"
+                                    else
+                                        "Dynamic based on priority"
+                                )
+                            },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = allocationMenuExpanded) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(),
+                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = allocationMenuExpanded,
+                            onDismissRequest = { allocationMenuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text("Manual")
+                                        Text(
+                                            "Fixed percentage per expense",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    allocationMode = VaultAllocationMode.MANUAL
+                                    allocationMenuExpanded = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text("Auto")
+                                        Text(
+                                            "Dynamic based on priority",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    allocationMode = VaultAllocationMode.DYNAMIC_AUTO
+                                    allocationMenuExpanded = false
+                                }
                             )
                         }
                     }
@@ -588,13 +810,57 @@ private fun VaultEditorDialog(
                         OutlinedTextField(
                             value = manualPercent,
                             onValueChange = { manualPercent = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                            label = { Text(stringResource(R.string.vault_manual_percent_label)) },
+                            label = { Text("Allocation percentage") },
                             suffix = { Text("%") },
+                            supportingText = { Text("% of each expense to allocate to this vault") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal)
                         )
                     }
+                }
+
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = { showDatePicker = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            MaterialSymbolIcon(
+                                icon = MaterialSymbols.CALENDAR_MONTH,
+                                contentDescription = null,
+                                size = 18.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = targetDate?.format(dateFormatter) ?: "Set target date (optional)"
+                            )
+                        }
+                        if (targetDate != null) {
+                            TextButton(
+                                onClick = { targetDate = null },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Clear date")
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    OutlinedTextField(
+                        value = accountNotes,
+                        onValueChange = { accountNotes = it },
+                        label = { Text("Notes (optional)") },
+                        placeholder = { Text("Add any additional details...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        maxLines = 3
+                    )
+                }
+
+                item {
+                    HorizontalDivider()
                 }
 
                 item {
@@ -606,13 +872,13 @@ private fun VaultEditorDialog(
                             onClick = onDismiss,
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text(stringResource(android.R.string.cancel))
+                            Text("Cancel")
                         }
 
                         Button(
                             onClick = {
                                 val target = targetAmount.toDoubleOrNull() ?: return@Button
-                                val balance = currentBalance.toDoubleOrNull() ?: 0.0
+                                val balance = if (vault != null) currentBalance.toDoubleOrNull() ?: 0.0 else 0.0
                                 val manualAlloc = if (allocationMode == VaultAllocationMode.MANUAL) {
                                     manualPercent.toDoubleOrNull()?.div(100.0)?.coerceIn(0.0, 1.0)
                                 } else null
@@ -627,17 +893,14 @@ private fun VaultEditorDialog(
                                     allocationMode = allocationMode,
                                     manualAllocationPercent = manualAlloc,
                                     targetDate = targetDate,
-                                    accountType = accountType,
-                                    accountNumber = accountNumber.takeIf { it.isNotBlank() },
-                                    accountNotes = accountNotes.takeIf { it.isNotBlank() },
-                                    autoDepositSchedule = null // Simplified for now
+                                    accountNotes = accountNotes.takeIf { it.isNotBlank() }
                                 )
                                 onSave(updatedVault)
                             },
                             modifier = Modifier.weight(1f),
                             enabled = isValid
                         ) {
-                            Text(stringResource(android.R.string.ok))
+                            Text(if (vault == null) "Create" else "Save")
                         }
                     }
                 }

@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.sparely.AppContainer
 import com.example.sparely.data.local.ExpenseEntity
-import com.example.sparely.data.local.GoalEntity
 import com.example.sparely.data.local.SavingsTransferEntity
 import com.example.sparely.data.local.toDomain
 import com.example.sparely.data.repository.SavingsRepository
@@ -14,7 +13,6 @@ import com.example.sparely.domain.logic.AnalyticsEngine
 import com.example.sparely.domain.logic.BudgetEngine
 import com.example.sparely.domain.logic.ChallengeEngine
 import com.example.sparely.domain.logic.FinancialHealthEngine
-import com.example.sparely.domain.logic.GoalPlanner
 import com.example.sparely.domain.logic.RecommendationEngine
 import com.example.sparely.domain.logic.SavingsAdvisor
 import com.example.sparely.domain.logic.SavingsCalculator
@@ -40,7 +38,6 @@ import com.example.sparely.domain.model.LivingSituation
 import com.example.sparely.domain.model.Expense
 import com.example.sparely.domain.model.ExpenseCategory
 import com.example.sparely.domain.model.ExpenseInput
-import com.example.sparely.domain.model.GoalInput
 import com.example.sparely.domain.model.RecurringExpense
 import com.example.sparely.domain.model.RecurringExpenseInput
 import com.example.sparely.domain.model.RiskLevel
@@ -67,6 +64,9 @@ import com.example.sparely.domain.model.PayScheduleSettings
 import com.example.sparely.notifications.NotificationScheduler
 import com.example.sparely.workers.VaultAutoDepositScheduler
 import com.example.sparely.data.preferences.UserPreferencesRepository
+import com.example.sparely.domain.model.SmartVaultSetup
+import com.example.sparely.domain.model.VaultAdjustmentType
+import com.example.sparely.domain.model.VaultArchivePrompt
 import com.example.sparely.ui.state.SparelyUiState
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -122,7 +122,6 @@ class SparelyViewModel(
 
     private data class AggregatedFeeds(
         val expenses: List<ExpenseEntity>,
-        val goals: List<GoalEntity>,
         val transfers: List<SavingsTransferEntity>,
         val settings: SparelySettings,
         val vaults: List<SmartVault> = emptyList(),
@@ -143,13 +142,11 @@ class SparelyViewModel(
         viewModelScope.launch {
             combine(
                 savingsRepository.observeExpenses(),
-                savingsRepository.observeGoals(),
                 savingsRepository.observeTransfers(),
                 preferencesRepository.settingsFlow
-            ) { expenses, goals, transfers, settings ->
+            ) { expenses, transfers, settings ->
                 AggregatedFeeds(
                     expenses = expenses,
-                    goals = goals,
                     transfers = transfers,
                     settings = settings
                 )
@@ -187,7 +184,6 @@ class SparelyViewModel(
                 .collect { (feed, onboardingCompleted, autoDepositCheckHour, mainAccountTransactions) ->
                     val domainExpenses = feed.expenses.map { it.toDomain() }
                     val domainTransfers = feed.transfers.map { it.toDomain() }
-                    val domainGoals = GoalPlanner.toDomainGoals(feed.goals, domainExpenses, domainTransfers)
                     val analytics = AnalyticsEngine.build(domainExpenses, domainTransfers)
 
                     val currentMonth = YearMonth.now()
@@ -230,7 +226,7 @@ class SparelyViewModel(
                     notificationScheduler.schedule(feed.settings)
                     notificationScheduler.schedulePaydayReminder(feed.settings)
 
-                    val alerts = AlertsGenerator.buildAlerts(analytics, recommendation, feed.settings, domainGoals)
+                    val alerts = AlertsGenerator.buildAlerts(analytics, recommendation, feed.settings, emptyList())
                     var combinedAlerts = (alerts + budgetAlerts)
                         .distinctBy { it.title }
                         .sortedByDescending { it.priority }
@@ -265,7 +261,7 @@ class SparelyViewModel(
                     processedAchievementTitles.retainAll(achievements.map { it.title }.toSet())
 
                     val newAchievements = ChallengeEngine
-                        .checkForNewAchievements(analytics, domainGoals, enrichedChallenges, achievements)
+                        .checkForNewAchievements(analytics, emptyList(), enrichedChallenges, achievements)
                         .filter { processedAchievementTitles.add(it.title) }
                     if (newAchievements.isNotEmpty()) {
                         viewModelScope.launch(dispatcher) {
@@ -276,7 +272,7 @@ class SparelyViewModel(
                     val financialHealthScore = FinancialHealthEngine.calculateHealthScore(
                         expenses = domainExpenses,
                         transfers = domainTransfers,
-                        goals = domainGoals,
+                        goals = emptyList(),
                         budgetSummary = budgetSummary,
                         settings = feed.settings,
                         analytics = analytics
@@ -347,7 +343,6 @@ class SparelyViewModel(
                     _uiState.value = SparelyUiState(
                         settings = feed.settings,
                         expenses = domainExpenses,
-                        goals = domainGoals,
                         analytics = analytics,
                         recommendation = recommendation,
                         manualTransfers = domainTransfers,
@@ -423,7 +418,11 @@ class SparelyViewModel(
                     endDate = input.endDate,
                     autoLog = input.autoLog,
                     reminderDaysBefore = input.reminderDaysBefore.coerceAtLeast(0),
-                    notes = input.notes
+                    notes = input.notes,
+                    includesTax = input.includesTax,
+                    deductFromMainAccount = input.deductFromMainAccount,
+                    deductedFromVaultId = input.deductedFromVaultId,
+                    manualPercentages = input.manualPercentages
                 )
                 savingsRepository.upsertRecurringExpense(expense)
             }
@@ -589,7 +588,8 @@ class SparelyViewModel(
                 appliedPercentInvest = applied.invest,
                 appliedPercentFun = applied.`fun`,
                 appliedSafeSplit = applied.safeInvestmentSplit,
-                riskLevelUsed = settings.riskLevel
+                riskLevelUsed = settings.riskLevel,
+                deductedFromVaultId = input.deductFromVaultId
             )
             savingsRepository.upsertExpense(entity)
             val insertedExpenseId = entity.id
@@ -597,8 +597,69 @@ class SparelyViewModel(
             // Get current balance once at the start
             var currentBalance = savingsRepository.getLatestMainAccountBalance()
             
-            // Handle main account deduction for expense
-            if (input.deductFromMainAccount) {
+            // Handle vault deduction if specified
+            if (input.deductFromVaultId != null) {
+                val vault = currentState.smartVaults.find { it.id == input.deductFromVaultId }
+                if (vault != null) {
+                    val vaultBalanceBefore = vault.currentBalance
+                    val expenseAmount = input.amount
+                    
+                    // Calculate how much to deduct from vault and overflow
+                    val deductFromVault = expenseAmount.coerceAtMost(vaultBalanceBefore)
+                    val overflowToMainAccount = (expenseAmount - vaultBalanceBefore).coerceAtLeast(0.0)
+                    val vaultBalanceAfter = (vaultBalanceBefore - deductFromVault).coerceAtLeast(0.0)
+                    
+                    // Deduct from vault
+                    if (deductFromVault > 0.0) {
+                        savingsRepository.recordVaultBalanceAdjustment(
+                            vaultId = vault.id,
+                            previousBalance = vaultBalanceBefore,
+                            newBalance = vaultBalanceAfter,
+                            type = VaultAdjustmentType.MANUAL_DEDUCTION,
+                            reason = "Expense: ${input.description.take(100)}"
+                        )
+                    }
+                    
+                    // Deduct overflow from main account if specified
+                    if (overflowToMainAccount > 0.0 && input.deductFromMainAccount) {
+                        val newBalance = (currentBalance - overflowToMainAccount).coerceAtLeast(0.0)
+                        val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                            type = com.example.sparely.data.local.MainAccountTransactionType.EXPENSE,
+                            amount = overflowToMainAccount,
+                            balanceAfter = newBalance,
+                            timestamp = java.time.LocalDateTime.now(),
+                            description = "Overflow from vault expense: ${input.description.take(80)}",
+                            relatedExpenseId = insertedExpenseId
+                        )
+                        savingsRepository.insertMainAccountTransaction(transaction)
+                        preferencesRepository.updateMainAccountBalance(newBalance)
+                        currentBalance = newBalance
+                    }
+                    
+                    // Check if we should prompt for archive (90% or more of vault used)
+                    val percentageUsed = if (vaultBalanceBefore > 0.0) {
+                        (deductFromVault / vaultBalanceBefore)
+                    } else {
+                        0.0
+                    }
+                    
+                    if (percentageUsed >= 0.90) {
+                        _uiState.update { state ->
+                            state.copy(
+                                vaultArchivePrompt = VaultArchivePrompt(
+                                    vaultId = vault.id,
+                                    vaultName = vault.name,
+                                    expenseAmount = expenseAmount,
+                                    vaultBalanceBefore = vaultBalanceBefore,
+                                    vaultBalanceAfter = vaultBalanceAfter,
+                                    overflowToMainAccount = overflowToMainAccount
+                                )
+                            )
+                        }
+                    }
+                }
+            } else if (input.deductFromMainAccount) {
+                // Original main account deduction logic when no vault is selected
                 val newBalance = (currentBalance - input.amount).coerceAtLeast(0.0)
                 val transaction = com.example.sparely.domain.model.MainAccountTransaction(
                     type = com.example.sparely.data.local.MainAccountTransactionType.EXPENSE,
@@ -610,7 +671,7 @@ class SparelyViewModel(
                 )
                 savingsRepository.insertMainAccountTransaction(transaction)
                 preferencesRepository.updateMainAccountBalance(newBalance)
-                currentBalance = newBalance // Update for next deduction
+                currentBalance = newBalance
             }
             
             val savingTaxPlans = SavingTaxEngine.calculate(
@@ -657,42 +718,25 @@ class SparelyViewModel(
             savingsRepository.findExpenseById(id)?.let { savingsRepository.deleteExpense(it) }
         }
     }
+    
+    fun dismissVaultArchivePrompt() {
+        _uiState.update { it.copy(vaultArchivePrompt = null) }
+    }
+    
+    fun archiveVaultFromPrompt(vaultId: Long) {
+        viewModelScope.launch(dispatcher) {
+            savingsRepository.updateVaultArchived(vaultId, true)
+            _uiState.update { it.copy(vaultArchivePrompt = null) }
+        }
+    }
 
-    fun resetHistory(clearGoals: Boolean = false) {
+    fun resetHistory(clearVaults: Boolean = false) {
         viewModelScope.launch(dispatcher) {
             savingsRepository.clearExpenses()
             savingsRepository.clearTransfers()
-            if (clearGoals) {
-                savingsRepository.clearGoals()
+            if (clearVaults) {
+                savingsRepository.clearSmartVaults()
             }
-        }
-    }
-
-    fun addGoal(input: GoalInput) {
-        viewModelScope.launch(dispatcher) {
-            val entity = GoalEntity(
-                title = input.title.trim().ifEmpty { "New goal" },
-                targetAmount = input.targetAmount,
-                category = input.category,
-                targetDate = input.targetDate,
-                createdAt = LocalDate.now(),
-                notes = input.notes,
-                archived = false
-            )
-            savingsRepository.upsertGoal(entity)
-        }
-    }
-
-    fun toggleGoalArchived(goalId: Long, archived: Boolean) {
-        viewModelScope.launch(dispatcher) {
-            val goal = savingsRepository.findGoalById(goalId) ?: return@launch
-            savingsRepository.upsertGoal(goal.copy(archived = archived))
-        }
-    }
-
-    fun deleteGoal(goalId: Long) {
-        viewModelScope.launch(dispatcher) {
-            savingsRepository.findGoalById(goalId)?.let { savingsRepository.deleteGoal(it) }
         }
     }
 
@@ -943,9 +987,23 @@ class SparelyViewModel(
         }
     }
     
+    fun addSmartVault(setup: SmartVaultSetup) {
+        viewModelScope.launch(dispatcher) {
+            val vault = setup.toSmartVault()
+            savingsRepository.upsertSmartVault(vault.copy(id = 0L))
+        }
+    }
+    
     fun updateSmartVault(vault: SmartVault) {
         viewModelScope.launch(dispatcher) {
             savingsRepository.upsertSmartVault(vault)
+        }
+    }
+    
+    fun toggleVaultArchived(vaultId: Long, archived: Boolean) {
+        if (vaultId == 0L) return
+        viewModelScope.launch(dispatcher) {
+            savingsRepository.updateVaultArchived(vaultId, archived)
         }
     }
     
@@ -1335,7 +1393,8 @@ class SparelyViewModel(
             ),
             appliedPercentages = percentages,
             autoRecommended = autoRecommended,
-            riskLevelUsed = riskLevelUsed
+            riskLevelUsed = riskLevelUsed,
+            deductedFromVaultId = deductedFromVaultId
         )
     }
 

@@ -890,6 +890,9 @@ private fun VaultType.displayName(): String = when (this) {
     VaultType.SHORT_TERM -> "Short-term"
     VaultType.LONG_TERM -> "Long-term"
     VaultType.PASSIVE_INVESTMENT -> "Passive"
+    VaultType.GOAL -> "Goal"
+    VaultType.EMERGENCY -> "Emergency"
+    VaultType.INVESTMENT -> "Investment"
 }
 
 private fun Double.toInputText(defaultWhenZero: String = ""): String {

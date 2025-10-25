@@ -5,8 +5,6 @@ import com.example.sparely.data.local.BudgetDao
 import com.example.sparely.data.local.ChallengeDao
 import com.example.sparely.data.local.ExpenseDao
 import com.example.sparely.data.local.ExpenseEntity
-import com.example.sparely.data.local.GoalDao
-import com.example.sparely.data.local.GoalEntity
 import com.example.sparely.data.local.RecurringExpenseDao
 import com.example.sparely.data.local.SavingsAccountDao
 import com.example.sparely.data.local.SavingsTransferDao
@@ -36,7 +34,6 @@ import java.time.LocalDate
 
 class SavingsRepository(
     private val expenseDao: ExpenseDao,
-    private val goalDao: GoalDao,
     private val transferDao: SavingsTransferDao,
     private val budgetDao: BudgetDao,
     private val recurringExpenseDao: RecurringExpenseDao,
@@ -65,22 +62,6 @@ class SavingsRepository(
         expenseDao.clearAll()
     }
 
-    fun observeGoals(): Flow<List<GoalEntity>> = goalDao.observeGoals()
-
-    suspend fun upsertGoal(goal: GoalEntity) {
-        goalDao.upsertGoal(goal)
-    }
-
-    suspend fun deleteGoal(goal: GoalEntity) {
-        goalDao.deleteGoal(goal)
-    }
-
-    suspend fun findGoalById(id: Long): GoalEntity? = goalDao.findGoalById(id)
-
-    suspend fun clearGoals() {
-        goalDao.clearAll()
-    }
-
     fun observeTransfers(): Flow<List<SavingsTransferEntity>> = transferDao.observeTransfers()
 
     suspend fun logTransfer(entity: SavingsTransferEntity) {
@@ -93,6 +74,10 @@ class SavingsRepository(
 
     suspend fun clearTransfers() {
         transferDao.clearAll()
+    }
+
+    suspend fun clearSmartVaults() {
+        smartVaultDao.clearAllVaults()
     }
 
     fun observeSavingsAccounts(): Flow<List<SavingsAccount>> =
@@ -263,6 +248,10 @@ class SavingsRepository(
         )
     }
 
+    suspend fun updateVaultArchived(vaultId: Long, archived: Boolean) {
+        smartVaultDao.updateVaultArchived(vaultId, archived)
+    }
+
     suspend fun setVaultAutoDeposit(vaultId: Long, schedule: VaultAutoDepositEntity?) {
         if (schedule == null) {
             smartVaultDao.removeAutoDepositForVault(vaultId)
@@ -271,7 +260,7 @@ class SavingsRepository(
         }
     }
 
-    private suspend fun recordVaultBalanceAdjustment(
+    suspend fun recordVaultBalanceAdjustment(
         vaultId: Long,
         previousBalance: Double,
         newBalance: Double,

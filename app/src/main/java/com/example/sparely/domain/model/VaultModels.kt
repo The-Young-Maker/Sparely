@@ -25,8 +25,11 @@ data class SmartVault(
     // Account information for linking vault to real-world account within the main account
     val accountType: AccountType? = null,
     val accountNumber: String? = null,
-    val accountNotes: String? = null
-)
+    val accountNotes: String? = null,
+    val createdAt: LocalDate = LocalDate.now()
+) {
+    val progressPercent: Double = if (targetAmount > 0) (currentBalance / targetAmount).coerceIn(0.0, 1.0) else 0.0
+}
 
 data class AutoDepositSchedule(
     val amount: Double,
@@ -89,3 +92,12 @@ enum class VaultRiskType {
     TARGET_AT_RISK,
     COMPLETE
 }
+
+data class VaultArchivePrompt(
+    val vaultId: Long,
+    val vaultName: String,
+    val expenseAmount: Double,
+    val vaultBalanceBefore: Double,
+    val vaultBalanceAfter: Double,
+    val overflowToMainAccount: Double
+)

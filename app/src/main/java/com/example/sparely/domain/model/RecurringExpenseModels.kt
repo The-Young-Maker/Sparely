@@ -4,6 +4,7 @@ import java.time.LocalDate
 
 /**
  * Represents a recurring expense (subscription, rent, etc.)
+ * Contains the template for creating actual expenses when processed.
  */
 data class RecurringExpense(
     val id: Long = 0,
@@ -18,7 +19,12 @@ data class RecurringExpense(
     val autoLog: Boolean = true,
     val reminderDaysBefore: Int = 2,
     val merchantName: String? = null,
-    val notes: String? = null
+    val notes: String? = null,
+    // Expense-related fields (same as ExpenseInput)
+    val includesTax: Boolean = false,
+    val deductFromMainAccount: Boolean = false,
+    val deductedFromVaultId: Long? = null,
+    val manualPercentages: SavingsPercentages? = null
 )
 
 /**
@@ -45,7 +51,12 @@ data class RecurringExpenseInput(
     val endDate: LocalDate? = null,
     val autoLog: Boolean = true,
     val reminderDaysBefore: Int = 2,
-    val notes: String? = null
+    val notes: String? = null,
+    // Expense-related fields (same as ExpenseInput)
+    val includesTax: Boolean = false,
+    val deductFromMainAccount: Boolean = false,
+    val deductedFromVaultId: Long? = null,
+    val manualPercentages: SavingsPercentages? = null
 )
 
 /**

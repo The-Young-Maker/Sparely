@@ -19,8 +19,13 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DividerDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -38,15 +43,18 @@ import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.model.ExpenseCategory
 import com.example.sparely.domain.model.ExpenseInput
 import com.example.sparely.domain.model.RecommendationResult
+import com.example.sparely.domain.model.SmartVault
 import com.example.sparely.domain.model.SparelySettings
 import com.example.sparely.domain.model.SavingsPercentages
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExpenseEntryScreen(
     settings: SparelySettings,
     recommendation: RecommendationResult?,
+    vaults: List<SmartVault> = emptyList(),
     onSave: (ExpenseInput) -> Unit,
     onCancel: () -> Unit
 ) {
@@ -56,13 +64,16 @@ fun ExpenseEntryScreen(
     var category by remember { mutableStateOf(ExpenseCategory.OTHER) }
     var includeTax by remember { mutableStateOf(settings.includeTaxByDefault) }
     var deductFromMainAccount by remember { mutableStateOf(false) }
+    var deductFromVaultId by remember { mutableStateOf<Long?>(null) }
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
     var manualMode by remember { mutableStateOf(!settings.autoRecommendationsEnabled) }
     var emergencyPercent by remember { mutableFloatStateOf(settings.defaultPercentages.emergency.toFloat()) }
     var investPercent by remember { mutableFloatStateOf(settings.defaultPercentages.invest.toFloat()) }
     var funPercent by remember { mutableFloatStateOf(settings.defaultPercentages.`fun`.toFloat()) }
     var errorText by remember { mutableStateOf<String?>(null) }
+    var vaultDropdownExpanded by remember { mutableStateOf(false) }
 
+    val activeVaults = remember(vaults) { vaults.filter { !it.archived } }
     val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
 
     Column(
@@ -181,6 +192,76 @@ fun ExpenseEntryScreen(
                 onCheckedChange = { deductFromMainAccount = it }
             )
         }
+        
+        // Vault selection dropdown
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text("Deduct from vault (optional)", style = MaterialTheme.typography.titleSmall)
+            Text(
+                text = if (activeVaults.isEmpty()) "No active vaults available. Create a vault in the Vaults screen." else "Choose a vault to deduct this expense from",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (activeVaults.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                ExposedDropdownMenuBox(
+                    expanded = vaultDropdownExpanded,
+                    onExpandedChange = { vaultDropdownExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = deductFromVaultId?.let { id -> 
+                            activeVaults.find { it.id == id }?.name ?: "None"
+                        } ?: "None",
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = vaultDropdownExpanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                        label = { Text("Select vault") }
+                    )
+                    ExposedDropdownMenu(
+                        expanded = vaultDropdownExpanded,
+                        onDismissRequest = { vaultDropdownExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { 
+                                Column {
+                                    Text("None")
+                                    Text(
+                                        text = "Don't deduct from any vault",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            },
+                            onClick = {
+                                deductFromVaultId = null
+                                vaultDropdownExpanded = false
+                            }
+                        )
+                        activeVaults.forEach { vault ->
+                            DropdownMenuItem(
+                                text = { 
+                                    Column {
+                                        Text(vault.name)
+                                        Text(
+                                            text = "Balance: $${String.format("%.2f", vault.currentBalance)}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    deductFromVaultId = vault.id
+                                    vaultDropdownExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        
         errorText?.let {
             Text(text = it, color = MaterialTheme.colorScheme.error)
         }
@@ -213,7 +294,8 @@ fun ExpenseEntryScreen(
                         date = selectedDate,
                         includesTax = includeTax,
                         manualPercentages = manualPercentages,
-                        deductFromMainAccount = deductFromMainAccount
+                        deductFromMainAccount = deductFromMainAccount,
+                        deductFromVaultId = deductFromVaultId
                     )
                 )
             }, modifier = Modifier.weight(1f)) {

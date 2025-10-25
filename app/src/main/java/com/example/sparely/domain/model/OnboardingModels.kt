@@ -112,7 +112,8 @@ data class SmartVaultSetup(
     val interestRate: Double? = null,
     val allocationMode: VaultAllocationMode = VaultAllocationMode.DYNAMIC_AUTO,
     val manualAllocationPercent: Double? = null,
-    val savingTaxRateOverride: Double? = null
+    val savingTaxRateOverride: Double? = null,
+    val accountNotes: String? = null
 )
 
 fun SmartVaultSetup.toSmartVault(): SmartVault = SmartVault(
@@ -129,7 +130,8 @@ fun SmartVaultSetup.toSmartVault(): SmartVault = SmartVault(
     lastContributionDate = null,
     autoDepositSchedule = null,
     savingTaxRateOverride = savingTaxRateOverride?.coerceIn(0.0, 1.0) ?: 0.01, // Enable by default at 1%
-    archived = false
+    archived = false,
+    accountNotes = accountNotes
 )
 
 fun SavingsAccountInput.toSmartVaultSetup(monthlyIncome: Double): SmartVaultSetup {

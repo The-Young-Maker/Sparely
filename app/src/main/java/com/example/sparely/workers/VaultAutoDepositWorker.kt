@@ -27,7 +27,6 @@ class VaultAutoDepositWorker(
             val database = SparelyDatabase.getInstance(applicationContext)
             val savingsRepository = SavingsRepository(
                 expenseDao = database.expenseDao(),
-                goalDao = database.goalDao(),
                 transferDao = database.transferDao(),
                 budgetDao = database.budgetDao(),
                 recurringExpenseDao = database.recurringExpenseDao(),

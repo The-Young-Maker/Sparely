@@ -1,11 +1,17 @@
 package com.example.sparely.ui
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Favorite
@@ -13,12 +19,12 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Schedule
-import com.example.sparely.ui.theme.MaterialSymbols
-import com.example.sparely.ui.theme.MaterialSymbolIcon
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -33,9 +39,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.annotation.DrawableRes
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -45,22 +50,22 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.sparely.domain.model.VaultArchivePrompt
 import com.example.sparely.ui.screens.BudgetScreen
 import com.example.sparely.ui.screens.ChallengesScreen
 import com.example.sparely.ui.screens.DashboardScreen
 import com.example.sparely.ui.screens.ExpenseEntryScreen
 import com.example.sparely.ui.screens.FinancialHealthScreen
-import com.example.sparely.ui.screens.GoalsScreen
 import com.example.sparely.ui.screens.HistoryScreen
-import com.example.sparely.ui.screens.OnboardingScreen
 import com.example.sparely.ui.screens.MainAccountScreen
+import com.example.sparely.ui.screens.OnboardingScreen
 import com.example.sparely.ui.screens.RecurringExpensesScreen
+import com.example.sparely.ui.screens.SettingsScreen
+import com.example.sparely.ui.screens.VaultHistoryScreen
 import com.example.sparely.ui.screens.VaultManagementScreen
 import com.example.sparely.ui.screens.VaultTransfersScreen
-import com.example.sparely.ui.screens.SettingsScreen
-import com.example.sparely.ui.screens.VaultTransfersScreen
-import com.example.sparely.ui.screens.VaultHistoryScreen
-import com.example.sparely.MainActivity
+import com.example.sparely.ui.theme.MaterialSymbolIcon
+import com.example.sparely.ui.theme.MaterialSymbols
 
 @Composable
 fun SparelyApp(
@@ -68,37 +73,21 @@ fun SparelyApp(
     deepLinkDestination: String? = null,
     onDeepLinkHandled: () -> Unit = {}
 ) {
-    val context = LocalContext.current
     val navController = rememberNavController()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    
-    // Monitor language changes and recreate activity
-    LaunchedEffect(uiState.settings.regionalSettings.languageCode) {
-        // Skip on first composition (no need to recreate immediately)
-        // The locale is already applied in MainActivity onCreate
+
+    LaunchedEffect(deepLinkDestination) {
+        deepLinkDestination?.let { destination ->
+            navController.navigate(destination)
+            onDeepLinkHandled()
+        }
     }
 
     LaunchedEffect(uiState.errorMessage) {
         val message = uiState.errorMessage
         if (!message.isNullOrEmpty()) {
             snackbarHostState.showSnackbar(message)
-        }
-    }
-    
-    // Handle deep link navigation
-    LaunchedEffect(deepLinkDestination) {
-        if (deepLinkDestination != null && uiState.onboardingCompleted) {
-            when (deepLinkDestination) {
-                "paycheck" -> {
-                    // Navigate to Settings with paycheck entry focused
-                    navController.navigate(SparelyDestination.Settings.route)
-                }
-                "vaultTransfers" -> {
-                    navController.navigate("vaultTransfers")
-                }
-            }
-            onDeepLinkHandled()
         }
     }
 
@@ -145,11 +134,7 @@ private fun SparelyScaffold(
                 FloatingActionButton(onClick = {
                     navController.navigate(SparelyDestination.ExpenseEntry.route)
                 }) {
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.SAVINGS,
-                        contentDescription = "Log purchase",
-                        size = 24.dp
-                    )
+                    Icon(imageVector = Icons.Default.Save, contentDescription = "Log purchase")
                 }
             }
         }
@@ -167,32 +152,26 @@ private fun SparelyScaffold(
 @Composable
 private fun SparelyTopBar(currentDestination: NavDestination?, navController: NavHostController) {
     val destination = SparelyDestination.fromRoute(currentDestination?.route)
-    val currentRoute = currentDestination?.route
-    val isTopLevel = destination != null && destination in bottomBarDestinations
-    
-    // Only show top bar on subpages (non-top-level)
-    if (!isTopLevel) {
-        TopAppBar(
-            title = { },
-            navigationIcon = {
+    val title = destination?.label ?: "Sparely"
+    val isTopLevel = destination == null || destination in bottomBarDestinations
+    TopAppBar(
+        title = { Text(text = title) },
+        navigationIcon = {
+            if (!isTopLevel) {
                 IconButton(onClick = { navController.popBackStack() }) {
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.ARROW_BACK,
-                        contentDescription = "Back",
-                        size = 24.dp
-                    )
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                 }
-            },
-            colors = TopAppBarDefaults.topAppBarColors()
-        )
-    }
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors()
+    )
 }
 
 
 private val bottomBarDestinations = setOf(
     SparelyDestination.Dashboard,
     SparelyDestination.History,
-    SparelyDestination.Goals,
+    SparelyDestination.Vaults,
     SparelyDestination.Settings
 )
 
@@ -207,12 +186,17 @@ private fun SparelyBottomBar(
             NavigationBarItem(
                 selected = selected,
                 onClick = {
-                    navController.navigate(destination.route) {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
+                    val targetRoute = destination.route
+                    if (selected) {
+                        navController.popBackStack(targetRoute, inclusive = false)
+                    } else {
+                        navController.navigate(targetRoute) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                        launchSingleTop = true
-                        restoreState = true
                     }
                 },
                 icon = {
@@ -255,7 +239,7 @@ private fun SparelyNavHost(
                 onNavigateToChallenges = { navController.navigate(SparelyDestination.Challenges.route) },
                 onNavigateToHealth = { navController.navigate(SparelyDestination.Health.route) },
                 onNavigateToRecurring = { navController.navigate(SparelyDestination.Recurring.route) },
-                onManageVaults = { navController.navigate("vaultManagement") },
+                onManageVaults = { navController.navigate(SparelyDestination.Vaults.route) },
                 onNavigateToVaultTransfers = { navController.navigate("vaultTransfers") },
                 onNavigateToMainAccount = { navController.navigate("mainAccount") }
             )
@@ -267,13 +251,23 @@ private fun SparelyNavHost(
                 onDeleteExpense = viewModel::deleteExpense
             )
         }
-        composable(SparelyDestination.Goals.route) {
-            GoalsScreen(
-                goals = uiState.goals,
-                recommendation = uiState.recommendation,
-                onAddGoal = viewModel::addGoal,
-                onArchiveToggle = viewModel::toggleGoalArchived,
-                onDeleteGoal = viewModel::deleteGoal
+        composable(SparelyDestination.Vaults.route) {
+            VaultManagementScreen(
+                vaults = uiState.smartVaults,
+                onAddVault = viewModel::addSmartVault,
+                onUpdateVault = viewModel::updateSmartVault,
+                onDeleteVault = viewModel::deleteSmartVault,
+                onNavigateBack = { navController.popBackStack() },
+                onManualDeposit = { vaultId, amount, reason ->
+                    viewModel.depositToVault(vaultId, amount, reason)
+                },
+                onManualWithdrawal = { vaultId, amount, reason ->
+                    viewModel.deductFromVault(vaultId, amount, reason)
+                },
+                onViewHistory = { vaultId ->
+                    viewModel.loadVaultAdjustmentHistory(vaultId)
+                    navController.navigate("vaultHistory/$vaultId")
+                }
             )
         }
         composable(SparelyDestination.Budgets.route) {
@@ -295,6 +289,7 @@ private fun SparelyNavHost(
         composable(SparelyDestination.Recurring.route) {
             RecurringExpensesScreen(
                 recurringExpenses = uiState.recurringExpenses,
+                smartVaults = uiState.smartVaults,
                 onAddRecurring = viewModel::addRecurringExpense,
                 onUpdateRecurring = viewModel::updateRecurringExpense,
                 onDeleteRecurring = viewModel::deleteRecurringExpense,
@@ -349,6 +344,7 @@ private fun SparelyNavHost(
             ExpenseEntryScreen(
                 settings = uiState.settings,
                 recommendation = uiState.recommendation,
+                vaults = uiState.smartVaults,
                 onSave = {
                     viewModel.addExpense(it)
                     navController.popBackStack()
@@ -364,25 +360,6 @@ private fun SparelyNavHost(
                 onReconcileGroup = viewModel::reconcileVaultContributions,
                 onStartNotificationWorkflow = viewModel::startVaultTransferNotificationWorkflow,
                 onNavigateBack = { navController.popBackStack() }
-            )
-        }
-        composable("vaultManagement") {
-            VaultManagementScreen(
-                vaults = uiState.smartVaults,
-                onAddVault = viewModel::addSmartVault,
-                onUpdateVault = viewModel::updateSmartVault,
-                onDeleteVault = viewModel::deleteSmartVault,
-                onNavigateBack = { navController.popBackStack() },
-                onManualDeposit = { vaultId, amount, reason ->
-                    viewModel.depositToVault(vaultId, amount, reason)
-                },
-                onManualWithdrawal = { vaultId, amount, reason ->
-                    viewModel.deductFromVault(vaultId, amount, reason)
-                },
-                onViewHistory = { vaultId ->
-                    viewModel.loadVaultAdjustmentHistory(vaultId)
-                    navController.navigate("vaultHistory/$vaultId")
-                }
             )
         }
         composable("vaultHistory/{vaultId}") { backStackEntry ->
@@ -417,7 +394,7 @@ private enum class SparelyDestination(
 ) {
     Dashboard("dashboard", null, MaterialSymbols.HOME, "Dashboard"),
     History("history", null, MaterialSymbols.BAR_CHART, "History"),
-    Goals("goals", null, MaterialSymbols.SAVINGS, "Goals"),
+    Vaults("vaults", null, MaterialSymbols.ACCOUNT_BALANCE_WALLET, "Vaults"),
     Budgets("budgets", null, MaterialSymbols.ACCOUNT_BALANCE, "Budgets"),
     Challenges("challenges", null, MaterialSymbols.TROPHY, "Challenges"),
     Recurring("recurring", null, MaterialSymbols.SCHEDULE, "Recurring"),
@@ -430,4 +407,47 @@ private enum class SparelyDestination(
             return entries.find { it.route == route }
         }
     }
+}
+
+@Composable
+private fun VaultArchiveConfirmationDialog(
+    prompt: VaultArchivePrompt,
+    onConfirmArchive: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { 
+            Text(
+                text = "Archive ${prompt.vaultName}?",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "You've used ${String.format("%.0f%%", (prompt.expenseAmount / prompt.vaultBalanceBefore.coerceAtLeast(0.01)) * 100)} of this vault's balance.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "Expense amount: $${String.format("%.2f", prompt.expenseAmount)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        },
+        confirmButton = { },
+        dismissButton = { }
+    )
 }

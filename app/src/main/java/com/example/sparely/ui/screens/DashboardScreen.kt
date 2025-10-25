@@ -1138,26 +1138,26 @@ private fun GoalsSnapshot(uiState: SparelyUiState) {
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = "Goals progress",
+            text = "Vaults progress",
             style = MaterialTheme.typography.titleMedium
         )
-        uiState.goals.take(3).forEach { goal ->
+        uiState.smartVaults.filter { !it.archived }.take(3).forEach { vault ->
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(goal.title, style = MaterialTheme.typography.titleSmall)
+                    Text(vault.name, style = MaterialTheme.typography.titleSmall)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "${formatCurrency(goal.progressAmount)} of ${formatCurrency(goal.targetAmount)}",
+                        text = "${formatCurrency(vault.currentBalance)} of ${formatCurrency(vault.targetAmount)}",
                         style = MaterialTheme.typography.bodySmall
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    ProgressBar(progress = goal.progressPercent)
-                    goal.projectedCompletion?.let { date ->
+                    ProgressBar(progress = vault.progressPercent)
+                    vault.targetDate?.let { date ->
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Projected completion ${date.format(DateTimeFormatter.ISO_DATE)}",
+                            text = "Target date ${date.format(DateTimeFormatter.ISO_DATE)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1488,5 +1488,8 @@ private fun VaultType.displayName(): String = when (this) {
     VaultType.SHORT_TERM -> stringResource(R.string.vault_type_short_term)
     VaultType.LONG_TERM -> stringResource(R.string.vault_type_long_term)
     VaultType.PASSIVE_INVESTMENT -> stringResource(R.string.vault_type_passive_investment)
+    VaultType.GOAL -> "Goal"
+    VaultType.EMERGENCY -> "Emergency"
+    VaultType.INVESTMENT -> "Investment"
 }
 

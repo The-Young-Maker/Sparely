@@ -24,5 +24,6 @@ data class ExpenseEntity(
     val appliedPercentInvest: Double,
     val appliedPercentFun: Double,
     val appliedSafeSplit: Double,
-    val riskLevelUsed: RiskLevel
+    val riskLevelUsed: RiskLevel,
+    val deductedFromVaultId: Long? = null
 )

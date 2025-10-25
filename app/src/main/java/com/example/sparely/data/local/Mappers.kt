@@ -8,6 +8,7 @@ import com.example.sparely.domain.model.RecurringExpense
 import com.example.sparely.domain.model.SavingsAccount
 import com.example.sparely.domain.model.SavingsAccountInput
 import com.example.sparely.domain.model.SavingsChallenge
+import com.example.sparely.domain.model.SavingsPercentages
 import com.example.sparely.domain.model.SmartVault
 import com.example.sparely.domain.model.VaultBalanceAdjustment
 import com.example.sparely.domain.model.VaultContribution
@@ -43,7 +44,18 @@ fun RecurringExpenseEntity.toDomain(): RecurringExpense = RecurringExpense(
     autoLog = autoLog,
     reminderDaysBefore = reminderDaysBefore,
     merchantName = merchantName,
-    notes = notes
+    notes = notes,
+    includesTax = includesTax,
+    deductFromMainAccount = deductFromMainAccount,
+    deductedFromVaultId = deductedFromVaultId,
+    manualPercentages = if (manualPercentEmergency != null || manualPercentInvest != null || manualPercentFun != null || manualSafeSplit != null) {
+        SavingsPercentages(
+            emergency = manualPercentEmergency ?: 0.0,
+            invest = manualPercentInvest ?: 0.0,
+            `fun` = manualPercentFun ?: 0.0,
+            safeInvestmentSplit = manualSafeSplit ?: 0.5
+        )
+    } else null
 )
 
 fun RecurringExpense.toEntity(): RecurringExpenseEntity = RecurringExpenseEntity(
@@ -59,7 +71,14 @@ fun RecurringExpense.toEntity(): RecurringExpenseEntity = RecurringExpenseEntity
     autoLog = autoLog,
     reminderDaysBefore = reminderDaysBefore,
     merchantName = merchantName,
-    notes = notes
+    notes = notes,
+    includesTax = includesTax,
+    deductFromMainAccount = deductFromMainAccount,
+    deductedFromVaultId = deductedFromVaultId,
+    manualPercentEmergency = manualPercentages?.emergency,
+    manualPercentInvest = manualPercentages?.invest,
+    manualPercentFun = manualPercentages?.`fun`,
+    manualSafeSplit = manualPercentages?.safeInvestmentSplit
 )
 
 fun ChallengeMilestoneEntity.toDomain(): ChallengeMilestone = ChallengeMilestone(
@@ -200,7 +219,8 @@ fun SmartVaultEntity.toDomain(autoDeposit: AutoDepositSchedule? = null): SmartVa
     archived = archived,
     accountType = accountType,
     accountNumber = accountNumber,
-    accountNotes = accountNotes
+    accountNotes = accountNotes,
+    createdAt = createdAt
 )
 
 fun SmartVault.toEntity(): SmartVaultEntity = SmartVaultEntity(
@@ -220,7 +240,8 @@ fun SmartVault.toEntity(): SmartVaultEntity = SmartVaultEntity(
     archived = archived,
     accountType = accountType,
     accountNumber = accountNumber,
-    accountNotes = accountNotes
+    accountNotes = accountNotes,
+    createdAt = createdAt
 )
 
 fun VaultAutoDepositEntity.toDomain(): AutoDepositSchedule = AutoDepositSchedule(

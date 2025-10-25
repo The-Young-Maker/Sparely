@@ -5,7 +5,6 @@ import com.example.sparely.domain.model.*
 data class SparelyUiState(
     val settings: SparelySettings = SparelySettings(),
     val expenses: List<Expense> = emptyList(),
-    val goals: List<Goal> = emptyList(),
     val analytics: AnalyticsSnapshot = AnalyticsSnapshot(),
     val recommendation: RecommendationResult? = null,
     val manualTransfers: List<SavingsTransfer> = emptyList(),
@@ -37,6 +36,7 @@ data class SparelyUiState(
     val pendingVaultContributions: List<VaultContribution> = emptyList(),
     val autoDepositCheckHour: Int = 9,
     val mainAccountTransactions: List<MainAccountTransaction> = emptyList(),
+    val vaultArchivePrompt: VaultArchivePrompt? = null,
     
     val isLoading: Boolean = true,
     val errorMessage: String? = null

@@ -23,7 +23,6 @@ class DefaultAppContainer(context: Context) : AppContainer {
     override val savingsRepository: SavingsRepository by lazy {
         SavingsRepository(
             expenseDao = database.expenseDao(),
-            goalDao = database.goalDao(),
             transferDao = database.transferDao(),
             budgetDao = database.budgetDao(),
             recurringExpenseDao = database.recurringExpenseDao(),

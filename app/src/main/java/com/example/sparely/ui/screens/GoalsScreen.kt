@@ -20,7 +20,11 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DividerDefaults
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -43,20 +47,20 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.example.sparely.domain.model.Goal
-import com.example.sparely.domain.model.GoalInput
-import com.example.sparely.domain.model.RecommendationResult
-import com.example.sparely.domain.model.SavingsCategory
+import com.example.sparely.domain.model.SmartVault
+import com.example.sparely.domain.model.SmartVaultSetup
+import com.example.sparely.domain.model.VaultType
+import com.example.sparely.domain.model.VaultPriority
+import com.example.sparely.domain.model.VaultAllocationMode
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 @Composable
 fun GoalsScreen(
-    goals: List<Goal>,
-    recommendation: RecommendationResult?,
-    onAddGoal: (GoalInput) -> Unit,
-    onArchiveToggle: (Long, Boolean) -> Unit,
-    onDeleteGoal: (Long) -> Unit
+    vaults: List<SmartVault>,
+    onAddVault: (SmartVaultSetup) -> Unit,
+    onToggleArchive: (Long, Boolean) -> Unit,
+    onDeleteVault: (Long) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier
@@ -65,43 +69,45 @@ fun GoalsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            recommendation?.let {
-                Text(
-                    text = "Tip: investing split ${formatPercent(it.safeInvestmentRatio)} safe / ${formatPercent(it.highRiskInvestmentRatio)} high risk",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-        item {
-            GoalComposer(onAddGoal = onAddGoal)
-        }
-        items(goals) { goal ->
-            GoalCard(
-                goal = goal,
-                onArchiveToggle = { onArchiveToggle(goal.id, it) },
-                onDeleteGoal = { onDeleteGoal(goal.id) }
+            Text(
+                text = "Manage your savings vaults",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        if (goals.isEmpty()) {
+        item {
+            VaultComposer(onAddVault = onAddVault)
+        }
+        items(vaults) { vault ->
+            VaultCard(
+                vault = vault,
+                onArchiveToggle = { onToggleArchive(vault.id, it) },
+                onDeleteVault = { onDeleteVault(vault.id) }
+            )
+        }
+        if (vaults.isEmpty()) {
             item {
-                EmptyGoalsState()
+                EmptyVaultsState()
             }
         }
         item { Spacer(modifier = Modifier.height(32.dp)) }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun GoalComposer(onAddGoal: (GoalInput) -> Unit) {
+private fun VaultComposer(onAddVault: (SmartVaultSetup) -> Unit) {
     val context = LocalContext.current
-    var title by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf("") }
     var targetAmountText by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf(SavingsCategory.EMERGENCY) }
+    var selectedType by remember { mutableStateOf(VaultType.GOAL) }
+    var selectedPriority by remember { mutableStateOf(VaultPriority.MEDIUM) }
     var targetDate by remember { mutableStateOf<LocalDate?>(null) }
-    var notes by remember { mutableStateOf("") }
+    var accountNotes by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var typeMenuExpanded by remember { mutableStateOf(false) }
+    var priorityMenuExpanded by remember { mutableStateOf(false) }
 
     if (showDatePicker) {
         DatePickerDialog(
@@ -122,13 +128,15 @@ private fun GoalComposer(onAddGoal: (GoalInput) -> Unit) {
         colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Create goal", style = MaterialTheme.typography.titleMedium)
+            Text("Create vault", style = MaterialTheme.typography.titleMedium)
+            
             OutlinedTextField(
-                value = title,
-                onValueChange = { title = it },
-                label = { Text("Name") },
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Vault name") },
                 modifier = Modifier.fillMaxWidth()
             )
+            
             OutlinedTextField(
                 value = targetAmountText,
                 onValueChange = { targetAmountText = it.filter { ch -> ch.isDigit() || ch == '.' } },
@@ -136,10 +144,71 @@ private fun GoalComposer(onAddGoal: (GoalInput) -> Unit) {
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth()
             )
-            CategorySegmentedControl(
-                selected = selectedCategory,
-                onChange = { selectedCategory = it }
-            )
+
+            // Vault Type Dropdown
+            ExposedDropdownMenuBox(
+                expanded = typeMenuExpanded,
+                onExpandedChange = { typeMenuExpanded = it }
+            ) {
+                OutlinedTextField(
+                    value = selectedType.displayName(),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Vault type") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeMenuExpanded) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(),
+                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                )
+                ExposedDropdownMenu(
+                    expanded = typeMenuExpanded,
+                    onDismissRequest = { typeMenuExpanded = false }
+                ) {
+                    VaultType.values().forEach { type ->
+                        DropdownMenuItem(
+                            text = { Text(type.displayName()) },
+                            onClick = {
+                                selectedType = type
+                                typeMenuExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Priority Dropdown
+            ExposedDropdownMenuBox(
+                expanded = priorityMenuExpanded,
+                onExpandedChange = { priorityMenuExpanded = it }
+            ) {
+                OutlinedTextField(
+                    value = selectedPriority.displayName(),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Priority") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = priorityMenuExpanded) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(),
+                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                )
+                ExposedDropdownMenu(
+                    expanded = priorityMenuExpanded,
+                    onDismissRequest = { priorityMenuExpanded = false }
+                ) {
+                    VaultPriority.values().forEach { priority ->
+                        DropdownMenuItem(
+                            text = { Text(priority.displayName()) },
+                            onClick = {
+                                selectedPriority = priority
+                                priorityMenuExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -157,66 +226,58 @@ private fun GoalComposer(onAddGoal: (GoalInput) -> Unit) {
                     Text(if (targetDate == null) "Set" else "Change")
                 }
             }
+            
             OutlinedTextField(
-                value = notes,
-                onValueChange = { notes = it },
+                value = accountNotes,
+                onValueChange = { accountNotes = it },
                 label = { Text("Notes (optional)") },
                 modifier = Modifier.fillMaxWidth()
             )
+            
             error?.let {
                 Text(text = it, color = MaterialTheme.colorScheme.error)
             }
+            
             Button(onClick = {
                 val targetAmount = targetAmountText.toDoubleOrNull()
+                if (name.isBlank()) {
+                    error = "Enter a vault name"
+                    return@Button
+                }
                 if (targetAmount == null || targetAmount <= 0.0) {
                     error = "Enter a target amount"
                     return@Button
                 }
                 error = null
-                onAddGoal(
-                    GoalInput(
-                        title = title,
+                onAddVault(
+                    SmartVaultSetup(
+                        name = name.trim(),
                         targetAmount = targetAmount,
-                        category = selectedCategory,
+                        type = selectedType,
+                        priority = selectedPriority,
                         targetDate = targetDate,
-                        notes = notes.ifBlank { null }
+                        accountNotes = accountNotes.ifBlank { null },
+                        allocationMode = VaultAllocationMode.MANUAL
                     )
                 )
-                title = ""
+                name = ""
                 targetAmountText = ""
-                notes = ""
+                accountNotes = ""
                 targetDate = null
+                selectedType = VaultType.GOAL
+                selectedPriority = VaultPriority.MEDIUM
             }) {
-                Text("Add goal")
+                Text("Add vault")
             }
         }
     }
 }
 
 @Composable
-private fun CategorySegmentedControl(
-    selected: SavingsCategory,
-    onChange: (SavingsCategory) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        for (category in SavingsCategory.values()) {
-            FilterChip(
-                selected = category == selected,
-                onClick = { onChange(category) },
-                label = { Text(category.name.lowercase().replaceFirstChar { it.uppercase() }) }
-            )
-        }
-    }
-}
-
-@Composable
-private fun GoalCard(
-    goal: Goal,
+private fun VaultCard(
+    vault: SmartVault,
     onArchiveToggle: (Boolean) -> Unit,
-    onDeleteGoal: () -> Unit
+    onDeleteVault: () -> Unit
 ) {
     val formatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
     Card(
@@ -230,50 +291,56 @@ private fun GoalCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(goal.title, style = MaterialTheme.typography.titleMedium)
+                    Text(vault.name, style = MaterialTheme.typography.titleMedium)
                     Text(
-                        text = "Target ${formatCurrency(goal.targetAmount)}",
+                        text = "${vault.type.displayName()} • ${vault.priority.displayName()} priority",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                IconButton(onClick = onDeleteGoal) {
-                    MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = "Delete goal")
+                IconButton(onClick = onDeleteVault) {
+                    MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = "Delete vault")
                 }
             }
+            
             LinearProgressIndicator(
-            progress = { goal.progressPercent.coerceIn(0.0, 1.0).toFloat() },
-            modifier = Modifier.fillMaxWidth(),
-            color = ProgressIndicatorDefaults.linearColor,
-            trackColor = ProgressIndicatorDefaults.linearTrackColor,
-            strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
+                progress = { vault.progressPercent.coerceIn(0.0, 1.0).toFloat() },
+                modifier = Modifier.fillMaxWidth(),
+                color = ProgressIndicatorDefaults.linearColor,
+                trackColor = ProgressIndicatorDefaults.linearTrackColor,
+                strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
             )
+            
             Text(
-                text = "Saved ${formatCurrency(goal.progressAmount)} (${formatPercent(goal.progressPercent)})",
+                text = "Balance ${formatCurrency(vault.currentBalance)} of ${formatCurrency(vault.targetAmount)} (${formatPercent(vault.progressPercent)})",
                 style = MaterialTheme.typography.bodySmall
             )
-            goal.targetDate?.let { date ->
+            
+            vault.targetDate?.let { date ->
                 Text(
-                    text = "Deadline ${date.format(formatter)}",
+                    text = "Target date: ${date.format(formatter)}",
                     style = MaterialTheme.typography.bodySmall
                 )
             }
-            goal.projectedCompletion?.let { projection ->
+            
+            vault.accountNotes?.let { notes ->
                 Text(
-                    text = "Projected completion ${projection.format(formatter)}",
+                    text = notes,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            
             HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
+            
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(if (goal.archived) "Archived" else "Active")
-                TextButton(onClick = { onArchiveToggle(!goal.archived) }) {
-                    Text(if (goal.archived) "Restore" else "Archive")
+                Text(if (vault.archived) "Archived" else "Active")
+                TextButton(onClick = { onArchiveToggle(!vault.archived) }) {
+                    Text(if (vault.archived) "Restore" else "Archive")
                 }
             }
         }
@@ -281,20 +348,36 @@ private fun GoalCard(
 }
 
 @Composable
-private fun EmptyGoalsState() {
+private fun EmptyVaultsState() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("No goals yet", style = MaterialTheme.typography.titleSmall)
+        Text("No vaults yet", style = MaterialTheme.typography.titleSmall)
         Text(
-            text = "Create a savings goal to see projections.",
+            text = "Create a savings vault to start organizing your money.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+}
+
+private fun VaultType.displayName(): String = when (this) {
+    VaultType.SHORT_TERM -> "Short-term"
+    VaultType.LONG_TERM -> "Long-term"
+    VaultType.PASSIVE_INVESTMENT -> "Passive Investment"
+    VaultType.GOAL -> "Goal"
+    VaultType.EMERGENCY -> "Emergency"
+    VaultType.INVESTMENT -> "Investment"
+}
+
+private fun VaultPriority.displayName(): String = when (this) {
+    VaultPriority.LOW -> "Low"
+    VaultPriority.MEDIUM -> "Medium"
+    VaultPriority.HIGH -> "High"
+    VaultPriority.CRITICAL -> "Critical"
 }
 
 private fun formatCurrency(value: Double): String = "$" + String.format("%,.2f", value)

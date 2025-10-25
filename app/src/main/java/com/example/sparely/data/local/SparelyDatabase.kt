@@ -9,7 +9,6 @@ import androidx.room.TypeConverters
 @Database(
     entities = [
         ExpenseEntity::class,
-        GoalEntity::class,
         SavingsTransferEntity::class,
         CategoryBudgetEntity::class,
         RecurringExpenseEntity::class,
@@ -23,13 +22,12 @@ import androidx.room.TypeConverters
         VaultBalanceAdjustmentEntity::class,
         MainAccountTransactionEntity::class
     ],
-    version = 8,
+    version = 11,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class SparelyDatabase : RoomDatabase() {
     abstract fun expenseDao(): ExpenseDao
-    abstract fun goalDao(): GoalDao
     abstract fun transferDao(): SavingsTransferDao
     abstract fun budgetDao(): BudgetDao
     abstract fun recurringExpenseDao(): RecurringExpenseDao

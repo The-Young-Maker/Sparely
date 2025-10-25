@@ -34,7 +34,8 @@ data class SmartVaultEntity(
     val archived: Boolean,
     val accountType: AccountType?,
     val accountNumber: String?,
-    val accountNotes: String?
+    val accountNotes: String?,
+    val createdAt: LocalDate = LocalDate.now()
 )
 
 @Entity(

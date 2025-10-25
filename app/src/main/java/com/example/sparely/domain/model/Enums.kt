@@ -53,9 +53,12 @@ enum class VaultPriority {
 }
 
 enum class VaultType {
-    SHORT_TERM,
-    LONG_TERM,
-    PASSIVE_INVESTMENT
+    GOAL,           // Specific savings goals (car, house, vacation, etc.)
+    EMERGENCY,      // Emergency fund
+    INVESTMENT,     // Investment vault
+    SHORT_TERM,     // Legacy: short-term savings
+    LONG_TERM,      // Legacy: long-term savings  
+    PASSIVE_INVESTMENT  // Legacy: passive investment
 }
 
 enum class VaultAllocationMode {
