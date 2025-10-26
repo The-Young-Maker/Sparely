@@ -10,15 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AccountBalance
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -31,12 +23,15 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -145,6 +140,29 @@ private fun SparelyScaffold(
             viewModel = viewModel,
             uiState = uiState
         )
+    }
+    
+    // Vault archive confirmation dialog
+    uiState.vaultArchivePrompt?.let { prompt ->
+    // UI observed a prompt
+        VaultArchiveConfirmationDialog(
+            prompt = prompt,
+            onConfirmArchive = { 
+                viewModel.archiveVaultFromPrompt(prompt.vaultId)
+                // Navigate back to previous screen after archiving
+                if (currentDestination?.route == SparelyDestination.ExpenseEntry.route) {
+                    navController.popBackStack()
+                }
+            },
+            onDismiss = {
+                viewModel.dismissVaultArchivePrompt()
+                // Navigate back to previous screen after dismissing
+                if (currentDestination?.route == SparelyDestination.ExpenseEntry.route) {
+                    navController.popBackStack()
+                }
+            }
+        )
+        // No fallback overlay; AlertDialog is the primary UI for this prompt
     }
 }
 
@@ -341,13 +359,35 @@ private fun SparelyNavHost(
             )
         }
         composable(SparelyDestination.ExpenseEntry.route) {
+            var shouldNavigateBack by remember { mutableStateOf(false) }
+            var hasVaultDeduction by remember { mutableStateOf(false) }
+            
+            // Handle navigation after expense is saved
+            // Handle navigation after expense is saved
+            LaunchedEffect(shouldNavigateBack, uiState.vaultArchivePrompt) {
+                if (shouldNavigateBack) {
+                    if (hasVaultDeduction) {
+                        // Wait a bit for the prompt to be set if there's vault deduction
+                        kotlinx.coroutines.delay(300)
+                        // Navigate only if no prompt appeared
+                        if (uiState.vaultArchivePrompt == null) {
+                            navController.popBackStack()
+                        }
+                    } else {
+                        // No vault deduction, navigate immediately
+                        navController.popBackStack()
+                    }
+                }
+            }
+            
             ExpenseEntryScreen(
                 settings = uiState.settings,
                 recommendation = uiState.recommendation,
                 vaults = uiState.smartVaults,
-                onSave = {
-                    viewModel.addExpense(it)
-                    navController.popBackStack()
+                onSave = { input ->
+                    hasVaultDeduction = input.deductFromVaultId != null
+                    viewModel.addExpense(input)
+                    shouldNavigateBack = true
                 },
                 onCancel = { navController.popBackStack() }
             )
@@ -415,6 +455,7 @@ private fun VaultArchiveConfirmationDialog(
     onConfirmArchive: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    // dialog composed for vault archive prompt
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { 
@@ -444,10 +485,36 @@ private fun VaultArchiveConfirmationDialog(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                    Text(
+                        text = "Vault balance before: $${String.format("%.2f", prompt.vaultBalanceBefore)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (prompt.overflowToMainAccount > 0) {
+                        Text(
+                            text = "Overflow to main account: $${String.format("%.2f", prompt.overflowToMainAccount)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
+                
+                Text(
+                    text = "Would you like to archive this vault now that it's nearly depleted?",
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
         },
-        confirmButton = { },
-        dismissButton = { }
+        confirmButton = { 
+            TextButton(onClick = { onConfirmArchive() }) {
+                Text("Archive Vault")
+            }
+        },
+        dismissButton = { 
+            TextButton(onClick = { onDismiss() }) {
+                Text("Keep Active")
+            }
+        }
     )
 }

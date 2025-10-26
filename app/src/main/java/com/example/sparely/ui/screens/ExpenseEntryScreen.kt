@@ -17,7 +17,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.Divider
 import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -197,9 +196,19 @@ fun ExpenseEntryScreen(
         Column(modifier = Modifier.fillMaxWidth()) {
             Text("Deduct from vault (optional)", style = MaterialTheme.typography.titleSmall)
             Text(
-                text = if (activeVaults.isEmpty()) "No active vaults available. Create a vault in the Vaults screen." else "Choose a vault to deduct this expense from",
+                text = if (activeVaults.isEmpty()) {
+                    "No active vaults available. Create a vault in the Vaults screen."
+                } else if (deductFromVaultId != null && deductFromMainAccount) {
+                    "If expense exceeds vault balance, overflow will be deducted from main account"
+                } else {
+                    "Choose a vault to deduct this expense from"
+                },
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (deductFromVaultId != null && deductFromMainAccount) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
             )
             if (activeVaults.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -318,7 +327,7 @@ private fun CategorySelector(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text("Category", style = MaterialTheme.typography.titleSmall)
-        for (rowCategories in ExpenseCategory.values().asList().chunked(3)) {
+        for (rowCategories in ExpenseCategory.entries.chunked(3)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)

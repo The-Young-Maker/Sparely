@@ -48,7 +48,6 @@ import com.example.sparely.domain.model.SparelySettings
 import com.example.sparely.domain.model.SmartAllocationMode
 import com.example.sparely.domain.model.SmartSavingSummary
 import com.example.sparely.domain.model.SmartVault
-import com.example.sparely.domain.model.TransferReminderPreference
 import com.example.sparely.domain.model.UpcomingRecurringExpense
 import com.example.sparely.domain.model.UserProfileSetup
 import com.example.sparely.domain.model.DetectedRecurringTransaction
@@ -368,6 +367,8 @@ class SparelyViewModel(
                         financialHealthScore = financialHealthScore,
                         detectedRecurringTransactions = detectedRecurring,
                         pendingVaultContributions = pendingContributions,
+                        // preserve any transient UI prompts (don't wipe them on state refresh)
+                        vaultArchivePrompt = _uiState.value.vaultArchivePrompt,
                         autoDepositCheckHour = autoDepositCheckHour,
                         mainAccountTransactions = mainAccountTransactions,
                         isLoading = false,
@@ -816,7 +817,7 @@ class SparelyViewModel(
             val delta = newBalance - currentBalance
             val transaction = com.example.sparely.domain.model.MainAccountTransaction(
                 type = com.example.sparely.data.local.MainAccountTransactionType.ADJUSTMENT,
-                amount = kotlin.math.abs(delta),
+                amount = abs(delta),
                 balanceAfter = newBalance.coerceAtLeast(0.0),
                 timestamp = java.time.LocalDateTime.now(),
                 description = reason.take(100)
@@ -1297,7 +1298,7 @@ class SparelyViewModel(
                     // Use OnboardingHelper to generate vaults
                     val generatedVaults = com.example.sparely.domain.logic.OnboardingHelper.generateStarterVaults(profile)
                     generatedVaults.map { vault ->
-                        com.example.sparely.domain.model.SmartVaultSetup(
+                        SmartVaultSetup(
                             name = vault.name,
                             targetAmount = vault.targetAmount,
                             currentBalance = vault.currentBalance,
