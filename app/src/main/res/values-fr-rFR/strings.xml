@@ -1,0 +1,334 @@
+<resources>
+    <string name="app_name">Sparely</string>
+
+    <!-- Widget -->
+    <string name="widget_savings_label">Aperçu des économies Sparely</string>
+
+    <!-- Common actions -->
+    <string name="action_save">Enregistrer</string>
+    <string name="action_cancel">Annuler</string>
+    <string name="action_done">Terminé</string>
+    <string name="action_change">Modifier</string>
+    <string name="action_clear">Effacer</string>
+    <string name="action_reset">Réinitialiser</string>
+    <string name="action_update">Mettre à jour</string>
+
+    <!-- Settings Screen - Vault Automation -->
+    <string name="settings_vault_automation_title">Automatisation des coffres intelligents</string>
+    <string name="settings_vault_mode_dynamic">Dynamique</string>
+    <string name="settings_vault_mode_manual">Poids manuels</string>
+    <string name="settings_vault_mode_dynamic_desc">Sparely priorise les coffres en utilisant l\'urgence, la priorité et les progrès.</string>
+    <string name="settings_vault_mode_manual_desc">Vous contrôlez la part de chaque coffre dans ses paramètres.</string>
+
+    <!-- Settings Screen - Saving Tax -->
+    <string name="settings_saving_tax_title">Automatiser le taux de taxe d\'épargne</string>
+    <string name="settings_saving_tax_auto">Taux de taxe d\'épargne (auto) : %1$s</string>
+    <string name="settings_saving_tax_manual">Taux de taxe d\'épargne : %1$s</string>
+    <string name="settings_saving_tax_desc">Nous prélevons ce pourcentage de chaque dépense et le distribuons dans vos coffres.</string>
+    <string name="settings_saving_tax_automation_desc">L\'automatisation maintient le taux aligné avec vos derniers chèques de paie et vos tendances de dépenses.</string>
+
+    <!-- Settings Screen - Auto Recommendations -->
+    <string name="settings_auto_recommendations_title">Recommandations automatiques</string>
+    <string name="settings_auto_recommendations_toggle">Laisser Sparely ajuster les pourcentages</string>
+    <string name="settings_auto_recommendations_latest">Dernière suggestion : %1$s urgence / %2$s investissement</string>
+    <string name="settings_manual_percentages_title">Pourcentages manuels</string>
+    <string name="settings_category_emergency">Urgence</string>
+    <string name="settings_category_invest">Investissement</string>
+    <string name="settings_category_fun">Loisirs</string>
+    <string name="settings_total">Total %1$s</string>
+
+    <!-- Settings Screen - Income & Tax -->
+    <string name="settings_income_tax_title">Revenu et taxes</string>
+    <string name="settings_monthly_income_label">Revenu mensuel</string>
+    <string name="settings_update_income">Mettre à jour le revenu</string>
+    <string name="settings_include_tax">Les montants incluent les taxes par défaut</string>
+
+    <!-- Settings Screen - Main Account -->
+    <string name="settings_main_account_title">Compte principal</string>
+    <string name="settings_main_account_desc">Configurez votre compte principal pour suivre le solde et les transactions.</string>
+    <string name="settings_main_account_balance_label">Solde actuel</string>
+    <string name="settings_main_account_update_balance">Mettre à jour le solde</string>
+
+    <!-- Vault Account Details -->
+    <string name="vault_account_details_title">Détails du compte</string>
+    <string name="vault_account_type_label">Type de compte</string>
+    <string name="vault_account_number_label">Numéro de compte (optionnel)</string>
+    <string name="vault_account_number_placeholder">4 derniers chiffres</string>
+    <string name="vault_account_notes_label">Notes (optionnel)</string>
+    <string name="vault_account_notes_placeholder">Détails supplémentaires…</string>
+    <string name="vault_save_account_details">Enregistrer les détails du compte</string>
+
+    <!-- Vault Management Screen -->
+    <string name="vault_management_title">Gérer les coffres intelligents</string>
+    <string name="vault_management_back">Retour</string>
+    <string name="vault_management_add">Ajouter un coffre</string>
+    <string name="vault_management_empty_title">Aucun coffre intelligent</string>
+    <string name="vault_management_empty_desc">Créez votre premier coffre pour commencer à épargner automatiquement vers vos objectifs.</string>
+    <string name="vault_edit">Modifier</string>
+    <string name="vault_delete">Supprimer</string>
+    <string name="vault_deposit">Dépôt</string>
+    <string name="vault_withdraw">Retrait</string>
+    <string name="vault_history">Historique</string>
+    <string name="vault_current">Actuel : %1$s$</string>
+    <string name="vault_target">Cible : %1$s$</string>
+    <string name="vault_due">Échéance : %1$s</string>
+    <string name="vault_manual_allocation">Allocation manuelle : %1$s%% par dépense</string>
+    <string name="vault_dynamic_allocation">Allocation automatique dynamique basée sur la priorité</string>
+    <string name="vault_delete_confirm_title">Supprimer le coffre?</string>
+    <string name="vault_delete_confirm_message">Êtes-vous sûr de vouloir supprimer \"%1$s\"? Cela supprimera toutes les contributions associées.</string>
+    <string name="vault_editor_add_title">Ajouter un coffre intelligent</string>
+    <string name="vault_editor_edit_title">Modifier le coffre intelligent</string>
+    <string name="vault_name_label">Nom du coffre</string>
+    <string name="vault_target_amount_label">Montant cible</string>
+    <string name="vault_current_balance_label">Solde actuel</string>
+    <string name="vault_priority_label">Priorité</string>
+    <string name="vault_type_label">Type</string>
+    <string name="vault_allocation_mode_label">Mode d\'allocation</string>
+    <string name="vault_allocation_auto">Auto</string>
+    <string name="vault_allocation_manual">Manuel</string>
+    <string name="vault_manual_percent_label">Allocation manuelle %</string>
+    <string name="vault_manual_percent_hint">Pourcentage de la taxe d\'épargne de chaque dépense à allouer</string>
+    <string name="vault_target_date_label">Date cible</string>
+    <string name="vault_select_date">Sélectionner la date</string>
+    <string name="vault_auto_deposits_label">Dépôts automatiques</string>
+    <string name="vault_auto_deposits_desc">Simuler des virements bancaires récurrents</string>
+    <string name="vault_deposit_amount_label">Montant par dépôt</string>
+    <string name="vault_deposit_frequency_label">Fréquence</string>
+    <string name="vault_frequency_weekly">Hebdomadaire</string>
+    <string name="vault_frequency_biweekly">Bihebdomadaire</string>
+    <string name="vault_frequency_monthly">Mensuel</string>
+    <string name="vault_manual_deposit_title">Dépôt manuel</string>
+    <string name="vault_manual_withdrawal_title">Retrait manuel</string>
+    <string name="vault_amount_label">Montant</string>
+    <string name="vault_reason_label">Raison (optionnel)</string>
+    <string name="vault_reason_hint">p. ex., Virement bancaire, Objectif atteint, etc.</string>
+    <string name="vault_deposit_note">Cela ajoutera des fonds au coffre et l\'enregistrera dans l\'historique des ajustements.</string>
+    <string name="vault_withdrawal_note">Cela retirera des fonds du coffre et l\'enregistrera dans l\'historique des ajustements.</string>
+    <string name="vault_select_account_type">Sélectionner le type de compte (optionnel)</string>
+    <string name="vault_account_number_optional">Numéro de compte (optionnel)</string>
+    <string name="vault_last_4_digits">4 derniers chiffres</string>
+    <string name="vault_notes_optional">Notes (optionnel)</string>
+
+    <!-- Settings Screen - Account Types (Canadian French) -->
+    <string name="account_type_tfsa">CELI</string> <!-- Compte d'épargne libre d'impôt -->
+    <string name="account_type_rrsp">REER</string> <!-- Régime enregistré d'épargne-retraite -->
+    <string name="account_type_fhsa">CELIAPP</string> <!-- Compte d'épargne libre d'impôt pour l'achat d'une première propriété -->
+    <string name="account_type_resp">REEE</string> <!-- Régime enregistré d'épargne-études -->
+    <string name="account_type_401k">401(k)</string>
+    <string name="account_type_ira">IRA</string>
+    <string name="account_type_roth_ira">Roth IRA</string>
+    <string name="account_type_hsa">HSA</string>
+    <string name="account_type_isa">ISA</string>
+    <string name="account_type_checking">Compte chèques</string>
+    <string name="account_type_savings">Compte d\'épargne</string>
+    <string name="account_type_pension">Pension</string>
+    <string name="account_type_other">Autre</string>
+
+    <!-- Settings Screen - Insights -->
+    <string name="settings_insights_title">Aperçus</string>
+    <string name="settings_reset_history">Réinitialiser l\'historique des dépenses</string>
+
+    <!-- Settings Screen - Profile -->
+    <string name="settings_profile_basics_title">Informations de base du profil</string>
+    <string name="settings_display_name_label">Nom d\'affichage (optionnel)</string>
+    <string name="settings_birthday_label">Date de naissance : %1$s</string>
+    <string name="settings_birthday_not_set">Ajoutez votre date de naissance</string>
+    <string name="settings_set_birthday">Définir la date de naissance</string>
+    <string name="settings_change_birthday">Modifier la date de naissance</string>
+    <string name="settings_current_age">Âge actuel : %1$d</string>
+    <string name="settings_active_debts">Dettes actives</string>
+    <string name="settings_debts_desc">Nous ajustons les recommandations si des dettes sont en jeu.</string>
+    <string name="settings_emergency_fund_label">Fonds d\'urgence épargné</string>
+    <string name="settings_primary_goal_label">Objectif d\'épargne principal</string>
+
+    <!-- Settings Screen - Life Context -->
+    <string name="settings_life_context_title">Contexte de vie</string>
+    <string name="settings_education_status_label">Statut d\'éducation</string>
+    <string name="settings_employment_status_label">Statut d\'emploi</string>
+    <string name="settings_life_context_desc">L\'ajustement de ces paramètres aide Sparely à adapter les suggestions à votre étape de vie.</string>
+
+    <!-- Education Status -->
+    <string name="education_high_school">Secondaire</string>
+    <string name="education_university">Université/Cégep</string>
+    <string name="education_graduated">Diplômé</string>
+    <string name="education_other">Autre</string>
+
+    <!-- Employment Status -->
+    <string name="employment_student">Étudiant</string>
+    <string name="employment_part_time">Temps partiel</string>
+    <string name="employment_full_time">Temps plein</string>
+    <string name="employment_self_employed">Travailleur autonome</string>
+    <string name="employment_unemployed">Sans emploi</string>
+    <string name="employment_retired">Retraité</string>
+
+    <!-- Settings Screen - Risk Profile -->
+    <string name="settings_profile_title">Profil</string>
+    <string name="settings_age">Âge %1$d</string>
+    <string name="settings_under_18_note">Moins de 18 ans? Sparely réduit les suggestions d\'épargne d\'urgence et se concentre sur les objectifs d\'études.</string>
+    <string name="settings_risk_profile_title">Profil de risque</string>
+    <string name="risk_conservative">Conservateur</string>
+    <string name="risk_balanced">Équilibré</string>
+    <string name="risk_aggressive">Agressif</string>
+    <string name="risk_conservative_desc">Priorise la sécurité avec une épargne d\'urgence plus élevée et des investissements plus sûrs.</string>
+    <string name="risk_balanced_desc">Équilibre la croissance et la sécurité avec des allocations diversifiées.</string>
+    <string name="risk_aggressive_desc">Se concentre sur la croissance avec une part d\'investissement plus élevée et plus de tolérance au risque.</string>
+
+    <!-- Settings Screen - Reminders -->
+    <string name="settings_reminders_title">Rappels quotidiens</string>
+    <string name="settings_reminders_hour">Heure (%1$d:00)</string>
+    <string name="settings_reminders_frequency">Fréquence %1$d jour(s)</string>
+
+    <!-- Settings Screen - Automation -->
+    <string name="settings_automation_title">Aperçu de l\'automatisation</string>
+    <string name="settings_save_rate_automatic">Taux d\'épargne : Automatique</string>
+    <string name="settings_save_rate_manual">Taux d\'épargne : Manuel</string>
+    <string name="settings_saving_tax_automatic">Taxe d\'épargne : Automatique</string>
+    <string name="settings_saving_tax_manual_label">Taxe d\'épargne : Manuel</string>
+    <string name="settings_paycheck_save_rate_title">Taux d\'épargne sur la paie</string>
+    <string name="settings_estimated_per_pay">≈ %1$s transféré à chaque paie</string>
+    <string name="settings_estimated_monthly">≈ %1$s par mois à ce rythme</string>
+    <string name="settings_saving_tax_skim_title">Prélèvement de taxe d\'épargne</string>
+    <string name="settings_saving_tax_skim_desc">Prélevé de chaque achat avant l\'allocation au coffre.</string>
+    <string name="settings_why_these_numbers">Pourquoi ces chiffres</string>
+    <string name="settings_automation_insights_trimmed">Aperçus d\'automatisation réduits - consultez l\'historique complet des dernières paies.</string>
+
+    <!-- Settings Screen - Auto-Deposit -->
+    <string name="settings_auto_deposit_title">Vérifications de dépôt automatique</string>
+    <string name="settings_auto_deposit_active">Actif</string>
+    <string name="settings_auto_deposit_disabled">Désactivé</string>
+    <string name="settings_auto_deposit_check_time">Heure de vérification quotidienne</string>
+    <string name="settings_auto_deposit_check_now">Vérifier maintenant</string>
+    <string name="settings_auto_deposit_desc">Sparely vérifie quotidiennement les dépôts automatiques programmés et crée des contributions en attente que vous pouvez transférer manuellement.</string>
+    <string name="settings_auto_deposit_enable_desc">Activer pour suivre automatiquement les dépôts de coffre programmés.</string>
+    <string name="dialog_select_check_time_title">Sélectionner l\'heure de vérification</string>
+    <string name="dialog_select_check_time_desc">Choisissez l\'heure de la journée (0–23) pour vérifier les dépôts automatiques dus :</string>
+
+
+    <!-- Settings Screen - Pay Schedule -->
+    <string name="settings_income_paydays_title">Revenu et jours de paie</string>
+    <string name="income_mode_manual">Manuel à chaque paie</string>
+    <string name="income_mode_scheduled">Programmé</string>
+    <string name="income_mode_hybrid">Hybride</string>
+    <string name="pay_interval_weekly">Hebdomadaire</string>
+    <string name="pay_interval_biweekly">Bihebdomadaire</string>
+    <string name="pay_interval_semi_monthly">Bimensuel</string>
+    <string name="pay_interval_monthly">Mensuel</string>
+    <string name="pay_interval_custom">Personnalisé</string>
+    <string name="settings_pay_interval_label">Intervalle de paie</string>
+    <string name="settings_typical_net_pay_label">Paie nette typique</string>
+    <string name="settings_automate_savings_rate">Automatiser le taux d\'épargne</string>
+    <string name="settings_active_savings_rate">Taux d\'épargne actif %1$s</string>
+    <string name="settings_default_savings_rate">Taux d\'épargne par défaut %1$s</string>
+    <string name="settings_savings_rate_auto_desc">Sparely recalcule cette cible pour chaque chèque de paie que vous enregistrez.</string>
+    <string name="settings_savings_rate_manual_desc">Ajustez le curseur, puis appuyez sur \"Enregistrer les valeurs par défaut de la paie\" ci-dessous pour conserver les modifications.</string>
+    <string name="settings_automation_insights_title">Aperçus de l\'automatisation</string>
+    <string name="settings_first_day_label">Premier jour</string>
+    <string name="settings_second_day_label">Deuxième jour</string>
+    <string name="settings_payday_label">Jour de paie (jour du mois)</string>
+    <string name="settings_days_between_label">Jours entre les paies</string>
+    <string name="settings_next_payday">Prochaine paie</string>
+    <string name="settings_next_payday_not_set">Non défini</string>
+    <string name="settings_pick_date">Choisir la date</string>
+    <string name="settings_auto_distribute">Distribution automatique aux coffres</string>
+    <string name="settings_create_pending_transfers">Créer des transferts en attente</string>
+    <string name="settings_save_pay_defaults">Enregistrer les valeurs par défaut de la paie</string>
+    <string name="settings_log_paycheck_title">Enregistrer un chèque de paie</string>
+    <string name="settings_amount_received_label">Montant reçu</string>
+    <string name="settings_payday">Jour de paie</string>
+    <string name="settings_distribute_vault_plan">Distribuer selon le plan de coffre</string>
+    <string name="settings_keep_pending">Garder les contributions en attente</string>
+    <string name="settings_record_paycheck">Enregistrer le chèque de paie</string>
+    <string name="settings_last_logged_pay">Dernière paie enregistrée : %1$s le %2$s</string>
+
+    <!-- Settings Screen - Regional -->
+    <string name="settings_regional_title">Paramètres régionaux</string>
+    <string name="settings_country_label">Pays</string>
+    <string name="settings_language_label">Langue</string>
+    <string name="settings_currency_label">Devise</string>
+    <string name="settings_tax_rate_label">Taux de taxe (%)</string>
+    <string name="dialog_select_country_title">Sélectionner le pays</string>
+    <string name="dialog_select_language_title">Sélectionner la langue</string>
+    <string name="action_close">Fermer</string>
+
+    <!-- Dashboard Screen -->
+    <string name="dashboard_log_purchase">Enregistrer un achat</string>
+    <string name="dashboard_history">Historique</string>
+    <string name="dashboard_create_first_budget">Créer votre premier budget</string>
+    <string name="dashboard_browse_challenges">Parcourir les défis</string>
+    <string name="dashboard_manage">Gérer</string>
+    <string name="dashboard_add">Ajouter</string>
+    <string name="dashboard_more_vaults">+%1$d autre coffre</string>
+    <string name="dashboard_more_vaults_plural">+%1$d autres coffres</string>
+    <string name="dashboard_pending_transfer">Voir %1$d transfert en attente</string>
+    <string name="dashboard_pending_transfers">Voir %1$d transferts en attente</string>
+    <string name="dashboard_recommended_split">Répartition recommandée</string>
+    <string name="dashboard_manual_split">Répartition manuelle</string>
+    <string name="dashboard_recurring_patterns">Dépenses récurrentes</string>
+    <string name="dashboard_smart_vaults">Coffres intelligents</string>
+    <string name="dashboard_total_saved">Total épargné</string>
+    <string name="dashboard_main_account">Compte principal</string>
+    <string name="dashboard_savings_rate">%1$.1f%% du revenu mensuel</string>
+    <string name="dashboard_aim_for_target">Visez %1$s par mois pour atteindre l\'objectif</string>
+    <string name="dashboard_every_days">tous les %1$dd</string>
+    <string name="dashboard_last_on">Dernière le %1$s</string>
+    <string name="dashboard_available_liquidity">Liquidités disponibles</string>
+    <string name="dashboard_savings_challenges">Défis d\'épargne</string>
+    <string name="dashboard_challenges_description">Commencez un défi pour créer des séries et débloquer des réalisations.</string>
+    <string name="dashboard_active_challenges">Défis actifs</string>
+
+    <!-- Additional Dashboard Strings -->
+    <string name="dashboard_net_saved">Net épargné %1$s</string>
+    <string name="dashboard_goal_prefix">Objectif : </string>
+    <string name="dashboard_smart_saving">Épargne intelligente</string>
+    <string name="dashboard_saved_vs_target">%1$s épargné vs cible %2$s</string>
+    <string name="dashboard_allocation_guided_mode">Mode guidé - Sparely suggère des ajustements</string>
+    <string name="dashboard_allocation_automatic_mode">Mode automatique - Sparely ajuste pour vous</string>
+    <string name="dashboard_upcoming_bills">Factures à venir</string>
+    <string name="dashboard_tap_manage_recurring">Appuyez pour gérer les paiements récurrents</string>
+    <string name="dashboard_tap_add_recurring">Appuyez pour ajouter des paiements récurrents</string>
+    <string name="dashboard_all_caught_up">Vous êtes à jour !</string>
+    <string name="dashboard_log_subscriptions_reminders">Enregistrez vos abonnements et factures pour recevoir des rappels.</string>
+    <string name="dashboard_due_on">Échéance %1$s</string>
+    <string name="dashboard_emergency_runway">Voie d\'urgence</string>
+    <string name="dashboard_month_goal">Objectif de %1$.1f mois • %2$s</string>
+    <string name="dashboard_current_cushion">Coussin actuel</string>
+    <string name="dashboard_monthly_target">Cible mensuelle</string>
+    <string name="dashboard_goal_reached">Objectif atteint ! Continuez à contribuer pour rester en avance sur l\'inflation.</string>
+    <string name="dashboard_savings_breakdown">Répartition des économies</string>
+    <string name="dashboard_short_term">Court terme</string>
+    <string name="dashboard_long_term">Long terme</string>
+    <string name="dashboard_passive_growth">Croissance passive</string>
+    <string name="dashboard_monthly_avg">Moy. mensuelle</string>
+    <string name="dashboard_projected_in_6_months">Prévu\n%1$s\ndans 6 mois</string>
+    <string name="dashboard_financial_health">Santé financière</string>
+    <string name="dashboard_budget_this_month">Budget ce mois-ci</string>
+    <string name="dashboard_remaining_of_budget">%1$s de %2$s restant</string>
+    <string name="dashboard_setup_budgets_description">Configurez des budgets par catégorie pour commencer à suivre les progrès avec des alertes.</string>
+    <string name="vault_type_short_term">Court terme</string>
+    <string name="vault_type_long_term">Long terme</string>
+    <string name="dashboard_allocation_manual_mode">Mode manuel - ajustez vos propres pourcentages</string>
+    <string name="dashboard_shortfall">Déficit</string>
+    <string name="dashboard_budget_status">Statut du budget</string>
+    <string name="dashboard_next_contribution">Prochaine contribution %1$s</string>
+    <string name="dashboard_allocation_breakdown">%1$s urgence / %2$s investissement / %3$s loisirs</string>
+    <string name="vault_type_passive_investment">Passif</string>
+    <string name="dashboard_challenge_progress">%1$s terminé</string>
+
+    <!-- History Screen -->
+    <string name="history_all_categories">Toutes les catégories</string>
+    <string name="history_delete_expense_title">Supprimer la dépense?</string>
+    <string name="history_delete_expense_message">Êtes-vous sûr de vouloir supprimer cette dépense?</string>
+    <string name="action_delete">Supprimer</string>
+
+    <!-- Vault History Screen -->
+    <string name="vault_history_title">Historique de %1$s</string>
+
+    <!-- Currency Prefix -->
+    <string name="currency_prefix">$</string>
+    <string name="vault_management_subtitle" />
+    <string name="vault_management_overview_title" />
+    <string name="vault_management_overview_subtitle" />
+    <string name="vault_management_metric_total" />
+    <string name="vault_management_metric_active" />
+    <string name="vault_management_metric_upcoming" />
+</resources>
