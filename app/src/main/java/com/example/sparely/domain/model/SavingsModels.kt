@@ -79,7 +79,7 @@ data class PayScheduleSettings(
     val lastPayAmount: Double = 0.0,
     val autoDistributeToVaults: Boolean = true,
     val autoCreatePendingTransfers: Boolean = true,
-    val dynamicSaveRateEnabled: Boolean = false,
+    val dynamicSaveRateEnabled: Boolean = true,
     val lastComputedSaveRate: Double? = null
 )
 
@@ -138,7 +138,7 @@ data class SparelySettings(
     val targetSavingsRate: Double = 0.15,
     val savingTaxRate: Double = 0.04,
     val vaultAllocationMode: VaultAllocationMode = VaultAllocationMode.DYNAMIC_AUTO,
-    val dynamicSavingTaxEnabled: Boolean = false,
+    val dynamicSavingTaxEnabled: Boolean = true,
     val lastComputedSavingTaxRate: Double? = null,
     val regionalSettings: RegionalSettings = RegionalSettings()
 ) {

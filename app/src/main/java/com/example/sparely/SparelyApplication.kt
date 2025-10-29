@@ -33,9 +33,13 @@ class SparelyApplication : Application() {
     private suspend fun applyStoredLocale() {
         val preferencesRepository = UserPreferencesRepository(this)
         val settings = preferencesRepository.settingsFlow.firstOrNull()
-        
-        settings?.regionalSettings?.languageCode?.let { code ->
-            setAppLocale(code)
+
+        settings?.regionalSettings?.let { regional ->
+            // Use both language and country when available so Android will prefer
+            // region-specific resource qualifiers (e.g. values-fr-rCA) and fall
+            // back to the base language automatically if the regionized
+            // resources are not present.
+            setAppLocale(regional.languageCode, regional.countryCode)
         }
     }
     
@@ -47,17 +51,36 @@ class SparelyApplication : Application() {
     }
 }
 
-fun Context.setAppLocale(languageCode: String) {
-    val locale = Locale(languageCode)
+fun Context.setAppLocale(languageCode: String, countryCode: String? = null) {
+    // Accept a language and optional country to construct Locale properly.
+    // This ensures Android will match values-<lang>-r<COUNTRY> if present.
+    val locale = try {
+        if (!countryCode.isNullOrBlank()) {
+            Locale(languageCode, countryCode)
+        } else {
+            // languageCode might itself be a BCP-47 tag like "fr-CA" or "fr_CA".
+            val tag = languageCode.replace('_', '-').lowercase()
+            if (tag.contains('-')) {
+                // split into language-region
+                val parts = tag.split('-')
+                if (parts.size >= 2) Locale(parts[0], parts[1].uppercase()) else Locale(parts[0])
+            } else {
+                Locale(languageCode)
+            }
+        }
+    } catch (e: Exception) {
+        Locale.getDefault()
+    }
+
     Locale.setDefault(locale)
-    
+
     val config = Configuration(resources.configuration)
     config.setLocale(locale)
-    
+
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
         createConfigurationContext(config)
     }
-    
+
     @Suppress("DEPRECATION")
     resources.updateConfiguration(config, resources.displayMetrics)
 }

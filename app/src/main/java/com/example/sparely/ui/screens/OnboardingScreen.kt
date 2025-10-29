@@ -492,7 +492,8 @@ private fun TransferReminderStep(
         Text(
             text = "Stay on top of your vault funding",
             style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(modifier = Modifier.height(12.dp))
         Text(
@@ -591,7 +592,8 @@ private fun SmartVaultsStep(
             Text(
                 text = "Design your smart vaults",
                 style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
@@ -699,7 +701,9 @@ private fun SmartVaultsStep(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    VaultType.entries.forEach { type ->
+                    // Show only core vault types during onboarding to keep choices simple
+                    val allowedTypes = listOf(VaultType.GOAL, VaultType.EMERGENCY, VaultType.INVESTMENT)
+                    allowedTypes.forEach { type ->
                         FilterChip(
                             selected = draft.type == type,
                             onClick = { onDraftChange(draft.copy(type = type)) },
@@ -939,7 +943,8 @@ fun NameStep(
             text = "What should we call you?",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         
         Spacer(modifier = Modifier.height(12.dp))
@@ -1018,7 +1023,8 @@ fun IncomeStep(
             text = "Let's understand your finances",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         
         Spacer(modifier = Modifier.height(12.dp))
@@ -1192,7 +1198,8 @@ fun RiskLevelStep(
             text = "What's your investment style?",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         
         Spacer(modifier = Modifier.height(12.dp))
@@ -1352,7 +1359,8 @@ private fun FinancialSituationStep(
             text = "Your current situation",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         
         Spacer(modifier = Modifier.height(12.dp))
@@ -1674,7 +1682,8 @@ fun GoalStep(
             text = "What's your main goal?",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         
         Spacer(modifier = Modifier.height(12.dp))
@@ -1787,7 +1796,8 @@ private fun CountrySelectionStep(
             text = "Choose your country",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         
         Spacer(modifier = Modifier.height(12.dp))
@@ -1888,7 +1898,8 @@ private fun WelcomeStep(
             text = "Welcome to Sparely",
             style = MaterialTheme.typography.displaySmall,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         
         Spacer(modifier = Modifier.height(16.dp))

@@ -24,6 +24,7 @@ import com.example.sparely.domain.model.SparelySettings
 import com.example.sparely.domain.model.SavingsPercentages
 import com.example.sparely.domain.model.VaultAllocationMode
 import com.example.sparely.setAppLocale
+import com.example.sparely.domain.model.CountryProfiles
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -297,14 +298,23 @@ class UserPreferencesRepository(private val context: Context) {
             prefs[PreferenceKeys.countryCode] = countryCode
             prefs[PreferenceKeys.languageCode] = languageCode
             prefs[PreferenceKeys.currencyCode] = currencyCode
+            // Persist a locale string so RegionalSettings.getLocale() can
+            // construct the correct Locale and so region-specific resource
+            // qualifiers (e.g. values-fr-rCA) are preferred.
+            val defaultLocale = CountryProfiles.getByCode(countryCode)?.defaultLocale
+                ?: "${languageCode}_$countryCode"
+            prefs[PreferenceKeys.locale] = defaultLocale
             if (customTaxRate != null) {
                 prefs[PreferenceKeys.customIncomeTaxRate] = customTaxRate
             } else {
                 prefs.remove(PreferenceKeys.customIncomeTaxRate)
             }
         }
-        // Apply the new locale immediately
-        context.setAppLocale(languageCode)
+    // Apply the new locale immediately using language + country so the
+    // system prefers region-specific qualifiers (e.g. values-fr-rCA) and
+    // falls back to the base language if the regionized resources are
+    // missing.
+    context.setAppLocale(languageCode, countryCode)
     }
 
     suspend fun setOnboardingCompleted(completed: Boolean) {
@@ -485,6 +495,8 @@ class UserPreferencesRepository(private val context: Context) {
                 countryCode = countryCode,
                 languageCode = languageCode,
                 currencyCode = currencyCode,
+                // read persisted locale or fallback to defaults
+                locale = this[PreferenceKeys.locale] ?: defaults.regionalSettings.locale,
                 customIncomeTaxRate = customIncomeTaxRate
             )
         )
@@ -558,6 +570,7 @@ class UserPreferencesRepository(private val context: Context) {
         val countryCode = stringPreferencesKey("regional_country")
         val languageCode = stringPreferencesKey("regional_language")
         val currencyCode = stringPreferencesKey("regional_currency")
+    val locale = stringPreferencesKey("regional_locale")
         val customIncomeTaxRate = doublePreferencesKey("regional_custom_tax_rate")
     }
 }

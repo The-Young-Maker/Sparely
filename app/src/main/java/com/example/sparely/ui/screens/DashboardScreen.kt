@@ -80,7 +80,9 @@ fun DashboardScreen(
     onNavigateToRecurring: () -> Unit = {},
     onManageVaults: () -> Unit = {},
     onNavigateToVaultTransfers: () -> Unit = {},
-    onNavigateToMainAccount: () -> Unit = {}
+    onNavigateToMainAccount: () -> Unit = {},
+    // allow parent to hide dashboard's own FAB when a global FAB/menu is provided
+    showFloatingFab: Boolean = true
 ) {
     if (uiState.isLoading) {
         Box(
@@ -97,19 +99,21 @@ fun DashboardScreen(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.surface,
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                text = { SingleLineText(stringResource(R.string.dashboard_log_purchase)) },
-                icon = {
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.ADD,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                },
-                onClick = onAddExpense,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
+            if (showFloatingFab) {
+                ExtendedFloatingActionButton(
+                    text = { SingleLineText(stringResource(R.string.dashboard_log_purchase)) },
+                    icon = {
+                        MaterialSymbolIcon(
+                            icon = MaterialSymbols.ADD,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    onClick = onAddExpense,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            }
         }
     ) { innerPadding ->
         LazyColumn(
@@ -285,18 +289,6 @@ private fun DashboardHeroSection(
             horizontalArrangement = Arrangement.spacedBy(spacing.sm)
         ) {
             FilledTonalButton(
-                onClick = onAddExpense,
-                modifier = Modifier.weight(1f)
-            ) {
-                MaterialSymbolIcon(
-                    icon = MaterialSymbols.ADD,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(spacing.xs))
-                SingleLineText(stringResource(R.string.dashboard_log_purchase))
-            }
-            OutlinedButton(
                 onClick = onManageVaults,
                 modifier = Modifier.weight(1f)
             ) {

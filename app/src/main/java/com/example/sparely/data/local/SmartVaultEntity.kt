@@ -23,6 +23,11 @@ data class SmartVaultEntity(
     val targetAmount: Double,
     val currentBalance: Double,
     val targetDate: LocalDate?,
+    val startDate: LocalDate?,
+    val endDate: LocalDate?,
+    val monthlyNeed: Double?,
+    val priorityWeight: Double,
+    val autoSaveEnabled: Boolean,
     val priority: VaultPriority,
     val type: VaultType,
     val interestRate: Double?,
@@ -37,6 +42,57 @@ data class SmartVaultEntity(
     val accountNotes: String?,
     val createdAt: LocalDate = LocalDate.now()
 )
+
+{
+    /**
+     * Secondary constructor to support older generated code that used a smaller parameter list.
+     * Delegates to the primary constructor, providing sensible defaults for newly added fields.
+     */
+    constructor(
+        id: Long,
+        name: String,
+        targetAmount: Double,
+        currentBalance: Double,
+        targetDate: LocalDate?,
+        priority: com.example.sparely.domain.model.VaultPriority,
+        type: com.example.sparely.domain.model.VaultType,
+        interestRate: Double?,
+        allocationMode: com.example.sparely.domain.model.VaultAllocationMode,
+        manualAllocationPercent: Double?,
+        nextExpectedContribution: Double?,
+        lastContributionDate: LocalDate?,
+        savingTaxRateOverride: Double?,
+        archived: Boolean,
+        accountType: com.example.sparely.domain.model.AccountType?,
+        accountNumber: String?,
+        accountNotes: String?,
+        createdAt: LocalDate?
+    ) : this(
+        id = id,
+        name = name,
+        targetAmount = targetAmount,
+        currentBalance = currentBalance,
+        targetDate = targetDate,
+        startDate = null,
+        endDate = null,
+        monthlyNeed = null,
+        priorityWeight = 1.0,
+        autoSaveEnabled = true,
+        priority = priority,
+        type = type,
+        interestRate = interestRate,
+        allocationMode = allocationMode,
+        manualAllocationPercent = manualAllocationPercent,
+        nextExpectedContribution = nextExpectedContribution,
+        lastContributionDate = lastContributionDate,
+        savingTaxRateOverride = savingTaxRateOverride,
+        archived = archived,
+        accountType = accountType,
+        accountNumber = accountNumber,
+        accountNotes = accountNotes,
+        createdAt = createdAt ?: LocalDate.now()
+    )
+}
 
 @Entity(
     tableName = "vault_auto_deposits",

@@ -138,7 +138,7 @@ object CountryProfiles {
         languageCode = "en",
         languageName = "English (CA)",
         taxConfig = TaxConfiguration(
-            incomeTaxRate = 0.25,
+            incomeTaxRate = 0.15,
             salesTaxRate = 0.13,
             socialSecurityRate = 0.057,
             hasProgressiveTax = true

@@ -3,6 +3,15 @@
     <string name="dashboard_title">Overview</string>
     <string name="dashboard_subtitle">Stay on top of your savings momentum</string>
     <string name="dashboard_action_view_history">View history</string>
+    <string name="history_title">History</string>
+    <string name="settings_title">Settings</string>
+    <string name="vaults_title">Vaults</string>
+    <string name="budgets_title">Budgets</string>
+    <string name="challenges_title">Challenges</string>
+    <string name="recurring_title">Recurring</string>
+    <string name="health_title">Health</string>
+    <string name="expense_entry_title">Log purchase</string>
+    <string name="action_back">Back</string>
     
     <!-- Widget -->
     <string name="widget_savings_label">Sparely savings snapshot</string>

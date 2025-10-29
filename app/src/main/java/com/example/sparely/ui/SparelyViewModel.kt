@@ -137,6 +137,10 @@ class SparelyViewModel(
             val autoDepositsEnabled = preferencesRepository.getAutoDepositsEnabled()
             val checkHour = preferencesRepository.getAutoDepositCheckHour()
             vaultAutoDepositScheduler.schedule(autoDepositsEnabled, checkHour)
+            // Initialize monthly smart allocation scheduling based on user setting
+            val settingsSnapshot = preferencesRepository.getSettingsSnapshot()
+            val autoAllocationsEnabled = settingsSnapshot.smartAllocationMode == SmartAllocationMode.AUTOMATIC
+            container.monthlyAllocationScheduler.schedule(autoAllocationsEnabled)
         }
         viewModelScope.launch {
             combine(
@@ -879,7 +883,17 @@ class SparelyViewModel(
                 }
                 val amountForVaults = (normalizedAmount * saveRate).toCurrencyPrecision()
                 if (amountForVaults > 0.0) {
-                    val planned = planIncomeContributions(amountForVaults, payday, createPendingTransfers)
+                    // Use the current main account balance + paycheck deposit as the mainAccountBalance
+                    // so the smart allocation engine can consider the new deposit when computing urgency
+                    val balanceBefore = savingsRepository.getLatestMainAccountBalance()
+                    val expectedMainAccountBalance = (balanceBefore + normalizedAmount)
+
+                    val planned = planIncomeContributions(
+                        amount = amountForVaults,
+                        payday = payday,
+                        createPending = createPendingTransfers,
+                        mainAccountBalance = expectedMainAccountBalance
+                    )
                     if (planned.isNotEmpty()) {
                         val contributionIds = savingsRepository.logVaultContributions(planned)
                         vaultContributionAmount = amountForVaults
@@ -932,7 +946,19 @@ class SparelyViewModel(
                 savingsRepository.insertMainAccountTransaction(vaultTransaction)
                 preferencesRepository.updateMainAccountBalance(currentBalance)
             }
-            
+            // Trigger allocation run now that the paycheck and any auto-distributions have been applied
+            try {
+                // Use the paycheck date as 'today' for allocation so flows starting next month are prioritized correctly
+                container.smartAllocationService.runMonthlyAllocation(
+                    monthlyIncome = settingsSnapshot.monthlyIncome,
+                    mainAccountBalance = currentBalance,
+                    today = payday
+                )
+            } catch (e: Exception) {
+                // Non-fatal: log and continue
+                android.util.Log.e("SparelyViewModel", "Failed to run smart allocation on paycheck: ${e.message}")
+            }
+
             notificationScheduler.dismissPaydayReminderNotification()
             val refreshedSettings = preferencesRepository.getSettingsSnapshot()
             notificationScheduler.schedulePaydayReminder(refreshedSettings)
@@ -948,6 +974,18 @@ class SparelyViewModel(
     fun updateSmartAllocationMode(mode: SmartAllocationMode) {
         viewModelScope.launch(dispatcher) {
             preferencesRepository.updateSmartAllocationMode(mode)
+            // Schedule or cancel monthly allocation worker based on selected mode
+            val enabled = mode == SmartAllocationMode.AUTOMATIC
+            container.monthlyAllocationScheduler.schedule(enabled)
+        }
+    }
+
+    /**
+     * Trigger a one-off monthly allocation run immediately (useful for manual testing or "Run now" UI).
+     */
+    fun triggerRunMonthlyAllocation() {
+        viewModelScope.launch(dispatcher) {
+            container.monthlyAllocationScheduler.runImmediate()
         }
     }
 
@@ -1066,7 +1104,7 @@ class SparelyViewModel(
             preferencesRepository.updateAutoDepositCheckHour(hour)
             val enabled = preferencesRepository.getAutoDepositsEnabled()
             if (enabled) {
-                vaultAutoDepositScheduler.schedule(enabled, hour)
+                vaultAutoDepositScheduler.schedule(true, hour)
             }
         }
     }
@@ -1099,7 +1137,7 @@ class SparelyViewModel(
                 if (total <= 0.0) {
                     null
                 } else {
-                    val name = vaultLookup[vaultId]?.name ?: "Vault ${vaultId}"
+                    val name = vaultLookup[vaultId]?.name ?: "Vault $vaultId"
                     name to total
                 }
             }
@@ -1141,46 +1179,100 @@ class SparelyViewModel(
         }
     }
 
-    private fun planIncomeContributions(
+    private suspend fun planIncomeContributions(
         amount: Double,
         payday: LocalDate,
-        createPending: Boolean
+        createPending: Boolean,
+        mainAccountBalance: Double
     ): List<VaultContribution> {
         if (amount <= 0.0) return emptyList()
         val state = _uiState.value
         val vaults = state.smartVaults.filter { !it.archived }
         if (vaults.isEmpty()) return emptyList()
-        val weights = DynamicAllocationEngine.calculateWeights(
-            vaults = vaults,
-            globalMode = state.settings.vaultAllocationMode,
-            today = payday
-        )
-        if (weights.isEmpty()) return emptyList()
-        val sortedWeights = weights.sortedByDescending { it.weight }
+
+        // Ask the smart allocation service for suggested monthly allocations
+        val result = try {
+            container.smartAllocationService.runMonthlyAllocation(
+                monthlyIncome = state.settings.monthlyIncome,
+                mainAccountBalance = mainAccountBalance,
+                today = payday
+            )
+        } catch (e: Exception) {
+            // Fall back to previous dynamic allocation if the smart service fails
+            android.util.Log.e("SparelyViewModel", "Smart allocation failed during paycheck planning: ${e.message}")
+            null
+        }
+
+        // If service failed or produced nothing, fall back to existing weight-based distribution
+        if (result == null || result.allocations.isEmpty()) {
+            val weights = DynamicAllocationEngine.calculateWeights(
+                vaults = vaults,
+                globalMode = state.settings.vaultAllocationMode,
+                today = payday
+            )
+            if (weights.isEmpty()) return emptyList()
+            val sortedWeights = weights.sortedByDescending { it.weight }
+            val contributions = mutableListOf<VaultContribution>()
+            var allocated = 0.0
+            sortedWeights.forEachIndexed { index, weight ->
+                val rawShare = amount * weight.weight
+                val share = if (index == sortedWeights.lastIndex) {
+                    (amount - allocated).coerceAtLeast(0.0)
+                } else {
+                    rawShare
+                }
+                val rounded = share.toCurrencyPrecision()
+                if (rounded > 0.0) {
+                    allocated += rounded
+                    contributions.add(
+                        VaultContribution(
+                            vaultId = weight.vaultId,
+                            amount = rounded,
+                            date = payday,
+                            source = VaultContributionSource.INCOME,
+                            note = "Paycheck allocation",
+                            reconciled = !createPending
+                        )
+                    )
+                }
+            }
+            return contributions
+        }
+
+        // Scale smart allocation suggestions down to the paycheck's amount proportionally
+        val suggested = result.allocations.filterKeys { id -> vaults.any { it.id == id } }
+        val totalSuggested = suggested.values.sumOf { it }
+        if (totalSuggested <= 0.0) return emptyList()
+
         val contributions = mutableListOf<VaultContribution>()
         var allocated = 0.0
-        sortedWeights.forEachIndexed { index, weight ->
-            val rawShare = amount * weight.weight
-            val share = if (index == sortedWeights.lastIndex) {
+        val entries = suggested.entries.toList()
+        entries.forEachIndexed { index, entry ->
+            val vaultId = entry.key
+            val suggestedAmount = entry.value
+            val proportion = (suggestedAmount / totalSuggested).coerceAtLeast(0.0)
+            val raw = amount * proportion
+            val share = if (index == entries.lastIndex) {
                 (amount - allocated).coerceAtLeast(0.0)
             } else {
-                rawShare
+                raw
             }
             val rounded = share.toCurrencyPrecision()
             if (rounded > 0.0) {
                 allocated += rounded
                 contributions.add(
                     VaultContribution(
-                        vaultId = weight.vaultId,
+                        vaultId = vaultId,
                         amount = rounded,
                         date = payday,
                         source = VaultContributionSource.INCOME,
-                        note = "Paycheck allocation",
+                        note = "Paycheck allocation (smart)",
                         reconciled = !createPending
                     )
                 )
             }
         }
+
         return contributions
     }
 

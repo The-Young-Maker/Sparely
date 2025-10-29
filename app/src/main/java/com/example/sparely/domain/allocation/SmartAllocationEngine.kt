@@ -1,0 +1,483 @@
+package com.example.sparely.domain.allocation
+
+import com.example.sparely.domain.model.SmartVault
+import com.example.sparely.domain.model.VaultType
+import com.example.sparely.domain.model.monthsUntil
+import android.util.Log
+import java.time.LocalDate
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.round
+
+/**
+ * SmartAllocationEngine: Fully adaptive, self-adjusting vault allocation system.
+ * Automatically balances vault contributions with daily liquidity needs.
+ */
+object SmartAllocationEngine {
+
+    private const val LOG_TAG = "SmartAllocationEngine"
+
+
+    data class AllocationInput(
+        val vaults: List<SmartVault>,
+        val monthlyIncome: Double,
+        val mainAccountBalance: Double,
+        val safeBufferPercent: Double = 0.45,
+        val today: LocalDate = LocalDate.now(),
+        val rampWindowMonths: Int = 3,
+        val recentMonthlyExpenses: List<Double> = emptyList(),
+        val minBufferPercent: Double = 0.35,
+        val maxAllocationPercent: Double = 0.65,
+        val pendingContributions: Map<Long, Double> = emptyMap()
+    )
+
+    data class AllocationResult(
+        val allocations: Map<Long, Double>,
+        val totalAllocated: Double,
+        val archiveVaultIds: List<Long>,
+        val adjustedBufferPercent: Double,
+        val mainAccountSafetyMargin: Double,
+        val allocationDetails: Map<Long, AllocationDetail>
+    )
+
+    data class AllocationDetail(
+        val vaultId: Long,
+        val vaultName: String,
+        val amount: Double,
+        val urgencyScore: Double,
+        val desiredAmount: Double,
+        val priorityWeight: Double,
+        val reason: String
+    )
+
+    /**
+     * Compute adaptive monthly allocations that balance vault goals with daily liquidity.
+     */
+    fun allocate(input: AllocationInput): AllocationResult {
+        val activeVaults = input.vaults.filter { !it.archived }
+
+        // 1. Identify completed vaults for archival
+        val archiveIds = activeVaults
+            .filter { it.targetAmount > 0.0 && it.currentBalance >= it.targetAmount }
+            .map { it.id }
+
+        // 2. Calculate adaptive buffer based on actual spending behavior
+        val adaptiveBuffer = calculateAdaptiveBuffer(
+            baseBufferPercent = input.safeBufferPercent,
+            recentExpenses = input.recentMonthlyExpenses,
+            monthlyIncome = input.monthlyIncome,
+            mainAccountBalance = input.mainAccountBalance,
+            minBuffer = input.minBufferPercent,
+            maxAllocation = input.maxAllocationPercent
+        )
+
+        // 3. Determine available funds for allocation
+        val bufferAmount = input.monthlyIncome * adaptiveBuffer.adjustedBufferPercent
+        val currentShortfall = max(0.0, bufferAmount - input.mainAccountBalance)
+        var availableForVaults = (input.monthlyIncome - currentShortfall).coerceIn(
+            0.0,
+            input.monthlyIncome * input.maxAllocationPercent
+        )
+        
+        Log.d(LOG_TAG, "bufferAmount=${String.format("%.2f", bufferAmount)} currentShortfall=${String.format("%.2f", currentShortfall)} availableForVaults(before)=${String.format("%.2f", availableForVaults)}")
+        // Safety check: ensure minimum liquidity
+        if (availableForVaults <= 0.0 || activeVaults.isEmpty()) {
+            return AllocationResult(
+                allocations = emptyMap(),
+                totalAllocated = 0.0,
+                archiveVaultIds = archiveIds,
+                adjustedBufferPercent = adaptiveBuffer.adjustedBufferPercent,
+                mainAccountSafetyMargin = input.mainAccountBalance - bufferAmount,
+                allocationDetails = emptyMap()
+            )
+        }
+
+        // 4. Apply spending-based adjustment
+        availableForVaults *= adaptiveBuffer.allocationMultiplier
+        
+    Log.d(LOG_TAG, "allocationMultiplier=${String.format("%.2f", adaptiveBuffer.allocationMultiplier)} availableForVaults(after)=${String.format("%.2f", availableForVaults)}")
+        // 5. Compute vault priorities and desired amounts
+        val pendingByVault = input.pendingContributions
+
+        val vaultStates = activeVaults.map { vault ->
+            val pending = pendingByVault[vault.id] ?: 0.0
+            val desiredMonthly = computeDesiredMonthly(
+                vault = vault,
+                today = input.today,
+                rampWindowMonths = input.rampWindowMonths,
+                pendingAmount = pending,
+                monthlyIncome = input.monthlyIncome
+            )
+            
+            val remainingNeed = if (vault.monthlyNeed != null) {
+                if (vault.targetAmount > 0.0) {
+                    (vault.targetAmount - (vault.currentBalance + pending)).coerceAtLeast(0.0)
+                } else {
+                    (vault.monthlyNeed * input.rampWindowMonths - (vault.currentBalance + pending)).coerceAtLeast(0.0)
+                }
+            } else {
+                (vault.targetAmount - (vault.currentBalance + pending)).coerceAtLeast(0.0)
+            }
+
+            VaultState(
+                vault = vault,
+                urgency = computeUrgency(
+                    vault = vault,
+                    today = input.today,
+                    monthlyIncome = input.monthlyIncome,
+                    desiredMonthly = desiredMonthly
+                ),
+                desiredMonthly = desiredMonthly,
+                priorityWeight = vault.priorityWeight.takeIf { it > 0.0 } ?: 1.0,
+                pendingAmount = pending,
+                remainingNeed = remainingNeed
+            )
+        }.sortedByDescending { it.effectivePriority }
+        
+        // debug: list vault states
+        vaultStates.forEach { st ->
+            Log.d(LOG_TAG, "VaultState id=${st.vault.id} name=${st.vault.name} urgency=${String.format("%.2f", st.urgency)} desired=${String.format("%.2f", st.desiredMonthly)} pending=${String.format("%.2f", st.pendingAmount)} remaining=${String.format("%.2f", st.remainingNeed)} weight=${String.format("%.2f", st.effectivePriority)}")
+        }
+        // 6. CRITICAL CHANGE: Tiered allocation based on urgency thresholds
+        val allocations = mutableMapOf<Long, Double>()
+        val details = mutableMapOf<Long, AllocationDetail>()
+        var remaining = availableForVaults
+
+        // TIER 1: CRITICAL urgency (≥15.0) - Flow goals starting in 0-1 months with high income pressure
+        val criticalVaults = vaultStates.filter { it.urgency >= 15.0 && it.remainingNeed > 0.0 }
+        remaining = allocateToTier(criticalVaults, remaining, allocations, details, "Critical: imminent flow goal")
+
+        // TIER 2: HIGH urgency (≥8.0) - Flow goals starting in 2-3 months OR fixed goals due soon
+        val highUrgencyVaults = vaultStates.filter { 
+            it.vault.id !in allocations && it.urgency >= 8.0 && it.remainingNeed > 0.0 
+        }
+        remaining = allocateToTier(highUrgencyVaults, remaining, allocations, details, "High urgency")
+
+        // TIER 3: MODERATE urgency (≥4.0) - Flow goals 4-6 months out OR standard fixed goals
+        val moderateVaults = vaultStates.filter { 
+            it.vault.id !in allocations && it.urgency >= 4.0 && it.remainingNeed > 0.0 
+        }
+        remaining = allocateToTier(moderateVaults, remaining, allocations, details, "Moderate urgency")
+
+        // TIER 4: LOW urgency (<4.0) - Long-term goals
+        val lowUrgencyVaults = vaultStates.filter { 
+            it.vault.id !in allocations && it.remainingNeed > 0.0 
+        }
+        remaining = allocateToTier(lowUrgencyVaults, remaining, allocations, details, "Building long-term goal")
+
+        // Round and finalize
+        val finalAllocations = allocations.mapValues { (_, amount) ->
+            round(amount * 100.0) / 100.0
+        }
+
+        val totalAllocated = finalAllocations.values.sum()
+        val safetyMargin = input.mainAccountBalance + (input.monthlyIncome - totalAllocated) - bufferAmount
+
+        Log.d(LOG_TAG, "finalAllocations=${finalAllocations.map { (k,v) -> "id=$k:${String.format("%.2f", v)}" }} totalAllocated=${String.format("%.2f", totalAllocated)} safetyMargin=${String.format("%.2f", safetyMargin)}")
+
+        return AllocationResult(
+            allocations = finalAllocations,
+            totalAllocated = totalAllocated,
+            archiveVaultIds = archiveIds,
+            adjustedBufferPercent = adaptiveBuffer.adjustedBufferPercent,
+            mainAccountSafetyMargin = safetyMargin,
+            allocationDetails = details
+        )
+    }
+
+    /**
+     * Allocate funds to a tier of vaults based on their priority
+     */
+    private fun allocateToTier(
+        vaults: List<VaultState>,
+        availableFunds: Double,
+        allocations: MutableMap<Long, Double>,
+        details: MutableMap<Long, AllocationDetail>,
+        reasonSuffix: String
+    ): Double {
+        if (vaults.isEmpty() || availableFunds <= 0.0) return availableFunds
+        
+        var remaining = availableFunds
+        
+        // First, try to satisfy each vault's desired amount
+        val totalDesired = vaults.sumOf { it.desiredMonthly }
+        
+        if (totalDesired <= remaining) {
+            // We can give everyone what they want
+            for (state in vaults) {
+                val allocation = state.desiredMonthly
+                if (allocation > 0.5) {
+                    allocations[state.vault.id] = allocation
+                    remaining -= allocation
+                    details[state.vault.id] = createAllocationDetail(state, allocation, reasonSuffix)
+                    Log.d(LOG_TAG, "tier='$reasonSuffix' full id=${state.vault.id} allocated=${String.format("%.2f", allocation)} remaining=${String.format("%.2f", remaining)}")
+                }
+            }
+        } else {
+            // Need to distribute proportionally, but prioritize by effective priority
+            val totalWeight = vaults.sumOf { it.effectivePriority }
+            
+            for (state in vaults) {
+                if (remaining <= 0.0) break
+                
+                // Calculate proportional share based on priority weight
+                val proportionalShare = if (totalWeight > 0.0) {
+                    remaining * (state.effectivePriority / totalWeight)
+                } else {
+                    remaining / vaults.size
+                }
+                
+                // Cap at desired amount and remaining need
+                val allocation = min(proportionalShare, min(state.desiredMonthly, state.remainingNeed))
+                Log.d(LOG_TAG, "tier='$reasonSuffix' id=${state.vault.id} proportionalShare=${String.format("%.2f", proportionalShare)} chosen=${String.format("%.2f", allocation)} remainingBefore=${String.format("%.2f", remaining)}")
+                if (allocation > 0.5) {
+                    allocations[state.vault.id] = allocation
+                    remaining -= allocation
+                    details[state.vault.id] = createAllocationDetail(state, allocation, reasonSuffix)
+                    Log.d(LOG_TAG, "tier='$reasonSuffix' allocated id=${state.vault.id} amount=${String.format("%.2f", allocation)} remaining=${String.format("%.2f", remaining)}")
+                }
+            }
+        }
+        
+        return remaining
+    }
+
+    private fun createAllocationDetail(
+        state: VaultState,
+        amount: Double,
+        reasonSuffix: String
+    ): AllocationDetail {
+        val reason = determineAllocationReason(state, reasonSuffix)
+        return AllocationDetail(
+            vaultId = state.vault.id,
+            vaultName = state.vault.name,
+            amount = amount,
+            urgencyScore = state.urgency,
+            desiredAmount = state.desiredMonthly,
+            priorityWeight = state.priorityWeight,
+            reason = reason
+        )
+    }
+
+    private data class VaultState(
+        val vault: SmartVault,
+        val urgency: Double,
+        val desiredMonthly: Double,
+        val priorityWeight: Double,
+        val pendingAmount: Double,
+        val remainingNeed: Double
+    ) {
+        val effectivePriority: Double = priorityWeight * urgency
+        val monthsToDeadline: Int = vault.targetDate?.let {
+            vault.monthsUntil(it, LocalDate.now()).coerceAtLeast(0)
+        } ?: Int.MAX_VALUE
+        val isFlowGoal: Boolean get() = vault.monthlyNeed != null
+    }
+
+    private data class AdaptiveBufferResult(
+        val adjustedBufferPercent: Double,
+        val allocationMultiplier: Double,
+        val spendingTrend: SpendingTrend
+    )
+
+    private enum class SpendingTrend {
+        UNDER_BUDGET, ON_TARGET, OVER_BUDGET
+    }
+
+    /**
+     * Dynamically adjust buffer based on actual spending patterns.
+     */
+    private fun calculateAdaptiveBuffer(
+        baseBufferPercent: Double,
+        recentExpenses: List<Double>,
+        monthlyIncome: Double,
+        mainAccountBalance: Double,
+        minBuffer: Double,
+        maxAllocation: Double
+    ): AdaptiveBufferResult {
+        if (recentExpenses.isEmpty() || monthlyIncome <= 0.0) {
+            return AdaptiveBufferResult(
+                adjustedBufferPercent = baseBufferPercent,
+                allocationMultiplier = 1.0,
+                spendingTrend = SpendingTrend.ON_TARGET
+            )
+        }
+
+        val avgExpenses = recentExpenses.average()
+        val baseBuffer = monthlyIncome * baseBufferPercent
+        val spendingRatio = avgExpenses / baseBuffer
+
+        val (trend, bufferAdjustment, allocationMultiplier) = when {
+            spendingRatio < 0.80 -> {
+                Triple(SpendingTrend.UNDER_BUDGET, -0.05, 1.10)
+            }
+            spendingRatio > 1.20 -> {
+                Triple(SpendingTrend.OVER_BUDGET, 0.05, 0.90)
+            }
+            else -> {
+                Triple(SpendingTrend.ON_TARGET, 0.0, 1.0)
+            }
+        }
+
+        val balanceRatio = mainAccountBalance / baseBuffer
+        val finalBufferAdjustment = when {
+            balanceRatio < 0.5 -> bufferAdjustment + 0.05
+            balanceRatio > 2.0 -> bufferAdjustment - 0.03
+            else -> bufferAdjustment
+        }
+
+        val adjustedPercent = (baseBufferPercent + finalBufferAdjustment)
+            .coerceIn(minBuffer, 1.0 - maxAllocation)
+
+        return AdaptiveBufferResult(
+            adjustedBufferPercent = adjustedPercent,
+            allocationMultiplier = allocationMultiplier,
+            spendingTrend = trend
+        )
+    }
+
+    /**
+     * IMPROVED: Calculate urgency score with exponential scaling for imminent flow goals
+     * and proper income pressure consideration.
+     */
+    private fun computeUrgency(
+        vault: SmartVault,
+        today: LocalDate,
+        monthlyIncome: Double,
+        desiredMonthly: Double
+    ): Double {
+        // Flow goal
+        vault.startDate?.let { startDate ->
+            val monthsUntilStart = vault.monthsUntil(startDate, today)
+            val monthlyNeed = vault.monthlyNeed ?: 0.0
+
+            // Income pressure: how much of income will this consume?
+            val incomePressure = if (monthlyIncome > 0.0) {
+                (monthlyNeed / monthlyIncome).coerceIn(0.0, 10.0)
+            } else {
+                5.0
+            }
+
+            // CRITICAL CHANGE: Exponential urgency scaling for imminent flows
+            val baseUrgency = when {
+                monthsUntilStart <= 0 -> 20.0  // Already active - maximum priority
+                monthsUntilStart == 1 -> 18.0  // Next month - critical
+                monthsUntilStart == 2 -> 12.0  // 2 months - very high
+                monthsUntilStart == 3 -> 8.0   // 3 months - high
+                monthsUntilStart <= 6 -> 5.0   // 4-6 months - moderate
+                monthsUntilStart <= 12 -> 3.0  // 7-12 months - building
+                else -> 1.5                     // >12 months - low
+            }
+
+            // Amplify by income pressure (e.g., $600 need / $2000 income = 0.3 → +30% urgency)
+            // But for imminent flows, multiply by pressure to create dramatic difference
+            val urgencyMultiplier = if (monthsUntilStart <= 2) {
+                1.0 + (incomePressure * 1.5)  // More aggressive for imminent flows
+            } else {
+                1.0 + (incomePressure * 0.5)  // Less aggressive for distant flows
+            }
+
+            return (baseUrgency * urgencyMultiplier).coerceAtMost(30.0)
+        }
+
+        // Fixed goal
+        vault.targetDate?.let { targetDate ->
+            val monthsRemaining = vault.monthsUntil(targetDate, today).coerceAtLeast(0)
+            val incomePressure = if (monthlyIncome > 0.0 && desiredMonthly > 0.0) {
+                (desiredMonthly / monthlyIncome).coerceIn(0.0, 5.0)
+            } else {
+                1.0
+            }
+
+            val baseUrgency = when {
+                monthsRemaining == 0 -> 10.0
+                monthsRemaining <= 3 -> 7.0
+                monthsRemaining <= 6 -> 5.0
+                monthsRemaining <= 12 -> 3.0
+                monthsRemaining <= 24 -> 2.0
+                else -> 1.0
+            }
+
+            return baseUrgency * (1.0 + (incomePressure * 0.3))
+        }
+
+        return 0.5
+    }
+
+    /**
+     * IMPROVED: Calculate desired monthly contribution with better pre-funding logic
+     */
+    private fun computeDesiredMonthly(
+        vault: SmartVault,
+        today: LocalDate,
+        rampWindowMonths: Int,
+        pendingAmount: Double,
+        monthlyIncome: Double
+    ): Double {
+        // Flow goal
+        vault.monthlyNeed?.let { monthlyNeed ->
+            val startDate = vault.startDate
+            val monthsUntilStart = if (startDate != null) {
+                vault.monthsUntil(startDate, today)
+            } else 0
+
+            // CRITICAL CHANGE: Request full monthly need earlier
+            val desiredBase = when {
+                monthsUntilStart <= 0 -> monthlyNeed  // Active - need full amount
+                monthsUntilStart == 1 -> monthlyNeed  // Next month - need full amount NOW
+                monthsUntilStart == 2 -> monthlyNeed * 0.9  // 2 months - 90%
+                monthsUntilStart == 3 -> monthlyNeed * 0.75 // 3 months - 75%
+                monthsUntilStart <= 6 -> monthlyNeed * 0.5  // 4-6 months - 50%
+                else -> monthlyNeed * 0.3  // >6 months - 30%
+            }
+
+            return (desiredBase - pendingAmount).coerceAtLeast(0.0)
+        }
+
+        // Fixed goal: spread remaining amount over remaining months
+        val effectiveBalance = vault.currentBalance + pendingAmount
+        val remaining = (vault.targetAmount - effectiveBalance).coerceAtLeast(0.0)
+        if (vault.targetDate != null) {
+            val months = vault.monthsUntil(vault.targetDate, today).coerceAtLeast(1)
+            return remaining / months
+        }
+        return 0.0
+    }
+
+    private fun determineAllocationReason(state: VaultState, reasonSuffix: String): String {
+        val base = when {
+            state.vault.monthlyNeed != null && state.vault.startDate != null -> {
+                val months = state.vault.monthsUntil(state.vault.startDate!!, LocalDate.now())
+                when {
+                    months <= 0 -> "Active flow: \$${state.vault.monthlyNeed}/month needed"
+                    months == 1 -> "URGENT: Flow starts next month (\$${state.vault.monthlyNeed}/month)"
+                    months <= 3 -> "Flow starts in $months months (\$${state.vault.monthlyNeed}/month)"
+                    else -> "Pre-funding flow goal (starts in $months months)"
+                }
+            }
+            state.vault.monthlyNeed != null -> "Recurring flow goal"
+            state.vault.targetDate != null -> {
+                val months = state.monthsToDeadline
+                "Fixed goal: $months month${if (months != 1) "s" else ""} remaining"
+            }
+            else -> reasonSuffix
+        }
+
+        return if (state.pendingAmount > 0.0) {
+            "$base (awaiting ${formatCurrency(state.pendingAmount)} transfer)"
+        } else {
+            base
+        }
+    }
+
+    private fun formatCurrency(amount: Double): String = "${'$'}" + String.format("%.2f", amount)
+
+    /**
+     * Compute vault deduction for expenses with overflow to main account.
+     */
+    fun computeVaultDeduction(expenseAmount: Double, vaultBalance: Double): Pair<Double, Double> {
+        val deduction = min(expenseAmount, vaultBalance)
+        val overflow = max(0.0, expenseAmount - vaultBalance)
+        return Pair(deduction, overflow)
+    }
+}

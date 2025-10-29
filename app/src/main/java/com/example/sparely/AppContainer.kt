@@ -7,6 +7,7 @@ import com.example.sparely.data.repository.SavingsRepository
 import com.example.sparely.domain.logic.RecommendationEngine
 import com.example.sparely.notifications.NotificationScheduler
 import com.example.sparely.workers.VaultAutoDepositScheduler
+import com.example.sparely.workers.MonthlyAllocationScheduler
 
 interface AppContainer {
     val savingsRepository: SavingsRepository
@@ -14,6 +15,9 @@ interface AppContainer {
     val recommendationEngine: RecommendationEngine
     val notificationScheduler: NotificationScheduler
     val vaultAutoDepositScheduler: VaultAutoDepositScheduler
+    val monthlyAllocationScheduler: MonthlyAllocationScheduler
+    // Expose smart allocation service for callers that need it
+    val smartAllocationService: com.example.sparely.domain.allocation.SmartAllocationService
 }
 
 class DefaultAppContainer(context: Context) : AppContainer {
@@ -48,5 +52,17 @@ class DefaultAppContainer(context: Context) : AppContainer {
     
     override val vaultAutoDepositScheduler: VaultAutoDepositScheduler by lazy {
         VaultAutoDepositScheduler(appContext)
+    }
+
+    override val monthlyAllocationScheduler: MonthlyAllocationScheduler by lazy {
+        MonthlyAllocationScheduler(appContext)
+    }
+
+    // Smart allocation service (phase 2)
+    override val smartAllocationService by lazy {
+        com.example.sparely.domain.allocation.SmartAllocationService(
+            smartVaultDao = database.smartVaultDao(),
+            allocationHistoryDao = database.allocationHistoryDao()
+        )
     }
 }

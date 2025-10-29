@@ -67,6 +67,13 @@ object LocalizedStrings {
         "dashboard_title" to "Dashboard",
         "dashboard_total_saved" to "Total Saved",
         "dashboard_this_month" to "This Month",
+    "history_title" to "History",
+    "vaults_title" to "Vaults",
+    "budgets_title" to "Budgets",
+    "challenges_title" to "Challenges",
+    "recurring_title" to "Recurring",
+    "health_title" to "Health",
+    "expense_entry_title" to "Log purchase",
         
         // Settings
         "settings_title" to "Settings",

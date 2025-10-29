@@ -3,18 +3,39 @@ package com.example.sparely.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.Instant
+import java.time.format.DateTimeFormatter
 import androidx.compose.material3.Icon
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -33,6 +54,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -60,6 +82,9 @@ import com.example.sparely.ui.screens.VaultHistoryScreen
 import com.example.sparely.ui.screens.VaultManagementScreen
 import com.example.sparely.ui.screens.VaultTransfersScreen
 import com.example.sparely.ui.theme.MaterialSymbolIcon
+import androidx.compose.ui.res.stringResource
+import androidx.annotation.StringRes
+import com.example.sparely.R
 import com.example.sparely.ui.theme.MaterialSymbols
 
 @Composable
@@ -111,7 +136,9 @@ private fun SparelyScaffold(
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
-    val showFab = currentDestination?.route != SparelyDestination.ExpenseEntry.route
+    // Only show the quick actions FAB on the Dashboard screen. Other screens provide their
+    // own FABs (Vaults, Recurring, etc.) and we don't want to collide with them.
+    val showFab = currentDestination?.route == SparelyDestination.Dashboard.route
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
@@ -126,10 +153,139 @@ private fun SparelyScaffold(
         },
         floatingActionButton = {
             if (showFab) {
-                FloatingActionButton(onClick = {
-                    navController.navigate(SparelyDestination.ExpenseEntry.route)
-                }) {
-                    Icon(imageVector = Icons.Default.Save, contentDescription = "Log purchase")
+                // Material-like stacked FAB menu: primary FAB toggles expansion; child FABs appear above it.
+                val fabExpanded = remember { mutableStateOf(false) }
+                val showIncomeDialog = remember { mutableStateOf(false) }
+                val manualAmountText = remember { mutableStateOf("") }
+                val manualDate = remember { mutableStateOf(LocalDate.now()) }
+                val manualDistribute = remember { mutableStateOf(true) }
+                val manualPending = remember { mutableStateOf(false) }
+                val showDatePicker = remember { mutableStateOf(false) }
+
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (fabExpanded.value) {
+                        // Record income child: pill contains icon + text and is clickable
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .height(40.dp)
+                                    .clickable {
+                                        fabExpanded.value = false
+                                        showIncomeDialog.value = true
+                                    }
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier
+                                    .fillMaxHeight()
+                                    .padding(horizontal = 12.dp)) {
+                                    MaterialSymbolIcon(icon = MaterialSymbols.ATTACH_MONEY, contentDescription = "Record income", modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.size(8.dp))
+                                    Text(
+                                        text = "Record income",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                }
+                            }
+                        }
+
+                        // Record expense child: pill contains icon + text and is clickable
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .height(40.dp)
+                                    .clickable {
+                                        fabExpanded.value = false
+                                        navController.navigate(SparelyDestination.ExpenseEntry.route)
+                                    }
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier
+                                    .fillMaxHeight()
+                                    .padding(horizontal = 12.dp)) {
+                                    MaterialSymbolIcon(icon = MaterialSymbols.RECEIPT, contentDescription = "Record expense", modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.size(8.dp))
+                                    Text(
+                                        text = "Record expense",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Primary FAB (close/open) - fixed at 56dp
+                    FloatingActionButton(onClick = { fabExpanded.value = !fabExpanded.value }, modifier = Modifier.size(56.dp)) {
+                        MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = "Quick actions", modifier = Modifier.size(24.dp))
+                    }
+                }
+
+                // Income (paycheck) dialog re-used from previous implementation
+                if (showIncomeDialog.value) {
+                    AlertDialog(
+                        onDismissRequest = { showIncomeDialog.value = false },
+                        title = { Text("Record income") },
+                        text = {
+                            Column {
+                                OutlinedTextField(
+                                    value = manualAmountText.value,
+                                    onValueChange = { v -> manualAmountText.value = v.filter { ch -> ch.isDigit() || ch == '.' } },
+                                    label = { Text("Amount") }
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                    Text("Date: ${manualDate.value.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))}")
+                                    TextButton(onClick = { showDatePicker.value = true }) { Text("Pick date") }
+                                }
+                                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                    Text("Distribute to vaults")
+                                    Switch(checked = manualDistribute.value, onCheckedChange = { manualDistribute.value = it })
+                                }
+                                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                    Text("Create pending transfers")
+                                    Switch(checked = manualPending.value, onCheckedChange = { manualPending.value = it })
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                val amt = manualAmountText.value.toDoubleOrNull()
+                                if (amt != null && amt > 0.0) {
+                                    viewModel.recordPaycheck(amt, manualDate.value, manualDistribute.value, manualPending.value)
+                                    manualAmountText.value = ""
+                                    showIncomeDialog.value = false
+                                }
+                            }) { Text("Record income") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showIncomeDialog.value = false }) { Text("Cancel") }
+                        }
+                    )
+
+                    if (showDatePicker.value) {
+                        val initialMillis = manualDate.value.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+                        DatePickerDialog(
+                            onDismissRequest = { showDatePicker.value = false },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    val selectedMillis = datePickerState.selectedDateMillis
+                                    val selected = selectedMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
+                                    if (selected != null) manualDate.value = selected
+                                    showDatePicker.value = false
+                                }) { Text("Save") }
+                            },
+                            dismissButton = { TextButton(onClick = { showDatePicker.value = false }) { Text("Cancel") } }
+                        ) {
+                            DatePicker(state = datePickerState)
+                        }
+                    }
                 }
             }
         }
@@ -170,14 +326,14 @@ private fun SparelyScaffold(
 @Composable
 private fun SparelyTopBar(currentDestination: NavDestination?, navController: NavHostController) {
     val destination = SparelyDestination.fromRoute(currentDestination?.route)
-    val title = destination?.label ?: "Sparely"
+    val title = destination?.labelRes?.let { stringResource(it) } ?: stringResource(R.string.app_name)
     val isTopLevel = destination == null || destination in bottomBarDestinations
     TopAppBar(
         title = { Text(text = title) },
         navigationIcon = {
             if (!isTopLevel) {
                 IconButton(onClick = { navController.popBackStack() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                 }
             }
         },
@@ -218,17 +374,18 @@ private fun SparelyBottomBar(
                     }
                 },
                 icon = {
+                    val labelLocalized = destination.labelRes?.let { stringResource(it) } ?: ""
                     if (destination.iconDrawable != null) {
                         MaterialSymbolIcon(
                             icon = destination.iconDrawable,
-                            contentDescription = destination.label,
+                            contentDescription = labelLocalized,
                             size = 24.dp
                         )
                     } else if (destination.icon != null) {
-                        Icon(imageVector = destination.icon, contentDescription = destination.label)
+                        Icon(imageVector = destination.icon, contentDescription = labelLocalized)
                     }
                 },
-                label = { Text(destination.label) }
+                label = { Text(destination.labelRes?.let { stringResource(it) } ?: "" ) }
             )
         }
     }
@@ -260,6 +417,9 @@ private fun SparelyNavHost(
                 onManageVaults = { navController.navigate(SparelyDestination.Vaults.route) },
                 onNavigateToVaultTransfers = { navController.navigate("vaultTransfers") },
                 onNavigateToMainAccount = { navController.navigate("mainAccount") }
+            ,
+                // the global FAB/menu will be shown by the scaffold, so hide dashboard's own FAB
+                showFloatingFab = false
             )
         }
         composable(SparelyDestination.History.route) {
@@ -430,17 +590,17 @@ private enum class SparelyDestination(
     val route: String,
     val icon: ImageVector?,
     val iconDrawable: Int?,
-    val label: String
+    @StringRes val labelRes: Int?
 ) {
-    Dashboard("dashboard", null, MaterialSymbols.HOME, "Dashboard"),
-    History("history", null, MaterialSymbols.BAR_CHART, "History"),
-    Vaults("vaults", null, MaterialSymbols.ACCOUNT_BALANCE_WALLET, "Vaults"),
-    Budgets("budgets", null, MaterialSymbols.ACCOUNT_BALANCE, "Budgets"),
-    Challenges("challenges", null, MaterialSymbols.TROPHY, "Challenges"),
-    Recurring("recurring", null, MaterialSymbols.SCHEDULE, "Recurring"),
-    Health("health", null, MaterialSymbols.FAVORITE, "Health"),
-    Settings("settings", null, MaterialSymbols.SETTINGS, "Settings"),
-    ExpenseEntry("expense", null, MaterialSymbols.SAVINGS, "Log purchase");
+    Dashboard("dashboard", null, MaterialSymbols.HOME, R.string.dashboard_title),
+    History("history", null, MaterialSymbols.BAR_CHART, R.string.history_title),
+    Vaults("vaults", null, MaterialSymbols.ACCOUNT_BALANCE_WALLET, R.string.vaults_title),
+    Budgets("budgets", null, MaterialSymbols.ACCOUNT_BALANCE, R.string.budgets_title),
+    Challenges("challenges", null, MaterialSymbols.TROPHY, R.string.challenges_title),
+    Recurring("recurring", null, MaterialSymbols.SCHEDULE, R.string.recurring_title),
+    Health("health", null, MaterialSymbols.FAVORITE, R.string.health_title),
+    Settings("settings", null, MaterialSymbols.SETTINGS, R.string.settings_title),
+    ExpenseEntry("expense", null, MaterialSymbols.SAVINGS, R.string.expense_entry_title);
 
     companion object {
         fun fromRoute(route: String?): SparelyDestination? {
