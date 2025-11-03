@@ -2,6 +2,7 @@ package com.example.sparely.ui.screens
 
 import android.annotation.SuppressLint
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -1115,6 +1116,14 @@ private fun SmartVaultEditorDialog(
     var accountNotes by remember { mutableStateOf(vault?.accountNotes ?: "") }
     var priorityWeight by remember { mutableStateOf(vault?.priorityWeight?.toString() ?: "1.0") }
 
+    // Auto-deposit editing
+    var autoDepositEnabled by remember { mutableStateOf(vault?.autoDepositSchedule != null) }
+    var autoDepositAmount by remember { mutableStateOf(vault?.autoDepositSchedule?.amount?.toString() ?: "") }
+    var autoDepositFrequency by remember { mutableStateOf(vault?.autoDepositSchedule?.frequency ?: AutoDepositFrequency.MONTHLY) }
+    var autoDepositStartDate by remember { mutableStateOf(vault?.autoDepositSchedule?.startDate ?: LocalDate.now()) }
+    var autoDepositEndDate by remember { mutableStateOf(vault?.autoDepositSchedule?.endDate) }
+    var autoDepositExecuteAutomatically by remember { mutableStateOf(vault?.autoDepositSchedule?.executeAutomatically ?: false) }
+
     var priorityMenuExpanded by remember { mutableStateOf(false) }
     var typeMenuExpanded by remember { mutableStateOf(false) }
     var showTargetDatePicker by remember { mutableStateOf(false) }
@@ -1622,6 +1631,58 @@ private fun SmartVaultEditorDialog(
                     }
                 }
 
+                // Auto-deposit editor (small, focused)
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("Auto-deposit schedule", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    text = "Schedule automatic transfers into this vault",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(checked = autoDepositEnabled, onCheckedChange = { autoDepositEnabled = it })
+                        }
+
+                        if (autoDepositEnabled) {
+                            OutlinedTextField(
+                                value = autoDepositAmount,
+                                onValueChange = { autoDepositAmount = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                                label = { Text("Amount") },
+                                prefix = { Text("$") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+
+                            // Frequency chips
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf(AutoDepositFrequency.WEEKLY, AutoDepositFrequency.BIWEEKLY, AutoDepositFrequency.MONTHLY).forEach { freq ->
+                                    AssistChip(
+                                        onClick = { autoDepositFrequency = freq },
+                                        label = { Text(freq.name.lowercase().replaceFirstChar { it.titlecase() }) },
+                                        enabled = true,
+                                        border = if (autoDepositFrequency == freq) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
+                                    )
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Execute automatically when due", style = MaterialTheme.typography.bodyMedium)
+                                Switch(checked = autoDepositExecuteAutomatically, onCheckedChange = { autoDepositExecuteAutomatically = it })
+                            }
+                        }
+                    }
+                }
                 item {
                     HorizontalDivider()
                 }
@@ -1678,6 +1739,15 @@ private fun SmartVaultEditorDialog(
                                     endDate = if (isFlowGoal) endDate else null,
                                     monthlyNeed = monthly,
                                     accountNotes = accountNotes.takeIf { it.isNotBlank() },
+                                    autoDepositSchedule = if (autoDepositEnabled) {
+                                        AutoDepositSchedule(
+                                            amount = autoDepositAmount.toDoubleOrNull() ?: 0.0,
+                                            frequency = autoDepositFrequency,
+                                            startDate = autoDepositStartDate,
+                                            endDate = autoDepositEndDate,
+                                            executeAutomatically = autoDepositExecuteAutomatically
+                                        )
+                                    } else null,
                                     archived = vault?.archived ?: false
                                 )
                                 onSave(updatedVault)

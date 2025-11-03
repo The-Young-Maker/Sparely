@@ -94,6 +94,9 @@ class SparelyViewModel(
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
 
+    // Expose container for UI that needs app-level dependencies (e.g., vaultRepository)
+    val appContainer: AppContainer get() = container
+
     private val _uiState = MutableStateFlow(SparelyUiState())
     val uiState: StateFlow<SparelyUiState> = _uiState.asStateFlow()
 
@@ -1090,6 +1093,22 @@ class SparelyViewModel(
             refreshPendingContributions()
         }
     }
+
+    /** Approve a pending contribution: reconcile and remove frozen funds. */
+    fun approvePendingVaultContribution(contributionId: Long) {
+        viewModelScope.launch(dispatcher) {
+            savingsRepository.approvePendingContribution(contributionId)
+            refreshPendingContributions()
+        }
+    }
+
+    /** Cancel a pending contribution: delete pending and remove frozen funds. */
+    fun cancelPendingVaultContribution(contributionId: Long) {
+        viewModelScope.launch(dispatcher) {
+            savingsRepository.cancelPendingContribution(contributionId)
+            refreshPendingContributions()
+        }
+    }
     
     fun updateAutoDepositsEnabled(enabled: Boolean) {
         viewModelScope.launch(dispatcher) {
@@ -1148,6 +1167,17 @@ class SparelyViewModel(
         if (contributionIds.isEmpty()) return
         viewModelScope.launch(dispatcher) {
             savingsRepository.reconcileVaultContributions(contributionIds)
+            refreshPendingContributions()
+        }
+    }
+
+    /** Approve multiple pending contributions (reconcile + unfreeze) */
+    fun approvePendingVaultContributions(contributionIds: List<Long>) {
+        if (contributionIds.isEmpty()) return
+        viewModelScope.launch(dispatcher) {
+            contributionIds.forEach { id ->
+                savingsRepository.approvePendingContribution(id)
+            }
             refreshPendingContributions()
         }
     }

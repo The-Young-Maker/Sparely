@@ -28,6 +28,7 @@ import com.example.sparely.domain.model.VaultContribution
 import com.example.sparely.domain.model.VaultContributionSource
 import com.example.sparely.domain.model.VaultAdjustmentType
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.Instant
 import java.time.LocalDate
@@ -41,8 +42,10 @@ class SavingsRepository(
     private val achievementDao: AchievementDao,
     private val savingsAccountDao: SavingsAccountDao,
     private val smartVaultDao: SmartVaultDao,
-    private val mainAccountDao: com.example.sparely.data.local.MainAccountDao
+    private val mainAccountDao: com.example.sparely.data.local.MainAccountDao,
+    private val frozenFundDao: com.example.sparely.data.local.FrozenFundDao
 ) {
+
     fun observeExpenses(): Flow<List<ExpenseEntity>> = expenseDao.observeExpenses()
 
     fun observeExpensesBetween(from: LocalDate, to: LocalDate): Flow<List<ExpenseEntity>> =
@@ -97,7 +100,7 @@ class SavingsRepository(
     }
 
     suspend fun seedSavingsAccounts(inputs: List<SavingsAccountInput>) {
-        savingsAccountDao.clearAll()
+        if (savingsAccountDao.observeAccounts().first().isNotEmpty()) return
         if (inputs.isEmpty()) return
         inputs.forEach { input ->
             val assignedId = savingsAccountDao.upsert(input.toEntity())
@@ -145,7 +148,7 @@ class SavingsRepository(
     }
 
     suspend fun seedSmartVaults(vaults: List<SmartVault>) {
-        smartVaultDao.clearAllVaults()
+        if (smartVaultDao.observeActiveVaults().first().isNotEmpty()) return
         if (vaults.isEmpty()) return
         vaults.forEach { vault ->
             upsertSmartVault(vault.copy(id = 0L))
@@ -185,6 +188,25 @@ class SavingsRepository(
         contributionIds.forEach { id ->
             reconcileVaultContribution(id)
         }
+    }
+
+    /**
+     * Approve a pending contribution: reconcile it and remove any frozen funds associated with it.
+     */
+    suspend fun approvePendingContribution(contributionId: Long) {
+        reconcileVaultContribution(contributionId)
+        removeFrozenForPending("VAULT_CONTRIBUTION", contributionId)
+    }
+
+    /**
+     * Cancel a pending contribution: delete the pending contribution record and remove frozen funds.
+     */
+    suspend fun cancelPendingContribution(contributionId: Long) {
+        val contribution = smartVaultDao.getContributionById(contributionId) ?: return
+        // delete the pending contribution row
+        smartVaultDao.deleteContribution(contributionId)
+        // remove the frozen record(s) associated with this pending contribution
+        removeFrozenForPending("VAULT_CONTRIBUTION", contributionId)
     }
 
     suspend fun recordAutoDepositExecution(vaultId: Long, amount: Double, date: LocalDate) {
@@ -397,4 +419,30 @@ class SavingsRepository(
 
     suspend fun calculateMainAccountBalance(): Double =
         mainAccountDao.calculateBalanceFromTransactions()
+
+    suspend fun getAvailableMainAccountBalance(): Double {
+        val canonical = getLatestMainAccountBalance()
+        val frozen = getTotalFrozenAmount()
+        return (canonical - frozen).coerceAtLeast(0.0)
+    }
+
+    // Frozen funds methods
+    suspend fun insertFrozenFund(pendingType: String, pendingId: Long, amount: Double, description: String? = null): Long {
+        val frozen = com.example.sparely.data.local.FrozenFundEntity(
+            pendingType = pendingType,
+            pendingId = pendingId,
+            amount = amount,
+            createdAt = java.time.LocalDateTime.now(),
+            description = description
+        )
+        return frozenFundDao.insert(frozen)
+    }
+
+    suspend fun removeFrozenForPending(pendingType: String, pendingId: Long) {
+        frozenFundDao.deleteForPending(pendingType, pendingId)
+    }
+
+    suspend fun getTotalFrozenAmount(): Double {
+        return frozenFundDao.totalFrozen()
+    }
 }

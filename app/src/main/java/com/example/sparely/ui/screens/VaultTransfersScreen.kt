@@ -28,8 +28,9 @@ import java.time.format.DateTimeFormatter
 fun VaultTransfersScreen(
     vaults: List<SmartVault>,
     pendingContributions: List<VaultContribution>,
-    onReconcileContribution: (Long) -> Unit,
-    onReconcileGroup: (List<Long>) -> Unit = { ids -> ids.forEach(onReconcileContribution) },
+    onApproveContribution: (Long) -> Unit,
+    onApproveGroup: (List<Long>) -> Unit = { ids -> ids.forEach(onApproveContribution) },
+    onCancelContribution: (Long) -> Unit = {},
     onStartNotificationWorkflow: () -> Unit = {},
     onNavigateBack: () -> Unit
 ) {
@@ -67,6 +68,8 @@ fun VaultTransfersScreen(
                 item {
                     NotificationWorkflowButton(onStartWorkflow = onStartNotificationWorkflow)
                 }
+
+                
                 
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
@@ -84,8 +87,9 @@ fun VaultTransfersScreen(
                     AggregatedPendingContributionCard(
                         vault = vault,
                         contributions = contributionsForVault,
-                        onMarkAll = { ids -> onReconcileGroup(ids) },
-                        onMarkIndividual = onReconcileContribution
+                        onApproveAll = { ids -> onApproveGroup(ids) },
+                        onApproveIndividual = onApproveContribution,
+                        onCancelIndividual = onCancelContribution
                     )
                 }
             }
@@ -198,8 +202,9 @@ private fun SummaryCard(
 private fun AggregatedPendingContributionCard(
     vault: SmartVault?,
     contributions: List<VaultContribution>,
-    onMarkAll: (List<Long>) -> Unit,
-    onMarkIndividual: (Long) -> Unit
+    onApproveAll: (List<Long>) -> Unit,
+    onApproveIndividual: (Long) -> Unit,
+    onCancelIndividual: (Long) -> Unit = {}
 ) {
     var expanded by remember { mutableStateOf(false) }
     var showConfirmAll by remember { mutableStateOf(false) }
@@ -352,8 +357,13 @@ private fun AggregatedPendingContributionCard(
                                     },
                                     colors = AssistChipDefaults.assistChipColors(disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant)
                                 )
-                                TextButton(onClick = { onMarkIndividual(contribution.id) }) {
-                                    Text("Mark this one")
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    TextButton(onClick = { onApproveIndividual(contribution.id) }) {
+                                        Text("Approve")
+                                    }
+                                    TextButton(onClick = { onCancelIndividual(contribution.id) }) {
+                                        Text("Cancel")
+                                    }
                                 }
                             }
                             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
@@ -374,7 +384,7 @@ private fun AggregatedPendingContributionCard(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        onMarkAll(contributions.map { it.id })
+                        onApproveAll(contributions.map { it.id })
                         showConfirmAll = false
                     }
                 ) {

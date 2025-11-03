@@ -34,7 +34,8 @@ class DefaultAppContainer(context: Context) : AppContainer {
             achievementDao = database.achievementDao(),
             savingsAccountDao = database.savingsAccountDao(),
             smartVaultDao = database.smartVaultDao(),
-            mainAccountDao = database.mainAccountDao()
+            mainAccountDao = database.mainAccountDao(),
+            frozenFundDao = database.frozenFundDao()
         )
     }
 
@@ -65,4 +66,6 @@ class DefaultAppContainer(context: Context) : AppContainer {
             allocationHistoryDao = database.allocationHistoryDao()
         )
     }
+
 }
+

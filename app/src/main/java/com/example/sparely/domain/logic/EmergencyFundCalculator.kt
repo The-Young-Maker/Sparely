@@ -11,7 +11,18 @@ object EmergencyFundCalculator {
     fun calculate(settings: SparelySettings, monthlyExpenseEstimate: Double, existingEmergency: Double): EmergencyFundGoal {
         val baselineMonths = resolveTargetMonths(settings)
         val monthlyBaseline = resolveMonthlyBaseline(settings, monthlyExpenseEstimate)
-        val targetAmount = (baselineMonths * monthlyBaseline).coerceAtLeast(500.0)
+        val candidateAmount = baselineMonths * monthlyBaseline
+        // Special-case: allow a much smaller emergency fund for young users who still live with parents
+        // and are working part-time or earning very little. In that case, if the calculated candidate
+        // amount is small, recommend a small, realistic floor between $200 and $300.
+        val targetAmount = if (settings.age <= 18
+            && settings.livingSituation == LivingSituation.WITH_PARENTS
+            && (settings.employmentStatus == EmploymentStatus.PART_TIME || settings.monthlyIncome < 1000.0)
+        ) {
+            if (candidateAmount < 300.0) candidateAmount.coerceAtLeast(200.0) else candidateAmount
+        } else {
+            candidateAmount.coerceAtLeast(500.0)
+        }
         val liquidityBoost = (settings.mainAccountBalance * 0.25) +
             (settings.savingsAccountBalance * 0.6) +
             (settings.vaultsBalance * 0.8)

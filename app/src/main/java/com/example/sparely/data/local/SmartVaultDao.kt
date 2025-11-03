@@ -75,6 +75,9 @@ interface SmartVaultDao {
     @Query("UPDATE vault_contributions SET reconciled = 1 WHERE id = :contributionId")
     suspend fun markContributionReconciled(contributionId: Long)
 
+    @Query("DELETE FROM vault_contributions WHERE id = :id")
+    suspend fun deleteContribution(id: Long)
+
     @Transaction
     suspend fun attachAutoDeposit(vaultId: Long, schedule: VaultAutoDepositEntity) {
         val existing = getAutoDepositForVault(vaultId)

@@ -468,6 +468,7 @@ private fun RecurringExpenseDialog(
     var endDateText by remember { mutableStateOf(expense?.endDate?.toString().orEmpty()) }
     var reminderDays by remember { mutableStateOf(expense?.reminderDaysBefore?.toString() ?: "2") }
     var autoLog by remember { mutableStateOf(expense?.autoLog ?: true) }
+    var executeAutomatically by remember { mutableStateOf(expense?.executeAutomatically ?: false) }
     var notes by remember { mutableStateOf(expense?.notes.orEmpty()) }
     var includesTax by remember { mutableStateOf(expense?.includesTax ?: false) }
     var deductFromMainAccount by remember { mutableStateOf(expense?.deductFromMainAccount ?: false) }
@@ -540,6 +541,14 @@ private fun RecurringExpenseDialog(
                 ) {
                     Text("Includes tax", style = MaterialTheme.typography.bodyMedium)
                     Switch(checked = includesTax, onCheckedChange = { includesTax = it })
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Execute automatically when due", style = MaterialTheme.typography.bodyMedium)
+                    Switch(checked = executeAutomatically, onCheckedChange = { executeAutomatically = it })
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -646,6 +655,7 @@ private fun RecurringExpenseDialog(
                     startDate = startDate,
                     endDate = endDate,
                     autoLog = autoLog,
+                    executeAutomatically = executeAutomatically,
                     reminderDaysBefore = reminder,
                     notes = notes.takeIf { it.isNotBlank() },
                     includesTax = includesTax,

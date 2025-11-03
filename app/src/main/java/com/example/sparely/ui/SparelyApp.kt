@@ -58,6 +58,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -556,8 +557,9 @@ private fun SparelyNavHost(
             VaultTransfersScreen(
                 vaults = uiState.smartVaults,
                 pendingContributions = uiState.pendingVaultContributions,
-                onReconcileContribution = viewModel::reconcileVaultContribution,
-                onReconcileGroup = viewModel::reconcileVaultContributions,
+                onApproveContribution = viewModel::approvePendingVaultContribution,
+                onApproveGroup = viewModel::approvePendingVaultContributions,
+                onCancelContribution = viewModel::cancelPendingVaultContribution,
                 onStartNotificationWorkflow = viewModel::startVaultTransferNotificationWorkflow,
                 onNavigateBack = { navController.popBackStack() }
             )

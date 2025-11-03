@@ -42,6 +42,7 @@ fun RecurringExpenseEntity.toDomain(): RecurringExpense = RecurringExpense(
     lastProcessedDate = lastProcessedDate,
     isActive = isActive,
     autoLog = autoLog,
+    executeAutomatically = executeAutomatically,
     reminderDaysBefore = reminderDaysBefore,
     merchantName = merchantName,
     notes = notes,
@@ -69,6 +70,7 @@ fun RecurringExpense.toEntity(): RecurringExpenseEntity = RecurringExpenseEntity
     lastProcessedDate = lastProcessedDate,
     isActive = isActive,
     autoLog = autoLog,
+    executeAutomatically = executeAutomatically,
     reminderDaysBefore = reminderDaysBefore,
     merchantName = merchantName,
     notes = notes,
@@ -260,7 +262,8 @@ fun VaultAutoDepositEntity.toDomain(): AutoDepositSchedule = AutoDepositSchedule
     startDate = startDate,
     endDate = endDate,
     sourceAccountId = sourceAccountId,
-    lastExecutionDate = lastExecutionDate
+    lastExecutionDate = lastExecutionDate,
+    executeAutomatically = executeAutomatically
 )
 
 fun AutoDepositSchedule.toEntity(vaultId: Long, scheduleId: Long = 0L): VaultAutoDepositEntity = VaultAutoDepositEntity(
@@ -272,7 +275,8 @@ fun AutoDepositSchedule.toEntity(vaultId: Long, scheduleId: Long = 0L): VaultAut
     endDate = endDate,
     sourceAccountId = sourceAccountId,
     lastExecutionDate = lastExecutionDate,
-    active = true
+    active = true,
+    executeAutomatically = executeAutomatically
 )
 
 fun VaultContributionEntity.toDomain(): VaultContribution = VaultContribution(

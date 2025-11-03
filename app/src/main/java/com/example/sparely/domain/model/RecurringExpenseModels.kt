@@ -17,6 +17,8 @@ data class RecurringExpense(
     val lastProcessedDate: LocalDate? = null,
     val isActive: Boolean = true,
     val autoLog: Boolean = true,
+    // Controls whether the scheduled payment is executed automatically or created as pending
+    val executeAutomatically: Boolean = false,
     val reminderDaysBefore: Int = 2,
     val merchantName: String? = null,
     val notes: String? = null,
@@ -50,6 +52,7 @@ data class RecurringExpenseInput(
     val startDate: LocalDate,
     val endDate: LocalDate? = null,
     val autoLog: Boolean = true,
+    val executeAutomatically: Boolean = false,
     val reminderDaysBefore: Int = 2,
     val notes: String? = null,
     // Expense-related fields (same as ExpenseInput)

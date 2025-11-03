@@ -877,7 +877,7 @@ private fun EmploymentStatus.displayName(): String = when (this) {
 }
 
 private fun LivingSituation.displayName(): String = when (this) {
-    LivingSituation.WITH_PARENTS -> "With family"
+    LivingSituation.WITH_PARENTS -> "Living with parents"
     LivingSituation.RENTING -> "Renting"
     LivingSituation.HOMEOWNER -> "Homeowner"
     LivingSituation.OTHER -> "Other"
@@ -1482,7 +1482,33 @@ private fun FinancialSituationStep(
         }
         
         Spacer(modifier = Modifier.height(32.dp))
-        
+        // Tailored suggestion for young part-time users still living with parents
+        val showSmallFundSuggestion = age <= 18 && livingSituation == LivingSituation.WITH_PARENTS && employmentStatus == EmploymentStatus.PART_TIME
+        if (showSmallFundSuggestion) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        text = "Based on your age and that you still live with your parents and work part-time, we recommend a small emergency fund of $200–$300 to cover minor unexpected expenses.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { onEmergencyFundChange("250") }) {
+                            Text("Apply $250 suggestion")
+                        }
+                        TextButton(onClick = { /* user can still input their own value */ }) {
+                            Text("Keep my value")
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
         OutlinedTextField(
             value = emergencyFund,
             onValueChange = onEmergencyFundChange,

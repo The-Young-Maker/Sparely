@@ -115,7 +115,11 @@ data class VaultAutoDepositEntity(
     val endDate: LocalDate?,
     val sourceAccountId: Long?,
     val lastExecutionDate: LocalDate?,
-    val active: Boolean
+    val active: Boolean,
+    // If true, the worker will attempt to move funds from the main account into the vault
+    // automatically when the schedule is due. If false, a pending contribution will be created
+    // and the user will need to reconcile it manually.
+    val executeAutomatically: Boolean = false
 )
 
 @Entity(

@@ -43,6 +43,8 @@ data class AutoDepositSchedule(
     val endDate: LocalDate? = null,
     val sourceAccountId: Long? = null,
     val lastExecutionDate: LocalDate? = null
+    ,
+    val executeAutomatically: Boolean = false
 )
 
 data class VaultContribution(

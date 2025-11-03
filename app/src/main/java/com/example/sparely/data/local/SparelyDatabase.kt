@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
 @Database(
-    entities = [
+        entities = [
         ExpenseEntity::class,
         SavingsTransferEntity::class,
         CategoryBudgetEntity::class,
@@ -20,6 +20,7 @@ import androidx.room.TypeConverters
         VaultAutoDepositEntity::class,
         VaultContributionEntity::class,
         VaultBalanceAdjustmentEntity::class,
+            FrozenFundEntity::class,
         AllocationHistoryEntity::class,
         MainAccountTransactionEntity::class
     ],
@@ -38,6 +39,7 @@ abstract class SparelyDatabase : RoomDatabase() {
     abstract fun smartVaultDao(): SmartVaultDao
     abstract fun allocationHistoryDao(): AllocationHistoryDao
     abstract fun mainAccountDao(): MainAccountDao
+    abstract fun frozenFundDao(): FrozenFundDao
 
     companion object {
         @Volatile
@@ -102,6 +104,40 @@ abstract class SparelyDatabase : RoomDatabase() {
                 addColumnIfMissing("ALTER TABLE smart_vaults ADD COLUMN accountNumber TEXT", "accountNumber")
                 addColumnIfMissing("ALTER TABLE smart_vaults ADD COLUMN accountNotes TEXT", "accountNotes")
 
+                // vault_auto_deposits: add executeAutomatically flag
+                fun hasAutoDepositColumn(columnName: String): Boolean {
+                    val cursor = database.query("PRAGMA table_info(vault_auto_deposits)")
+                    cursor.use { c ->
+                        val nameIndex = c.getColumnIndex("name")
+                        while (c.moveToNext()) {
+                            val existing = c.getString(nameIndex)
+                            if (existing == columnName) return true
+                        }
+                    }
+                    return false
+                }
+
+                if (!hasAutoDepositColumn("executeAutomatically")) {
+                    database.execSQL("ALTER TABLE vault_auto_deposits ADD COLUMN executeAutomatically INTEGER NOT NULL DEFAULT 0")
+                }
+
+                // recurring_expenses: add executeAutomatically flag
+                fun hasRecurringColumn(columnName: String): Boolean {
+                    val cursor = database.query("PRAGMA table_info(recurring_expenses)")
+                    cursor.use { c ->
+                        val nameIndex = c.getColumnIndex("name")
+                        while (c.moveToNext()) {
+                            val existing = c.getString(nameIndex)
+                            if (existing == columnName) return true
+                        }
+                    }
+                    return false
+                }
+
+                if (!hasRecurringColumn("executeAutomatically")) {
+                    database.execSQL("ALTER TABLE recurring_expenses ADD COLUMN executeAutomatically INTEGER NOT NULL DEFAULT 0")
+                }
+
                 // Create allocation_history table to persist allocation suggestions
                 database.execSQL(
                     "CREATE TABLE IF NOT EXISTS allocation_history (" +
@@ -115,6 +151,18 @@ abstract class SparelyDatabase : RoomDatabase() {
                 )
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_allocation_history_vaultId ON allocation_history(vaultId)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_allocation_history_date ON allocation_history(date)")
+
+                // Create frozen_funds table (used to track amounts reserved/pending without altering main account canonical balance)
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS frozen_funds (" +
+                            "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                            "pendingType TEXT NOT NULL, " +
+                            "pendingId INTEGER NOT NULL, " +
+                            "amount REAL NOT NULL, " +
+                            "createdAt INTEGER NOT NULL, " +
+                            "description TEXT)"
+                )
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_frozen_funds_pending ON frozen_funds(pendingType, pendingId)")
             }
         }
     }

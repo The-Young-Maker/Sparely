@@ -18,6 +18,9 @@ data class RecurringExpenseEntity(
     val lastProcessedDate: LocalDate? = null,
     val isActive: Boolean = true,
     val autoLog: Boolean = true,
+    // If true, the recurring expense will be executed automatically when due.
+    // If false, a pending payment will be created and funds will be frozen until user confirms.
+    val executeAutomatically: Boolean = false,
     val reminderDaysBefore: Int = 2,
     val merchantName: String? = null,
     val notes: String? = null,
