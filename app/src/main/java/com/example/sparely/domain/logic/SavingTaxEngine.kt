@@ -29,8 +29,9 @@ object SavingTaxEngine {
         if (baseRate <= 0.0) return emptyList()
         if (context.expenseAmount <= 0.0) return emptyList()
 
+        // Exclude archived vaults and vaults explicitly opted out of automatic allocations
         val eligibleVaults = context.vaults.filter { vault ->
-            !vault.archived && (vault.targetAmount > 0.0) && (vault.targetAmount - vault.currentBalance) > 0.0
+            !vault.archived && !vault.excludedFromAutoAllocation && (vault.targetAmount > 0.0) && (vault.targetAmount - vault.currentBalance) > 0.0
         }
         if (eligibleVaults.isEmpty()) return emptyList()
 

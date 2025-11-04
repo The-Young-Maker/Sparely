@@ -24,7 +24,7 @@ import androidx.room.TypeConverters
         AllocationHistoryEntity::class,
         MainAccountTransactionEntity::class
     ],
-    version = 12,
+    version = 13,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -57,9 +57,7 @@ abstract class SparelyDatabase : RoomDatabase() {
                 SparelyDatabase::class.java,
                 "sparely.db"
             )
-                .addMigrations(MIGRATION_11_12)
-                // Keep destructive fallback for safety during development; remove in prod when all migrations are added
-                .fallbackToDestructiveMigration()
+                .addMigrations(MIGRATION_11_12, MIGRATION_12_13)
                 .build()
         }
 
@@ -163,6 +161,44 @@ abstract class SparelyDatabase : RoomDatabase() {
                             "description TEXT)"
                 )
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_frozen_funds_pending ON frozen_funds(pendingType, pendingId)")
+            }
+        }
+
+        // Migration: 12 -> 13
+        // Adds excludedFromAutoAllocation to smart_vaults and adds scheduling columns to vault_auto_deposits
+        val MIGRATION_12_13 = object : androidx.room.migration.Migration(12, 13) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // helper to check columns
+                fun hasColumn(table: String, columnName: String): Boolean {
+                    val cursor = database.query("PRAGMA table_info($table)")
+                    cursor.use { c ->
+                        val nameIndex = c.getColumnIndex("name")
+                        while (c.moveToNext()) {
+                            val existing = c.getString(nameIndex)
+                            if (existing == columnName) return true
+                        }
+                    }
+                    return false
+                }
+
+                // smart_vaults: excludedFromAutoAllocation default 0
+                if (!hasColumn("smart_vaults", "excludedFromAutoAllocation")) {
+                    database.execSQL("ALTER TABLE smart_vaults ADD COLUMN excludedFromAutoAllocation INTEGER NOT NULL DEFAULT 0")
+                }
+
+                // vault_auto_deposits: scheduling columns (nullable)
+                if (!hasColumn("vault_auto_deposits", "dayOfMonth")) {
+                    database.execSQL("ALTER TABLE vault_auto_deposits ADD COLUMN dayOfMonth INTEGER")
+                }
+                if (!hasColumn("vault_auto_deposits", "dayOfWeek")) {
+                    database.execSQL("ALTER TABLE vault_auto_deposits ADD COLUMN dayOfWeek INTEGER")
+                }
+                if (!hasColumn("vault_auto_deposits", "customIntervalDays")) {
+                    database.execSQL("ALTER TABLE vault_auto_deposits ADD COLUMN customIntervalDays INTEGER")
+                }
+                if (!hasColumn("vault_auto_deposits", "nextRunAt")) {
+                    database.execSQL("ALTER TABLE vault_auto_deposits ADD COLUMN nextRunAt INTEGER")
+                }
             }
         }
     }

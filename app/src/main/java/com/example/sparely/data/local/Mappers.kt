@@ -214,6 +214,7 @@ fun SmartVaultEntity.toDomain(autoDeposit: AutoDepositSchedule? = null): SmartVa
     monthlyNeed = monthlyNeed,
     priorityWeight = priorityWeight,
     autoSaveEnabled = autoSaveEnabled,
+    excludedFromAutoAllocation = excludedFromAutoAllocation,
     priority = priority,
     type = type,
     interestRate = interestRate,
@@ -241,6 +242,7 @@ fun SmartVault.toEntity(): SmartVaultEntity = SmartVaultEntity(
     monthlyNeed = monthlyNeed,
     priorityWeight = priorityWeight,
     autoSaveEnabled = autoSaveEnabled,
+    excludedFromAutoAllocation = excludedFromAutoAllocation,
     priority = priority,
     type = type,
     interestRate = interestRate,
@@ -263,7 +265,11 @@ fun VaultAutoDepositEntity.toDomain(): AutoDepositSchedule = AutoDepositSchedule
     endDate = endDate,
     sourceAccountId = sourceAccountId,
     lastExecutionDate = lastExecutionDate,
-    executeAutomatically = executeAutomatically
+    executeAutomatically = executeAutomatically,
+    dayOfMonth = dayOfMonth,
+    dayOfWeek = dayOfWeek,
+    customIntervalDays = customIntervalDays,
+    nextRunAt = nextRunAt
 )
 
 fun AutoDepositSchedule.toEntity(vaultId: Long, scheduleId: Long = 0L): VaultAutoDepositEntity = VaultAutoDepositEntity(
@@ -277,6 +283,10 @@ fun AutoDepositSchedule.toEntity(vaultId: Long, scheduleId: Long = 0L): VaultAut
     lastExecutionDate = lastExecutionDate,
     active = true,
     executeAutomatically = executeAutomatically
+    ,dayOfMonth = dayOfMonth
+    ,dayOfWeek = dayOfWeek
+    ,customIntervalDays = customIntervalDays
+    ,nextRunAt = nextRunAt
 )
 
 fun VaultContributionEntity.toDomain(): VaultContribution = VaultContribution(

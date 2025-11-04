@@ -28,6 +28,9 @@ data class SmartVaultEntity(
     val monthlyNeed: Double?,
     val priorityWeight: Double,
     val autoSaveEnabled: Boolean,
+    // If true this vault will be excluded from any automatic allocation/saving-tax/rounding
+    // mechanisms and will only receive manual or explicitly scheduled transfers.
+    val excludedFromAutoAllocation: Boolean = false,
     val priority: VaultPriority,
     val type: VaultType,
     val interestRate: Double?,
@@ -78,6 +81,7 @@ data class SmartVaultEntity(
         monthlyNeed = null,
         priorityWeight = 1.0,
         autoSaveEnabled = true,
+        excludedFromAutoAllocation = false,
         priority = priority,
         type = type,
         interestRate = interestRate,
@@ -120,6 +124,15 @@ data class VaultAutoDepositEntity(
     // automatically when the schedule is due. If false, a pending contribution will be created
     // and the user will need to reconcile it manually.
     val executeAutomatically: Boolean = false
+    // Optional scheduling details for more advanced recurring logic
+    // dayOfMonth: 1..31 (if null not used for monthly schedules)
+    ,val dayOfMonth: Int? = null
+    // dayOfWeek: 1..7 (ISO-8601 where Monday=1) for weekly schedules
+    ,val dayOfWeek: Int? = null
+    // custom interval in days when using custom frequency
+    ,val customIntervalDays: Int? = null
+    // next predicted run (stored as LocalDate) to help the scheduler; nullable
+    ,val nextRunAt: LocalDate? = null
 )
 
 @Entity(

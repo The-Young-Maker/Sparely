@@ -54,7 +54,8 @@ object SmartAllocationEngine {
      * Compute adaptive monthly allocations that balance vault goals with daily liquidity.
      */
     fun allocate(input: AllocationInput): AllocationResult {
-        val activeVaults = input.vaults.filter { !it.archived }
+    // Exclude archived vaults and any vaults marked as excludedFromAutoAllocation
+    val activeVaults = input.vaults.filter { !it.archived && !it.excludedFromAutoAllocation }
 
         // 1. Identify completed vaults for archival
         val archiveIds = activeVaults

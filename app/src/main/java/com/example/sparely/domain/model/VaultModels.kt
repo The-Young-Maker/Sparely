@@ -17,6 +17,9 @@ data class SmartVault(
     val monthlyNeed: Double? = null,
     val priorityWeight: Double = 1.0,
     val autoSaveEnabled: Boolean = true,
+    // If true, this vault is excluded from automatic allocations/saving-tax/rounding
+    // behaviors and will only receive manual or scheduled transfers.
+    val excludedFromAutoAllocation: Boolean = false,
     val priority: VaultPriority = VaultPriority.MEDIUM,
     val type: VaultType = VaultType.SHORT_TERM,
     val interestRate: Double? = null,
@@ -44,7 +47,11 @@ data class AutoDepositSchedule(
     val sourceAccountId: Long? = null,
     val lastExecutionDate: LocalDate? = null
     ,
-    val executeAutomatically: Boolean = false
+    val executeAutomatically: Boolean = false,
+    val dayOfMonth: Int? = null,
+    val dayOfWeek: Int? = null,
+    val customIntervalDays: Int? = null,
+    val nextRunAt: LocalDate? = null
 )
 
 data class VaultContribution(

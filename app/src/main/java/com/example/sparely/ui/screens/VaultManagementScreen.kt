@@ -1115,6 +1115,7 @@ private fun SmartVaultEditorDialog(
     var targetDate by remember { mutableStateOf(vault?.targetDate) }
     var accountNotes by remember { mutableStateOf(vault?.accountNotes ?: "") }
     var priorityWeight by remember { mutableStateOf(vault?.priorityWeight?.toString() ?: "1.0") }
+    var excludedFromAutoAllocation by remember { mutableStateOf(vault?.excludedFromAutoAllocation ?: false) }
 
     // Auto-deposit editing
     var autoDepositEnabled by remember { mutableStateOf(vault?.autoDepositSchedule != null) }
@@ -1601,6 +1602,25 @@ private fun SmartVaultEditorDialog(
                     )
                 }
 
+                // Exclude from automatic allocation toggle
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Exclude from automatic funding", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                text = "This vault will only receive money from manual and scheduled transfers.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(checked = excludedFromAutoAllocation, onCheckedChange = { excludedFromAutoAllocation = it })
+                    }
+                }
+
                 // Validation feedback
                 if (!validationResult.isValid) {
                     item {
@@ -1739,6 +1759,7 @@ private fun SmartVaultEditorDialog(
                                     endDate = if (isFlowGoal) endDate else null,
                                     monthlyNeed = monthly,
                                     accountNotes = accountNotes.takeIf { it.isNotBlank() },
+                                    excludedFromAutoAllocation = excludedFromAutoAllocation,
                                     autoDepositSchedule = if (autoDepositEnabled) {
                                         AutoDepositSchedule(
                                             amount = autoDepositAmount.toDoubleOrNull() ?: 0.0,
