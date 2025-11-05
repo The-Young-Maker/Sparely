@@ -323,6 +323,7 @@ abstract class SparelyDatabase : RoomDatabase() {
                 addColumnIfMissing("ALTER TABLE smart_vaults ADD COLUMN accountType TEXT", "accountType")
                 addColumnIfMissing("ALTER TABLE smart_vaults ADD COLUMN accountNumber TEXT", "accountNumber")
                 addColumnIfMissing("ALTER TABLE smart_vaults ADD COLUMN accountNotes TEXT", "accountNotes")
+                addColumnIfMissing("ALTER TABLE smart_vaults ADD COLUMN createdAt INTEGER NOT NULL DEFAULT 0", "createdAt")
 
                 // vault_auto_deposits: add executeAutomatically flag
                 fun hasAutoDepositColumn(columnName: String): Boolean {
