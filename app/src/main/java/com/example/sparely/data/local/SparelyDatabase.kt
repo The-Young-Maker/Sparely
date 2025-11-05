@@ -132,6 +132,8 @@ abstract class SparelyDatabase : RoomDatabase() {
                             "accountType TEXT, " +
                             "accountNumber TEXT, " +
                             "accountNotes TEXT, " +
+                            // createdAt defaults to 0 (epoch: Jan 1, 1970) for migrated vaults
+                            // This is acceptable as it only affects display/sorting, not functionality
                             "createdAt INTEGER NOT NULL DEFAULT 0)"
                 )
             } else {
@@ -187,7 +189,7 @@ abstract class SparelyDatabase : RoomDatabase() {
                             "date INTEGER NOT NULL, " +
                             "source TEXT NOT NULL, " +
                             "note TEXT, " +
-                            "reconciled INTEGER NOT NULL, " +
+                            "reconciled INTEGER NOT NULL DEFAULT 0, " +
                             "FOREIGN KEY(vaultId) REFERENCES smart_vaults(id) ON DELETE CASCADE)"
                 )
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_vault_contributions_vaultId ON vault_contributions(vaultId)")
