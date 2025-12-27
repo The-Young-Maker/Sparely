@@ -35,7 +35,7 @@ class RecommendationEngine {
         val monthlyIncome = settings.monthlyIncome.coerceAtLeast(1.0)
         val spendToIncome = (monthlySpending / monthlyIncome).coerceIn(0.0, 1.5)
         val observedSavingsRate = when {
-            monthlySpending > 0.0 -> (monthlyReserved / monthlySpending).coerceIn(0.0, 1.5)
+            monthlySpending > 0.0 -> (monthlyReserved / (monthlyReserved + monthlySpending)).coerceIn(0.0, 1.0)
             monthlyReserved > 0.0 -> (monthlyReserved / monthlyIncome).coerceIn(0.0, 1.0)
             else -> settings.defaultPercentages.total
         }

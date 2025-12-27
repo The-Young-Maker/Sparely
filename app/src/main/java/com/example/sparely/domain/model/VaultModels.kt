@@ -2,6 +2,7 @@ package com.example.sparely.domain.model
 
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 /**
  * Domain models backing the Smart Vault system.
@@ -17,9 +18,7 @@ data class SmartVault(
     val monthlyNeed: Double? = null,
     val priorityWeight: Double = 1.0,
     val autoSaveEnabled: Boolean = true,
-    // If true, this vault is excluded from automatic allocations/saving-tax/rounding
-    // behaviors and will only receive manual or scheduled transfers.
-    val excludedFromAutoAllocation: Boolean = false,
+    val allowAutoIncome: Boolean = true,
     val priority: VaultPriority = VaultPriority.MEDIUM,
     val type: VaultType = VaultType.SHORT_TERM,
     val interestRate: Double? = null,
@@ -27,31 +26,53 @@ data class SmartVault(
     val manualAllocationPercent: Double? = null,
     val nextExpectedContribution: Double? = null,
     val lastContributionDate: LocalDate? = null,
-    val autoDepositSchedule: AutoDepositSchedule? = null,
     val savingTaxRateOverride: Double? = null,
     val archived: Boolean = false,
     // Account information for linking vault to real-world account within the main account
     val accountType: AccountType? = null,
     val accountNumber: String? = null,
     val accountNotes: String? = null,
-    val createdAt: LocalDate = LocalDate.now()
+    val createdAt: LocalDate = LocalDate.now(),
+    val defaultManualDepositDeductFromMain: Boolean = true,
+    val defaultManualWithdrawalCreditMain: Boolean = true,
+    val schedules: List<VaultSchedule> = emptyList(),
+    val iconName: String? = null
 ) {
     val progressPercent: Double = if (targetAmount > 0) (currentBalance / targetAmount).coerceIn(0.0, 1.0) else 0.0
 }
 
-data class AutoDepositSchedule(
-    val amount: Double,
-    val frequency: AutoDepositFrequency,
-    val startDate: LocalDate,
-    val endDate: LocalDate? = null,
-    val sourceAccountId: Long? = null,
-    val lastExecutionDate: LocalDate? = null
-    ,
-    val executeAutomatically: Boolean = false,
+enum class VaultScheduleType {
+    SPECIFIC_DATE,
+    DAY_OF_MONTH,
+    DAY_OF_WEEK
+}
+
+enum class VaultTransferDirection {
+    MAIN_TO_VAULT,
+    VAULT_TO_MAIN
+}
+
+data class VaultSchedule(
+    val id: Long = 0L,
+    val vaultId: Long,
+    val type: VaultScheduleType,
+    val amount: Double? = null,
+    val percentage: Double? = null,
+    val direction: VaultTransferDirection = VaultTransferDirection.MAIN_TO_VAULT,
+    val dateValue: LocalDate? = null,
+    val repeatAnnually: Boolean = false,
     val dayOfMonth: Int? = null,
     val dayOfWeek: Int? = null,
-    val customIntervalDays: Int? = null,
-    val nextRunAt: LocalDate? = null
+    val weekInterval: Int? = null,
+    val onlyIfBalanceAvailable: Boolean = true,
+    val notifyBefore: Boolean = false,
+    val notifyAfter: Boolean = false,
+    val notifyOnFailure: Boolean = true,
+    val nextRunAt: LocalDateTime? = null,
+    val lastRunAt: LocalDateTime? = null,
+    val enabled: Boolean = true,
+    val createdAt: Instant = Instant.now(),
+    val updatedAt: Instant = Instant.now()
 )
 
 data class VaultContribution(

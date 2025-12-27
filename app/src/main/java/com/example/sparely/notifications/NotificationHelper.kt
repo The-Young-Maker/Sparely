@@ -10,6 +10,8 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.sparely.MainActivity
 import com.example.sparely.R
+import com.example.sparely.domain.model.VaultSchedule
+import com.example.sparely.domain.model.VaultTransferDirection
 import java.text.NumberFormat
 
 object NotificationHelper {
@@ -21,6 +23,7 @@ object NotificationHelper {
     private const val AUTO_DEPOSIT_NOTIFICATION_ID = 3001
     private const val VAULT_TRANSFER_NOTIFICATION_ID = 4001
     private const val PAYDAY_NOTIFICATION_ID = 4002
+    private const val SCHEDULE_SUMMARY_NOTIFICATION_ID = 5001
 
     fun ensureChannels(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -104,6 +107,89 @@ object NotificationHelper {
             .build()
         
         NotificationManagerCompat.from(context).notify(AUTO_DEPOSIT_NOTIFICATION_ID, notification)
+    }
+
+    fun showVaultScheduleNotificationBefore(
+        context: Context,
+        vaultName: String,
+        amount: Double,
+        schedule: VaultSchedule
+    ) {
+        ensureChannels(context)
+        val notificationId = scheduleNotificationId(schedule.id, 1)
+        val notification = NotificationCompat.Builder(context, AUTO_DEPOSIT_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_logo)
+            .setContentTitle("Scheduled transfer starting soon")
+            .setContentText("${formatAmount(amount)} ${directionPhrase(schedule)} $vaultName")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(vaultScheduleIntent(context, schedule, notificationId))
+            .setAutoCancel(true)
+            .build()
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
+    }
+
+    fun showVaultScheduleNotificationAfter(
+        context: Context,
+        vaultName: String,
+        amount: Double,
+        schedule: VaultSchedule
+    ) {
+        ensureChannels(context)
+        val notificationId = scheduleNotificationId(schedule.id, 2)
+        val notification = NotificationCompat.Builder(context, AUTO_DEPOSIT_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_logo)
+            .setContentTitle("Scheduled transfer complete")
+            .setContentText("${formatAmount(amount)} ${directionPhrase(schedule)} $vaultName")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(vaultScheduleIntent(context, schedule, notificationId))
+            .setAutoCancel(true)
+            .build()
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
+    }
+
+    fun showVaultScheduleNotificationFailure(
+        context: Context,
+        vaultName: String,
+        amount: Double,
+        schedule: VaultSchedule
+    ) {
+        ensureChannels(context)
+        val message = "Transfer of ${formatAmount(amount)} ${directionPhrase(schedule)} $vaultName did not complete."
+        val notificationId = scheduleNotificationId(schedule.id, 3)
+        val notification = NotificationCompat.Builder(context, AUTO_DEPOSIT_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_logo)
+            .setContentTitle("Scheduled transfer needs attention")
+            .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(vaultScheduleIntent(context, schedule, notificationId))
+            .setAutoCancel(true)
+            .build()
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
+    }
+
+    fun showVaultScheduleSummary(context: Context, count: Int, totalAmount: Double) {
+        ensureChannels(context)
+        val formattedAmount = formatAmount(totalAmount)
+        val title = if (count == 1) "1 scheduled transfer executed" else "$count scheduled transfers executed"
+        val contentIntent = PendingIntent.getActivity(
+            context,
+            SCHEDULE_SUMMARY_NOTIFICATION_ID,
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("navigate_to", "vaultTransfers")
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, AUTO_DEPOSIT_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_logo)
+            .setContentTitle(title)
+            .setContentText("$formattedAmount processed today")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .build()
+        NotificationManagerCompat.from(context).notify(SCHEDULE_SUMMARY_NOTIFICATION_ID, notification)
     }
 
     fun showVaultTransferNotification(
@@ -268,6 +354,36 @@ object NotificationHelper {
         NotificationManagerCompat.from(context).cancel(PAYDAY_NOTIFICATION_ID)
     }
 
-    private fun formatAmount(amount: Double): String =
+    fun formatAmount(amount: Double): String =
         NumberFormat.getCurrencyInstance().format(amount)
+
+    private fun directionPhrase(schedule: VaultSchedule): String {
+        return when (schedule.direction) {
+            VaultTransferDirection.MAIN_TO_VAULT -> "into"
+            VaultTransferDirection.VAULT_TO_MAIN -> "from"
+        }
+    }
+
+    private fun scheduleNotificationId(scheduleId: Long, offset: Int): Int {
+        val base = (scheduleId % Int.MAX_VALUE).toInt()
+        return base * 10 + offset
+    }
+
+    private fun vaultScheduleIntent(
+        context: Context,
+        schedule: VaultSchedule,
+        requestCode: Int
+    ): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("navigate_to", "vaultDetails")
+            putExtra("vault_id", schedule.vaultId)
+        }
+        return PendingIntent.getActivity(
+            context,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
 }

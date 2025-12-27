@@ -3,7 +3,6 @@ package com.example.sparely.domain.allocation
 import com.example.sparely.domain.model.SmartVault
 import com.example.sparely.domain.model.VaultType
 import com.example.sparely.domain.model.monthsUntil
-import android.util.Log
 import java.time.LocalDate
 import kotlin.math.max
 import kotlin.math.min
@@ -14,8 +13,6 @@ import kotlin.math.round
  * Automatically balances vault contributions with daily liquidity needs.
  */
 object SmartAllocationEngine {
-
-    private const val LOG_TAG = "SmartAllocationEngine"
 
 
     data class AllocationInput(
@@ -54,8 +51,8 @@ object SmartAllocationEngine {
      * Compute adaptive monthly allocations that balance vault goals with daily liquidity.
      */
     fun allocate(input: AllocationInput): AllocationResult {
-    // Exclude archived vaults and any vaults marked as excludedFromAutoAllocation
-    val activeVaults = input.vaults.filter { !it.archived && !it.excludedFromAutoAllocation }
+    // Exclude archived vaults and any vaults that opted out of automatic income
+    val activeVaults = input.vaults.filter { !it.archived && it.allowAutoIncome }
 
         // 1. Identify completed vaults for archival
         val archiveIds = activeVaults
@@ -80,7 +77,6 @@ object SmartAllocationEngine {
             input.monthlyIncome * input.maxAllocationPercent
         )
         
-        Log.d(LOG_TAG, "bufferAmount=${String.format("%.2f", bufferAmount)} currentShortfall=${String.format("%.2f", currentShortfall)} availableForVaults(before)=${String.format("%.2f", availableForVaults)}")
         // Safety check: ensure minimum liquidity
         if (availableForVaults <= 0.0 || activeVaults.isEmpty()) {
             return AllocationResult(
@@ -96,7 +92,6 @@ object SmartAllocationEngine {
         // 4. Apply spending-based adjustment
         availableForVaults *= adaptiveBuffer.allocationMultiplier
         
-    Log.d(LOG_TAG, "allocationMultiplier=${String.format("%.2f", adaptiveBuffer.allocationMultiplier)} availableForVaults(after)=${String.format("%.2f", availableForVaults)}")
         // 5. Compute vault priorities and desired amounts
         val pendingByVault = input.pendingContributions
 
@@ -134,11 +129,7 @@ object SmartAllocationEngine {
                 remainingNeed = remainingNeed
             )
         }.sortedByDescending { it.effectivePriority }
-        
-        // debug: list vault states
-        vaultStates.forEach { st ->
-            Log.d(LOG_TAG, "VaultState id=${st.vault.id} name=${st.vault.name} urgency=${String.format("%.2f", st.urgency)} desired=${String.format("%.2f", st.desiredMonthly)} pending=${String.format("%.2f", st.pendingAmount)} remaining=${String.format("%.2f", st.remainingNeed)} weight=${String.format("%.2f", st.effectivePriority)}")
-        }
+
         // 6. CRITICAL CHANGE: Tiered allocation based on urgency thresholds
         val allocations = mutableMapOf<Long, Double>()
         val details = mutableMapOf<Long, AllocationDetail>()
@@ -174,8 +165,6 @@ object SmartAllocationEngine {
         val totalAllocated = finalAllocations.values.sum()
         val safetyMargin = input.mainAccountBalance + (input.monthlyIncome - totalAllocated) - bufferAmount
 
-        Log.d(LOG_TAG, "finalAllocations=${finalAllocations.map { (k,v) -> "id=$k:${String.format("%.2f", v)}" }} totalAllocated=${String.format("%.2f", totalAllocated)} safetyMargin=${String.format("%.2f", safetyMargin)}")
-
         return AllocationResult(
             allocations = finalAllocations,
             totalAllocated = totalAllocated,
@@ -198,49 +187,83 @@ object SmartAllocationEngine {
     ): Double {
         if (vaults.isEmpty() || availableFunds <= 0.0) return availableFunds
         
-        var remaining = availableFunds
+        var remainingFunds = availableFunds
+        val tempAllocations = mutableMapOf<Long, Double>()
         
-        // First, try to satisfy each vault's desired amount
-        val totalDesired = vaults.sumOf { it.desiredMonthly }
-        
-        if (totalDesired <= remaining) {
-            // We can give everyone what they want
-            for (state in vaults) {
-                val allocation = state.desiredMonthly
-                if (allocation > 0.5) {
-                    allocations[state.vault.id] = allocation
-                    remaining -= allocation
-                    details[state.vault.id] = createAllocationDetail(state, allocation, reasonSuffix)
-                    Log.d(LOG_TAG, "tier='$reasonSuffix' full id=${state.vault.id} allocated=${String.format("%.2f", allocation)} remaining=${String.format("%.2f", remaining)}")
+        // Iterative distribution to handle surpluses
+        // We loop until no funds remain, no vaults need more, or we can't distribute further
+        var iterations = 0
+        while (remainingFunds > 0.01 && iterations < 10) {
+            iterations++
+            
+            // 1. Identify candidates that still need money
+            val candidates = vaults.filter { state ->
+                val currentAlloc = tempAllocations[state.vault.id] ?: 0.0
+                val cap = min(state.desiredMonthly, state.remainingNeed)
+                cap - currentAlloc > 0.01
+            }
+            
+            if (candidates.isEmpty()) break
+            
+            // 2. Calculate proportional shares of the CURRENT remaining funds
+            // Note: We used to calculate based on availableFunds in the first pass, 
+            // but for recursion, we're distributing the *surplus* (remainingFunds).
+            // However, simply using remainingFunds * weight / totalWeight works for the surplus 
+            // essentially adding to the previous allocation.
+            
+            val totalWeight = candidates.sumOf { it.effectivePriority }
+            var distributedInThisPass = 0.0
+            
+            for (state in candidates) {
+                // Share of the pie available in THIS iteration
+                val share = if (totalWeight > 0.0) {
+                    remainingFunds * (state.effectivePriority / totalWeight)
+                } else {
+                    remainingFunds / candidates.size
+                }
+                
+                val currentAlloc = tempAllocations[state.vault.id] ?: 0.0
+                val totalNeed = min(state.desiredMonthly, state.remainingNeed)
+                val needed = totalNeed - currentAlloc
+                
+                // Take what is needed, up to the share, capped by what's actually available 
+                // (though share summing handles availability generally, rounding might drift)
+                val toAllocate = min(share, needed)
+                
+                if (toAllocate > 0.0) {
+                    tempAllocations[state.vault.id] = currentAlloc + toAllocate
+                    distributedInThisPass += toAllocate
                 }
             }
-        } else {
-            // Need to distribute proportionally, but prioritize by effective priority
-            val totalWeight = vaults.sumOf { it.effectivePriority }
             
-            for (state in vaults) {
-                if (remaining <= 0.0) break
-                
-                // Calculate proportional share based on priority weight
-                val proportionalShare = if (totalWeight > 0.0) {
-                    remaining * (state.effectivePriority / totalWeight)
-                } else {
-                    remaining / vaults.size
-                }
-                
-                // Cap at desired amount and remaining need
-                val allocation = min(proportionalShare, min(state.desiredMonthly, state.remainingNeed))
-                Log.d(LOG_TAG, "tier='$reasonSuffix' id=${state.vault.id} proportionalShare=${String.format("%.2f", proportionalShare)} chosen=${String.format("%.2f", allocation)} remainingBefore=${String.format("%.2f", remaining)}")
-                if (allocation > 0.5) {
-                    allocations[state.vault.id] = allocation
-                    remaining -= allocation
-                    details[state.vault.id] = createAllocationDetail(state, allocation, reasonSuffix)
-                    Log.d(LOG_TAG, "tier='$reasonSuffix' allocated id=${state.vault.id} amount=${String.format("%.2f", allocation)} remaining=${String.format("%.2f", remaining)}")
-                }
+            // 3. Update remaining funds
+            // We subtract what was actually *added* to allocations in this pass
+            remainingFunds -= distributedInThisPass
+            
+            if (distributedInThisPass < 0.01) break // Prevent infinite loop if stuck
+        }
+        
+        // Commit to main maps and generate details
+        tempAllocations.forEach { (id, amount) ->
+            if (amount > 0.5) { // minimal filter matching original logic
+                allocations[id] = amount
+                val state = vaults.first { it.vault.id == id }
+                details[id] = createAllocationDetail(state, amount, reasonSuffix)
+            } else {
+                // If we allocated dust, return it to remaining? 
+                // The main function rounds at the end. 
+                // Original logic stored it if > 0.5. 
+                // Let's stick to adding it to map, but maybe detail generation filters?
+                // Actually, if we don't put it in 'allocations', we should add back to 'remaining' return?
+                // The original logic: "remaining -= allocation" only if > 0.5.
+                // So if we summarized 0.4, we effectively keep it in remaining for next tier?
+                // The loop above decremented remainingFunds for ALL precise double amounts.
+                // So if we decided NOT to persist it, we need to add it back.
+                remainingFunds += amount
             }
         }
         
-        return remaining
+        return remainingFunds
     }
 
     private fun createAllocationDetail(
@@ -341,7 +364,7 @@ object SmartAllocationEngine {
      * IMPROVED: Calculate urgency score with exponential scaling for imminent flow goals
      * and proper income pressure consideration.
      */
-    private fun computeUrgency(
+    fun computeUrgency(
         vault: SmartVault,
         today: LocalDate,
         monthlyIncome: Double,
@@ -390,16 +413,22 @@ object SmartAllocationEngine {
                 1.0
             }
 
-            val baseUrgency = when {
-                monthsRemaining == 0 -> 10.0
-                monthsRemaining <= 3 -> 7.0
-                monthsRemaining <= 6 -> 5.0
-                monthsRemaining <= 12 -> 3.0
-                monthsRemaining <= 24 -> 2.0
-                else -> 1.0
-            }
+            // Fixed Goal: strict prioritization by deadline
+            // Formula: 120 / (months + 1) ensures strict decay:
+            // 0mo -> 120
+            // 1mo -> 60
+            // 5mo -> 20
+            // 6mo -> 17.1
+            // Income pressure is heavily dampened to act only as a tie-breaker.
+            
+            val baseUrgency = 120.0 / (monthsRemaining + 1.0)
+            
+            // Dampened pressure: +2% max boost instead of +5%
+            val pressureFactor = 1.0 + (incomePressure * 0.02) 
+            
+            val finalUrgency = baseUrgency * pressureFactor
 
-            return baseUrgency * (1.0 + (incomePressure * 0.3))
+            return finalUrgency
         }
 
         return 0.5
@@ -408,7 +437,7 @@ object SmartAllocationEngine {
     /**
      * IMPROVED: Calculate desired monthly contribution with better pre-funding logic
      */
-    private fun computeDesiredMonthly(
+    fun computeDesiredMonthly(
         vault: SmartVault,
         today: LocalDate,
         rampWindowMonths: Int,

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -39,12 +40,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.FilledTonalButton
+import com.example.sparely.ui.components.SparelyTextField
+import com.example.sparely.ui.components.SparelyChip
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
+import com.example.sparely.ui.utils.toSafeDatePickerMillis
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,12 +60,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.model.ExpenseCategory
 import com.example.sparely.domain.model.RecurringExpense
 import com.example.sparely.domain.model.RecurringExpenseInput
 import com.example.sparely.domain.model.RecurringFrequency
 import com.example.sparely.domain.model.SmartVault
+import com.example.sparely.ui.components.SparelyButton
+import com.example.sparely.ui.components.SparelyTextButton
+import com.example.sparely.ui.components.SparelyTonalButton
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.theme.MaterialSymbols
 import java.time.Instant
@@ -142,14 +153,15 @@ fun RecurringExpensesScreen(
             item { Spacer(modifier = Modifier.height(32.dp)) }
         }
 
-        FloatingActionButton(
+        androidx.compose.material3.FloatingActionButton(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp),
             onClick = {
                 editingExpense = null
                 isDialogVisible = true
-            }
+            },
+            containerColor = MaterialTheme.colorScheme.primary
         ) {
             MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = "Add recurring expense")
         }
@@ -272,13 +284,13 @@ private fun RecurringOverviewCard(
         }
     }
 
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-        )
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text(
                 text = "Recurring insights",
                 style = MaterialTheme.typography.titleLarge,
@@ -289,21 +301,22 @@ private fun RecurringOverviewCard(
                 style = MaterialTheme.typography.bodyMedium
             )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                RecurringOverviewMode.entries.forEach { mode ->
-                    FilterChip(
+                for (mode in RecurringOverviewMode.entries) {
+                    SparelyChip(
                         selected = selectedMode == mode,
                         onClick = { onModeChange(mode) },
                         label = { Text(mode.displayName()) }
                     )
                 }
             }
-            highlights.forEach { highlight ->
+            Spacer(modifier = Modifier.height(8.dp))
+            for (highlight in highlights) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(highlight.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text(highlight.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     highlight.detail?.let {
                         Text(
                             text = it,
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
                         )
                     }
@@ -321,22 +334,43 @@ private fun RecurringExpenseRow(
     onToggleActive: (Boolean) -> Unit,
     onMarkProcessed: () -> Unit
 ) {
-    val formatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
+    val formatter = remember { DateTimeFormatter.ofPattern("MMM d") }
     val nextDue = calculateNextDue(expense)
     val daysUntil = nextDue?.let { ChronoUnit.DAYS.between(LocalDate.now(), it).toInt() }
 
-    Card {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Category Icon Box
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = getCategoryColor(expense.category).copy(alpha = 0.15f),
+                    modifier = Modifier.size(56.dp)
+                ) {
+                     Box(contentAlignment = Alignment.Center) {
+                         MaterialSymbolIcon(
+                             icon = getCategoryIcon(expense.category),
+                             contentDescription = null,
+                             tint = getCategoryColor(expense.category),
+                             size = 28.dp
+                         )
+                     }
+                }
+                
+                Spacer(modifier = Modifier.width(16.dp))
+                
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = expense.description,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -346,76 +380,76 @@ private fun RecurringExpenseRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                
+                Column(horizontalAlignment = Alignment.End) {
                     Text(
                         text = formatCurrency(expense.amount),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
                     )
-                    IconButton(onClick = onEdit) {
-                        MaterialSymbolIcon(icon = MaterialSymbols.EDIT, contentDescription = "Edit recurring expense")
-                    }
-                    IconButton(onClick = onDelete) {
-                        MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = "Delete recurring expense")
-                    }
+                    Text(
+                        text = expense.frequency.displayName(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            
+            Spacer(modifier = Modifier.height(24.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "${expense.frequency.displayName()} • ${if (expense.autoLog) "Auto-log on" else "Manual confirm"}",
-                        style = MaterialTheme.typography.bodySmall
+                // Status / Next Due
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val (statusIcon, statusColor, statusText) = when {
+                        !expense.isActive -> Triple(MaterialSymbols.BLOCK, MaterialTheme.colorScheme.onSurfaceVariant, "Paused")
+                        daysUntil != null && daysUntil <= expense.reminderDaysBefore -> Triple(MaterialSymbols.WARNING, MaterialTheme.colorScheme.error, "Due soon")
+                        else -> Triple(MaterialSymbols.SCHEDULE, MaterialTheme.colorScheme.primary, "Active")
+                    }
+                    
+                    MaterialSymbolIcon(
+                        icon = statusIcon, 
+                        contentDescription = null, 
+                        tint = statusColor,
+                        size = 18.dp
                     )
-                    nextDue?.let {
-                        Text(
-                            text = "Next due ${it.format(formatter)}${daysUntil?.let { days -> " (${days}d)" } ?: ""}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = nextDue?.let { "Due ${it.format(formatter)}" } ?: statusText,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                        color = statusColor
+                    )
                 }
-                Column(horizontalAlignment = Alignment.End) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        MaterialSymbolIcon(icon = MaterialSymbols.NOTIFICATIONS,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("${expense.reminderDaysBefore}d before", style = MaterialTheme.typography.bodySmall)
+
+                // Actions
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
+                        MaterialSymbolIcon(icon = MaterialSymbols.EDIT, contentDescription = "Edit", size = 18.dp)
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Active", style = MaterialTheme.typography.bodySmall)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Switch(
-                            checked = expense.isActive,
-                            onCheckedChange = onToggleActive,
-                            colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary)
-                        )
+                    IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                        MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = "Delete", size = 18.dp)
                     }
+                    Switch(
+                        checked = expense.isActive,
+                        onCheckedChange = onToggleActive,
+                        modifier = Modifier.scale(0.8f)
+                    )
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(onClick = onMarkProcessed) {
-                    Text("Mark as paid")
-                }
-                if (!expense.notes.isNullOrBlank()) {
-                    Text(
-                        text = expense.notes.orEmpty(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f)
-                    )
+            
+            if (daysUntil != null && daysUntil <= 5 && expense.isActive) {
+                Spacer(modifier = Modifier.height(8.dp))
+                SparelyTonalButton(
+                    onClick = onMarkProcessed, 
+                    modifier = Modifier.fillMaxWidth(),
+                    icon = { MaterialSymbolIcon(icon = MaterialSymbols.CHECK, contentDescription = null, size = 18.dp) }
+                ) {
+                    Text("Mark paid")
                 }
             }
         }
@@ -423,12 +457,44 @@ private fun RecurringExpenseRow(
 }
 
 @Composable
+private fun getCategoryColor(category: ExpenseCategory): androidx.compose.ui.graphics.Color {
+    return when (category.name.uppercase()) {
+        "FOOD" -> androidx.compose.ui.graphics.Color(0xFFEF5350)
+        "TRANSPORT" -> androidx.compose.ui.graphics.Color(0xFF42A5F5)
+        "HOUSING" -> androidx.compose.ui.graphics.Color(0xFFFFA726)
+        "UTILITIES" -> androidx.compose.ui.graphics.Color(0xFF7E57C2)
+        "ENTERTAINMENT" -> androidx.compose.ui.graphics.Color(0xFFEC407A)
+        "HEALTH" -> androidx.compose.ui.graphics.Color(0xFF26A69A)
+        "EDUCATION" -> androidx.compose.ui.graphics.Color(0xFF5C6BC0)
+        "SHOPPING" -> androidx.compose.ui.graphics.Color(0xFF8D6E63)
+        else -> MaterialTheme.colorScheme.primary
+    }
+}
+
+@Composable
+private fun getCategoryIcon(category: ExpenseCategory): Int {
+    return when (category.name.uppercase()) {
+        "FOOD" -> MaterialSymbols.RESTAURANT
+        "TRANSPORT" -> MaterialSymbols.DIRECTIONS_CAR
+        "HOUSING" -> MaterialSymbols.HOME
+        "UTILITIES" -> MaterialSymbols.LIGHTBULB
+        "ENTERTAINMENT" -> MaterialSymbols.CELEBRATION
+        "HEALTH" -> MaterialSymbols.HEALTH_AND_SAFETY
+        "EDUCATION" -> MaterialSymbols.SCHOOL
+        "SHOPPING" -> MaterialSymbols.SHOPPING_BAG
+        "SAVINGS" -> MaterialSymbols.SAVINGS
+        "DEBT" -> MaterialSymbols.ATTACH_MONEY
+        else -> MaterialSymbols.INFO
+    }
+}
+
+@Composable
 private fun EmptyRecurringState(onAddRecurring: () -> Unit) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier.padding(24.dp),
@@ -445,7 +511,7 @@ private fun EmptyRecurringState(onAddRecurring: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center
             )
-            Button(onClick = onAddRecurring) {
+            SparelyButton(onClick = onAddRecurring) {
                 Text("Add recurring payment")
             }
         }
@@ -493,13 +559,13 @@ private fun RecurringExpenseDialog(
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
-                OutlinedTextField(
+                SparelyTextField(
                     value = description,
                     onValueChange = { description = it },
                     label = { Text("Description") },
                     singleLine = true
                 )
-                OutlinedTextField(
+                SparelyTextField(
                     value = amountText,
                     onValueChange = { amountText = it.filter { ch -> ch.isDigit() || ch == '.' } },
                     label = { Text("Amount") },
@@ -512,13 +578,13 @@ private fun RecurringExpenseDialog(
                     date = startDate,
                     onDateSelected = { startDate = it }
                 )
-                OutlinedTextField(
+                SparelyTextField(
                     value = endDateText,
                     onValueChange = { endDateText = it },
                     label = { Text("End date (optional, YYYY-MM-DD)") },
                     singleLine = true
                 )
-                OutlinedTextField(
+                SparelyTextField(
                     value = reminderDays,
                     onValueChange = { reminderDays = it.filter { ch -> ch.isDigit() } },
                     label = { Text("Reminder days before") },
@@ -573,7 +639,7 @@ private fun RecurringExpenseDialog(
                             expanded = vaultDropdownExpanded,
                             onExpandedChange = { vaultDropdownExpanded = it }
                         ) {
-                            OutlinedTextField(
+                            SparelyTextField(
                                 value = deductFromVaultId?.let { id -> 
                                     activeVaults.find { it.id == id }?.name ?: "None"
                                 } ?: "None",
@@ -605,7 +671,7 @@ private fun RecurringExpenseDialog(
                                         vaultDropdownExpanded = false
                                     }
                                 )
-                                activeVaults.forEach { vault ->
+                                for (vault in activeVaults) {
                                     DropdownMenuItem(
                                         text = { 
                                             Column {
@@ -628,7 +694,7 @@ private fun RecurringExpenseDialog(
                     }
                 }
                 
-                OutlinedTextField(
+                SparelyTextField(
                     value = notes,
                     onValueChange = { notes = it },
                     label = { Text("Notes (optional)") },
@@ -637,7 +703,7 @@ private fun RecurringExpenseDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            SparelyTextButton(onClick = {
                 val amount = amountText.toDoubleOrNull()
                 val reminder = reminderDays.toIntOrNull()
                 val endDate = endDateText.takeIf { it.isNotBlank() }?.let run@{
@@ -645,7 +711,7 @@ private fun RecurringExpenseDialog(
                 }
                 if (description.isBlank() || amount == null || amount <= 0 || reminder == null) {
                     showError = true
-                    return@TextButton
+                    return@SparelyTextButton
                 }
                 val input = RecurringExpenseInput(
                     description = description.trim(),
@@ -668,7 +734,7 @@ private fun RecurringExpenseDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            SparelyTextButton(onClick = onDismiss) {
                 Text("Cancel")
             }
         }
@@ -682,12 +748,12 @@ private fun CategorySelector(selected: ExpenseCategory, onSelected: (ExpenseCate
         Text("Category", style = MaterialTheme.typography.labelLarge)
         Spacer(modifier = Modifier.height(4.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ExpenseCategory.entries.forEach { category ->
-                AssistChip(
+            for (category in ExpenseCategory.entries) {
+                SparelyChip(
                     onClick = { onSelected(category) },
                     label = { Text(category.displayName()) },
                     enabled = true,
-                    border = if (selected == category) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
+                    selected = selected == category
                 )
             }
         }
@@ -701,12 +767,12 @@ private fun FrequencySelector(selected: RecurringFrequency, onSelected: (Recurri
         Text("Frequency", style = MaterialTheme.typography.labelLarge)
         Spacer(modifier = Modifier.height(4.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            RecurringFrequency.entries.forEach { frequency ->
-                AssistChip(
+            for (frequency in RecurringFrequency.entries) {
+                SparelyChip(
                     onClick = { onSelected(frequency) },
                     label = { Text(frequency.displayName()) },
                     enabled = true,
-                    border = if (selected == frequency) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
+                    selected = selected == frequency
                 )
             }
         }
@@ -718,7 +784,7 @@ private fun FrequencySelector(selected: RecurringFrequency, onSelected: (Recurri
 private fun DateSelector(label: String, date: LocalDate, onDateSelected: (LocalDate) -> Unit) {
     val formatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
     var showDialog by remember { mutableStateOf(false) }
-    val millis = remember(date) { date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli() }
+    val millis = remember(date) { date.toSafeDatePickerMillis() }
     val pickerState = rememberDatePickerState(initialSelectedDateMillis = millis)
     LaunchedEffect(millis) {
         pickerState.selectedDateMillis = millis
@@ -727,7 +793,7 @@ private fun DateSelector(label: String, date: LocalDate, onDateSelected: (LocalD
     Column {
         Text(label, style = MaterialTheme.typography.labelLarge)
         Spacer(modifier = Modifier.height(4.dp))
-        TextButton(onClick = { showDialog = true }) {
+        SparelyTextButton(onClick = { showDialog = true }) {
             Text(date.format(formatter))
         }
     }
@@ -736,7 +802,7 @@ private fun DateSelector(label: String, date: LocalDate, onDateSelected: (LocalD
         DatePickerDialog(
             onDismissRequest = { showDialog = false },
             confirmButton = {
-                TextButton(onClick = {
+                SparelyTextButton(onClick = {
                     pickerState.selectedDateMillis?.let { millisSelected ->
                         val selectedDate = Instant.ofEpochMilli(millisSelected).atZone(ZoneOffset.UTC).toLocalDate()
                         onDateSelected(selectedDate)
@@ -747,7 +813,7 @@ private fun DateSelector(label: String, date: LocalDate, onDateSelected: (LocalD
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDialog = false }) {
+                SparelyTextButton(onClick = { showDialog = false }) {
                     Text("Cancel")
                 }
             }
@@ -776,15 +842,32 @@ private fun formatCountdown(daysUntil: Int): String = when {
 
 private fun calculateNextDue(expense: RecurringExpense, today: LocalDate = LocalDate.now()): LocalDate? {
     if (!expense.isActive) return null
-    val interval = expense.frequency.daysInterval.toLong().coerceAtLeast(1)
-    var nextDue = expense.lastProcessedDate?.plusDays(interval) ?: expense.startDate
-    if (nextDue.isBefore(today)) {
-        val diff = ChronoUnit.DAYS.between(nextDue, today)
-        val steps = (diff / interval) + 1
-        nextDue = nextDue.plusDays(steps * interval)
+    
+    val baseDate = expense.lastProcessedDate ?: expense.startDate.minusDays(1)
+    var nextDue = addFrequencyInterval(baseDate, expense.frequency)
+    
+    // If next due is still in the past, advance until we reach a future date
+    while (nextDue.isBefore(today) || nextDue.isEqual(baseDate)) {
+        nextDue = addFrequencyInterval(nextDue, expense.frequency)
     }
+    
     expense.endDate?.let { if (nextDue.isAfter(it)) return null }
     return nextDue
+}
+
+/**
+ * Add one frequency interval to a date.
+ * For monthly/quarterly/yearly, this preserves the day of month (e.g., 25th stays 25th).
+ */
+private fun addFrequencyInterval(date: LocalDate, frequency: RecurringFrequency): LocalDate {
+    return when (frequency) {
+        RecurringFrequency.DAILY -> date.plusDays(1)
+        RecurringFrequency.WEEKLY -> date.plusWeeks(1)
+        RecurringFrequency.BIWEEKLY -> date.plusWeeks(2)
+        RecurringFrequency.MONTHLY -> date.plusMonths(1)
+        RecurringFrequency.QUARTERLY -> date.plusMonths(3)
+        RecurringFrequency.YEARLY -> date.plusYears(1)
+    }
 }
 
 private fun formatCurrency(value: Double): String = "$" + String.format("%,.2f", value)

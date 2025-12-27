@@ -30,7 +30,6 @@ import androidx.glance.layout.size
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.sparely.MainActivity
@@ -49,20 +48,21 @@ import com.example.sparely.domain.model.Expense
 import com.example.sparely.domain.model.ExpenseCategory
 import com.example.sparely.domain.model.RecurringExpense
 import com.example.sparely.domain.model.SavingsPercentages
-import com.example.sparely.ui.theme.AzureTertiary
-import com.example.sparely.ui.theme.AzureTertiaryDark
 import com.example.sparely.domain.model.SparelySettings
 import com.example.sparely.domain.model.SuggestionConfidence
 import com.example.sparely.domain.model.UpcomingRecurringExpense
-import com.example.sparely.ui.theme.DeepCurrentSurfaceVariant
-import com.example.sparely.ui.theme.DeepNavy
-import com.example.sparely.ui.theme.MidnightSurface
-import com.example.sparely.ui.theme.MistyWhite
-import com.example.sparely.ui.theme.TealPrimary
-import com.example.sparely.ui.theme.TealPrimaryDark
-import com.example.sparely.ui.theme.TideOutline
-import com.example.sparely.ui.theme.WhisperSurface
-import com.example.sparely.ui.theme.PearlOnVariant
+import com.example.sparely.ui.theme.FallbackPrimary
+import com.example.sparely.ui.theme.FallbackPrimaryDark
+import com.example.sparely.ui.theme.FallbackSecondary
+import com.example.sparely.ui.theme.FallbackSecondaryDark
+import com.example.sparely.ui.theme.FallbackSurface
+import com.example.sparely.ui.theme.FallbackSurfaceDark
+import com.example.sparely.ui.theme.FallbackOutline
+import com.example.sparely.ui.theme.FallbackOutlineDark
+import android.os.Build
+import androidx.annotation.RequiresApi
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.glance.unit.ColorProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.NumberFormat
@@ -230,9 +230,12 @@ private class SavingsWidgetDataRepository(context: Context) {
                     emptyList()
                 }
                 val budgetPrompt = if (budgetSummary != null) {
-                    BudgetEngine.detectBudgetPrompts(budgetSummary, domainExpenses, budgetSuggestions, settings)
-                        .sortedByDescending { prompt -> prompt.overspendAmount }
-                        .firstOrNull()
+                    BudgetEngine.detectBudgetPrompts(
+                        budgetSummary,
+                        domainExpenses,
+                        budgetSuggestions,
+                        settings
+                    ).maxByOrNull { prompt -> prompt.overspendAmount }
                         ?.toWidgetSummary()
                 } else {
                     null
@@ -318,13 +321,14 @@ private fun computeUpcomingRecurring(
     return recurring
         .filter { it.isActive }
         .mapNotNull { expense ->
-            val intervalDays = expense.frequency.daysInterval.toLong().coerceAtLeast(1)
-            var nextDue = expense.lastProcessedDate?.plusDays(intervalDays) ?: expense.startDate
-            if (nextDue.isBefore(today)) {
-                val diff = ChronoUnit.DAYS.between(nextDue, today)
-                val steps = (diff / intervalDays) + 1
-                nextDue = nextDue.plusDays(steps * intervalDays)
+            val baseDate = expense.lastProcessedDate ?: expense.startDate.minusDays(1)
+            var nextDue = addFrequencyInterval(baseDate, expense.frequency)
+            
+            // Advance until we reach a future date
+            while (nextDue.isBefore(today) || nextDue.isEqual(baseDate)) {
+                nextDue = addFrequencyInterval(nextDue, expense.frequency)
             }
+            
             expense.endDate?.let { end ->
                 if (nextDue.isAfter(end)) return@mapNotNull null
             }
@@ -335,6 +339,21 @@ private fun computeUpcomingRecurring(
         .sortedBy { it.dueDate }
 }
 
+/**
+ * Add one frequency interval to a date.
+ * For monthly/quarterly/yearly, this preserves the day of month.
+ */
+private fun addFrequencyInterval(date: LocalDate, frequency: com.example.sparely.domain.model.RecurringFrequency): LocalDate {
+    return when (frequency) {
+        com.example.sparely.domain.model.RecurringFrequency.DAILY -> date.plusDays(1)
+        com.example.sparely.domain.model.RecurringFrequency.WEEKLY -> date.plusWeeks(1)
+        com.example.sparely.domain.model.RecurringFrequency.BIWEEKLY -> date.plusWeeks(2)
+        com.example.sparely.domain.model.RecurringFrequency.MONTHLY -> date.plusMonths(1)
+        com.example.sparely.domain.model.RecurringFrequency.QUARTERLY -> date.plusMonths(3)
+        com.example.sparely.domain.model.RecurringFrequency.YEARLY -> date.plusYears(1)
+    }
+}
+
 private fun UpcomingRecurringExpense.toWidgetSummary(): NextRecurringSummary = NextRecurringSummary(
     description = recurringExpense.description,
     amount = recurringExpense.amount,
@@ -343,24 +362,48 @@ private fun UpcomingRecurringExpense.toWidgetSummary(): NextRecurringSummary = N
     autoLog = recurringExpense.autoLog,
     reminderDays = recurringExpense.reminderDaysBefore
 )
-
+@RequiresApi(Build.VERSION_CODES.S)
 @Composable
 private fun SavingsWidgetContent(snapshot: SavingsWidgetSnapshot, openApp: Action) {
     val currencyFormatter = rememberCurrencyFormatter()
 
-    // Google Material Design 3 colors - clean and professional
-    val surfaceColor = androidx.glance.color.ColorProvider(day = WhisperSurface, night = MidnightSurface)
-    val onSurfaceColor = androidx.glance.color.ColorProvider(day = DeepNavy, night = MistyWhite)
-    val onSurfaceVariantColor = androidx.glance.color.ColorProvider(day = TideOutline, night = PearlOnVariant)
-    val primaryColor = androidx.glance.color.ColorProvider(day = TealPrimary, night = TealPrimaryDark)
-    val primaryContainerColor = androidx.glance.color.ColorProvider(
-        day = androidx.compose.ui.graphics.Color(0xFFE0F2F1), // TealPrimary with light alpha
-        night = androidx.compose.ui.graphics.Color(0xFF1A3A37) // TealPrimaryDark with alpha
+    // Dynamic Material You Colors (Android 12+) or Fallback
+    val surfaceColor = dynamicColorProvider(
+        fallback = androidx.glance.color.ColorProvider(day = FallbackSurface, night = FallbackSurfaceDark),
+        systemResId = android.R.color.system_neutral1_50
     )
-    val secondaryColor = androidx.glance.color.ColorProvider(day = AzureTertiary, night = AzureTertiaryDark)
-    val secondaryContainerColor = androidx.glance.color.ColorProvider(
-        day = androidx.compose.ui.graphics.Color(0xFFE3F2FD), // AzureTertiary with light alpha
-        night = androidx.compose.ui.graphics.Color(0xFF1A2530) // AzureTertiaryDark with alpha
+    val onSurfaceColor = dynamicColorProvider(
+        fallback = androidx.glance.color.ColorProvider(
+            day = androidx.compose.ui.graphics.Color(0xFF1C1B1F),
+            night = androidx.compose.ui.graphics.Color(0xFFE6E1E5)
+        ),
+        systemResId = android.R.color.system_neutral1_900
+    )
+    val onSurfaceVariantColor = dynamicColorProvider(
+        fallback = androidx.glance.color.ColorProvider(day = FallbackOutline, night = FallbackOutlineDark),
+        systemResId = android.R.color.system_neutral2_500
+    )
+    val primaryColor = dynamicColorProvider(
+        fallback = androidx.glance.color.ColorProvider(day = FallbackPrimary, night = FallbackPrimaryDark),
+        systemResId = android.R.color.system_accent1_600
+    )
+    val primaryContainerColor = dynamicColorProvider(
+        fallback = androidx.glance.color.ColorProvider(
+            day = androidx.compose.ui.graphics.Color(0xFFEADDFF),
+            night = androidx.compose.ui.graphics.Color(0xFF4F378B)
+        ),
+        systemResId = android.R.color.system_accent1_100
+    )
+    val secondaryColor = dynamicColorProvider(
+        fallback = androidx.glance.color.ColorProvider(day = FallbackSecondary, night = FallbackSecondaryDark),
+        systemResId = android.R.color.system_accent2_600
+    )
+    val secondaryContainerColor = dynamicColorProvider(
+        fallback = androidx.glance.color.ColorProvider(
+            day = androidx.compose.ui.graphics.Color(0xFFE8DEF8),
+            night = androidx.compose.ui.graphics.Color(0xFF4A4458)
+        ),
+        systemResId = android.R.color.system_accent2_100
     )
     val surfaceContainerColor = androidx.glance.color.ColorProvider(
         day = androidx.compose.ui.graphics.Color(0xFFFAFAFA), // Very light gray
@@ -957,3 +1000,16 @@ private fun UpcomingBillsCard(
 
 private fun ExpenseCategory.displayName(): String = name.lowercase().replaceFirstChar { it.uppercase() }
 
+// Helper to use System Colors on Android 12+ (system_accent1_600, etc.)
+// On Android 12+, use dynamic system color resources; otherwise use fallback
+private fun dynamicColorProvider(
+    fallback: androidx.glance.unit.ColorProvider,
+    systemResId: Int
+): androidx.glance.unit.ColorProvider {
+    return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+        // ColorProvider(resId) automatically handles theme/day-night variants
+        androidx.glance.unit.ColorProvider(systemResId)
+    } else {
+        fallback
+    }
+}

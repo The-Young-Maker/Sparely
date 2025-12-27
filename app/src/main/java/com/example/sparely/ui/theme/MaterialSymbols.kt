@@ -45,7 +45,8 @@ object MaterialSymbols {
     val FAVORITE = R.drawable.favorite_48px
     val SETTINGS = R.drawable.settings_48px
     val TRENDING_UP = R.drawable.trending_up_48px
-    
+    val TRENDING_DOWN = R.drawable.trending_down_48px
+
     // Core UI icons
     val ADD = R.drawable.add_48px
     val EDIT = R.drawable.edit_48px
@@ -53,6 +54,7 @@ object MaterialSymbols {
     val REMOVE = R.drawable.remove_48px
     val CHECK = R.drawable.check_48px
     val CHECK_CIRCLE = R.drawable.check_circle_48px
+    val ADD_CIRCLE = R.drawable.add_circle_48px
     val CLOSE = R.drawable.close_48px
     val HISTORY = R.drawable.history_48px
     val LOCAL_FIRE_DEPARTMENT = R.drawable.local_fire_department_48px
@@ -84,6 +86,49 @@ object MaterialSymbols {
     val REFRESH = R.drawable.refresh_48px
     val LIST = R.drawable.list_48px
     val SYNC = R.drawable.sync_48px
+
+    val DIRECTIONS_CAR = R.drawable.directions_car_48px
+    val FLIGHT = R.drawable.flight_48px
+    val SCHOOL = R.drawable.school_48px
+    val SHOPPING_BAG = R.drawable.shopping_bag_48px
+    val PETS = R.drawable.pets_48px
+    val RESTAURANT = R.drawable.restaurant_48px
+    val COMPUTER = R.drawable.computer_48px
+
+    val HEALTH_AND_SAFETY = R.drawable.health_and_safety_48px
+
+    val PIE_CHART = R.drawable.pie_chart_48px
+
+val UPLOAD_FILE = R.drawable.upload_file_48px
+
+    /**
+     * Map of stable icon names to their resource IDs.
+     * These names are stored in the database for persistence.
+     */
+    private val iconMap = mapOf(
+        "account_balance_wallet" to ACCOUNT_BALANCE_WALLET,
+        "savings" to SAVINGS,
+        "directions_car" to DIRECTIONS_CAR,
+        "home" to HOME,
+        "flight" to FLIGHT,
+        "school" to SCHOOL,
+        "shopping_bag" to SHOPPING_BAG,
+        "pets" to PETS,
+        "restaurant" to RESTAURANT,
+        "computer" to COMPUTER,
+        "local_fire_department" to LOCAL_FIRE_DEPARTMENT,
+        "trending_up" to TRENDING_UP,
+        "attach_money" to ATTACH_MONEY,
+        "rocket_launch" to ROCKET_LAUNCH,
+        "account_balance" to ACCOUNT_BALANCE,
+        "flag" to FLAG
+    )
+
+    private val reverseIconMap = iconMap.entries.associate { it.value to it.key }
+
+    fun getIconByName(name: String?): Int? = iconMap[name?.lowercase()]
+    
+    fun getNameByIcon(@DrawableRes icon: Int): String? = reverseIconMap[icon]
 }
 
 /**
@@ -112,23 +157,4 @@ fun MaterialSymbolIcon(
         modifier = modifier.size(size),
         tint = tint
     )
-}
-
-/**
- * Extension function to get icon by name (useful for dynamic icon selection)
- */
-fun MaterialSymbols.getIconByName(name: String): Int? {
-    return when (name.lowercase()) {
-        "home" -> HOME
-        // Uncomment as icons are added:
-        // "arrow_back", "back" -> ARROW_BACK
-        // "bar_chart", "chart", "history" -> BAR_CHART
-        // "savings", "save", "goals" -> SAVINGS
-        // "account_balance", "balance", "budgets" -> ACCOUNT_BALANCE
-        // "emoji_events", "events", "challenges" -> EMOJI_EVENTS
-        // "schedule", "recurring" -> SCHEDULE
-        // "favorite", "health" -> FAVORITE
-        // "more_horiz", "more", "settings" -> MORE_HORIZ
-        else -> null
-    }
 }

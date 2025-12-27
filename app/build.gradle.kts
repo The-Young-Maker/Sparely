@@ -69,6 +69,8 @@ dependencies {
     implementation(libs.androidx.compose.foundation.layout)
     implementation(libs.play.services.base)
     implementation(libs.androidx.compose.ui.text.google.fonts)
+    implementation(libs.androidx.compose.ui.text)
+    implementation(libs.gson)
     kapt(libs.androidx.room.compiler)
     implementation(libs.androidx.work.runtime.ktx)
     testImplementation(libs.junit)

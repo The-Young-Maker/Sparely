@@ -1,7 +1,6 @@
 package com.example.sparely.data.local
 
 import com.example.sparely.domain.model.Achievement
-import com.example.sparely.domain.model.AutoDepositSchedule
 import com.example.sparely.domain.model.CategoryBudget
 import com.example.sparely.domain.model.ChallengeMilestone
 import com.example.sparely.domain.model.RecurringExpense
@@ -12,6 +11,8 @@ import com.example.sparely.domain.model.SavingsPercentages
 import com.example.sparely.domain.model.SmartVault
 import com.example.sparely.domain.model.VaultBalanceAdjustment
 import com.example.sparely.domain.model.VaultContribution
+import com.example.sparely.domain.model.VaultSchedule
+import com.example.sparely.domain.model.Expense
 import java.time.YearMonth
 
 fun CategoryBudgetEntity.toDomain(): CategoryBudget = CategoryBudget(
@@ -203,7 +204,7 @@ fun SavingsAccount.toEntity(): SavingsAccountEntity = SavingsAccountEntity(
     autoRefreshEnabled = autoRefreshEnabled
 )
 
-fun SmartVaultEntity.toDomain(autoDeposit: AutoDepositSchedule? = null): SmartVault = SmartVault(
+fun SmartVaultEntity.toDomain(schedules: List<VaultSchedule> = emptyList()): SmartVault = SmartVault(
     id = id,
     name = name,
     targetAmount = targetAmount,
@@ -214,7 +215,7 @@ fun SmartVaultEntity.toDomain(autoDeposit: AutoDepositSchedule? = null): SmartVa
     monthlyNeed = monthlyNeed,
     priorityWeight = priorityWeight,
     autoSaveEnabled = autoSaveEnabled,
-    excludedFromAutoAllocation = excludedFromAutoAllocation,
+    allowAutoIncome = allowAutoIncome,
     priority = priority,
     type = type,
     interestRate = interestRate,
@@ -222,13 +223,16 @@ fun SmartVaultEntity.toDomain(autoDeposit: AutoDepositSchedule? = null): SmartVa
     manualAllocationPercent = manualAllocationPercent,
     nextExpectedContribution = nextExpectedContribution,
     lastContributionDate = lastContributionDate,
-    autoDepositSchedule = autoDeposit,
     savingTaxRateOverride = savingTaxRateOverride,
     archived = archived,
     accountType = accountType,
     accountNumber = accountNumber,
     accountNotes = accountNotes,
-    createdAt = createdAt
+    createdAt = createdAt,
+    defaultManualDepositDeductFromMain = defaultManualDepositDeductFromMain,
+    defaultManualWithdrawalCreditMain = defaultManualWithdrawalCreditMain,
+    schedules = schedules,
+    iconName = iconName
 )
 
 fun SmartVault.toEntity(): SmartVaultEntity = SmartVaultEntity(
@@ -242,7 +246,7 @@ fun SmartVault.toEntity(): SmartVaultEntity = SmartVaultEntity(
     monthlyNeed = monthlyNeed,
     priorityWeight = priorityWeight,
     autoSaveEnabled = autoSaveEnabled,
-    excludedFromAutoAllocation = excludedFromAutoAllocation,
+    allowAutoIncome = allowAutoIncome,
     priority = priority,
     type = type,
     interestRate = interestRate,
@@ -255,38 +259,56 @@ fun SmartVault.toEntity(): SmartVaultEntity = SmartVaultEntity(
     accountType = accountType,
     accountNumber = accountNumber,
     accountNotes = accountNotes,
-    createdAt = createdAt
+    createdAt = createdAt,
+    defaultManualDepositDeductFromMain = defaultManualDepositDeductFromMain,
+    defaultManualWithdrawalCreditMain = defaultManualWithdrawalCreditMain,
+    iconName = iconName
 )
 
-fun VaultAutoDepositEntity.toDomain(): AutoDepositSchedule = AutoDepositSchedule(
+fun VaultScheduleEntity.toDomain(): VaultSchedule = VaultSchedule(
+    id = id,
+    vaultId = vaultId,
+    type = type,
     amount = amount,
-    frequency = frequency,
-    startDate = startDate,
-    endDate = endDate,
-    sourceAccountId = sourceAccountId,
-    lastExecutionDate = lastExecutionDate,
-    executeAutomatically = executeAutomatically,
+    percentage = percentage,
+    direction = direction,
+    dateValue = dateValue,
+    repeatAnnually = repeatAnnually,
     dayOfMonth = dayOfMonth,
     dayOfWeek = dayOfWeek,
-    customIntervalDays = customIntervalDays,
-    nextRunAt = nextRunAt
+    weekInterval = weekInterval,
+    onlyIfBalanceAvailable = onlyIfBalanceAvailable,
+    notifyBefore = notifyBefore,
+    notifyAfter = notifyAfter,
+    notifyOnFailure = notifyOnFailure,
+    nextRunAt = nextRunAt,
+    lastRunAt = lastRunAt,
+    enabled = enabled,
+    createdAt = createdAt,
+    updatedAt = updatedAt
 )
 
-fun AutoDepositSchedule.toEntity(vaultId: Long, scheduleId: Long = 0L): VaultAutoDepositEntity = VaultAutoDepositEntity(
-    id = scheduleId,
+fun VaultSchedule.toEntity(): VaultScheduleEntity = VaultScheduleEntity(
+    id = id,
     vaultId = vaultId,
+    type = type,
     amount = amount,
-    frequency = frequency,
-    startDate = startDate,
-    endDate = endDate,
-    sourceAccountId = sourceAccountId,
-    lastExecutionDate = lastExecutionDate,
-    active = true,
-    executeAutomatically = executeAutomatically
-    ,dayOfMonth = dayOfMonth
-    ,dayOfWeek = dayOfWeek
-    ,customIntervalDays = customIntervalDays
-    ,nextRunAt = nextRunAt
+    percentage = percentage,
+    direction = direction,
+    dateValue = dateValue,
+    repeatAnnually = repeatAnnually,
+    dayOfMonth = dayOfMonth,
+    dayOfWeek = dayOfWeek,
+    weekInterval = weekInterval,
+    onlyIfBalanceAvailable = onlyIfBalanceAvailable,
+    notifyBefore = notifyBefore,
+    notifyAfter = notifyAfter,
+    notifyOnFailure = notifyOnFailure,
+    nextRunAt = nextRunAt,
+    lastRunAt = lastRunAt,
+    enabled = enabled,
+    createdAt = createdAt,
+    updatedAt = updatedAt
 )
 
 fun VaultContributionEntity.toDomain(): VaultContribution = VaultContribution(
@@ -329,9 +351,9 @@ fun VaultBalanceAdjustment.toEntity(): VaultBalanceAdjustmentEntity = VaultBalan
     reason = reason
 )
 
-fun SmartVaultWithSchedule.toDomain(): SmartVault {
-    val schedule = schedules.firstOrNull()?.toDomain()
-    return vault.toDomain(schedule)
+fun SmartVaultWithSchedules.toDomain(): SmartVault {
+    val schedules = schedules.map { it.toDomain() }
+    return vault.toDomain(schedules)
 }
 
 fun MainAccountTransactionEntity.toDomain(): com.example.sparely.domain.model.MainAccountTransaction =
@@ -357,3 +379,49 @@ fun com.example.sparely.domain.model.MainAccountTransaction.toEntity(): MainAcco
         relatedExpenseId = relatedExpenseId,
         relatedVaultContributionIds = relatedVaultContributionIds?.joinToString(",")
     )
+
+fun ExpenseEntity.toDomain(): Expense = Expense(
+    id = id,
+    description = description,
+    amount = amount,
+    category = category,
+    date = date,
+    includesTax = includesTax,
+    allocation = com.example.sparely.domain.model.AllocationBreakdown(
+        emergencyAmount = emergencyAmount,
+        investmentAmount = investmentAmount,
+        funAmount = funAmount,
+        safeInvestmentAmount = safeInvestmentAmount,
+        highRiskInvestmentAmount = highRiskInvestmentAmount
+    ),
+    appliedPercentages = com.example.sparely.domain.model.SavingsPercentages(
+        emergency = appliedPercentEmergency,
+        invest = appliedPercentInvest,
+        `fun` = appliedPercentFun,
+        safeInvestmentSplit = appliedSafeSplit
+    ),
+    autoRecommended = autoRecommended,
+    riskLevelUsed = riskLevelUsed,
+    deductedFromVaultId = deductedFromVaultId
+)
+
+fun Expense.toEntity(): ExpenseEntity = ExpenseEntity(
+    id = id,
+    description = description,
+    amount = amount,
+    category = category,
+    date = date,
+    includesTax = includesTax,
+    emergencyAmount = allocation.emergencyAmount,
+    investmentAmount = allocation.investmentAmount,
+    funAmount = allocation.funAmount,
+    safeInvestmentAmount = allocation.safeInvestmentAmount,
+    highRiskInvestmentAmount = allocation.highRiskInvestmentAmount,
+    autoRecommended = autoRecommended,
+    appliedPercentEmergency = appliedPercentages.emergency,
+    appliedPercentInvest = appliedPercentages.invest,
+    appliedPercentFun = appliedPercentages.`fun`,
+    appliedSafeSplit = appliedPercentages.safeInvestmentSplit,
+    riskLevelUsed = riskLevelUsed,
+    deductedFromVaultId = deductedFromVaultId
+)

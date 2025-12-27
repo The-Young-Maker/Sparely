@@ -22,4 +22,7 @@ interface RecurringExpenseDao {
 
     @Query("SELECT * FROM recurring_expenses")
     suspend fun getAll(): List<RecurringExpenseEntity>
+
+    @Query("DELETE FROM recurring_expenses")
+    suspend fun clear()
 }

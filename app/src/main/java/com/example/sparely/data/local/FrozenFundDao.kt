@@ -30,4 +30,7 @@ interface FrozenFundDao {
 
     @Query("SELECT IFNULL(SUM(amount), 0.0) FROM frozen_funds")
     suspend fun totalFrozen(): Double
+
+    @Query("DELETE FROM frozen_funds")
+    suspend fun deleteAll()
 }

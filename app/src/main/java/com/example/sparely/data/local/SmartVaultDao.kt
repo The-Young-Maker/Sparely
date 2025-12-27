@@ -1,6 +1,7 @@
 package com.example.sparely.data.local
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -8,16 +9,17 @@ import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 @Dao
 interface SmartVaultDao {
     @Transaction
     @Query("SELECT * FROM smart_vaults WHERE archived = 0 ORDER BY CASE priority WHEN 'CRITICAL' THEN 1 WHEN 'HIGH' THEN 2 WHEN 'MEDIUM' THEN 3 ELSE 4 END, targetDate IS NULL, targetDate ASC")
-    fun observeActiveVaults(): Flow<List<SmartVaultWithSchedule>>
+    fun observeActiveVaults(): Flow<List<SmartVaultWithSchedules>>
 
     @Transaction
     @Query("SELECT * FROM smart_vaults ORDER BY archived ASC, name ASC")
-    fun observeAllVaults(): Flow<List<SmartVaultWithSchedule>>
+    fun observeAllVaults(): Flow<List<SmartVaultWithSchedules>>
 
     @Query("SELECT * FROM smart_vaults WHERE id = :id")
     suspend fun getVaultById(id: Long): SmartVaultEntity?
@@ -27,15 +29,6 @@ interface SmartVaultDao {
 
     @Query("DELETE FROM smart_vaults")
     suspend fun clearAllVaults()
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertAutoDeposit(entity: VaultAutoDepositEntity): Long
-
-    @Update
-    suspend fun updateAutoDeposit(entity: VaultAutoDepositEntity)
-
-    @Query("DELETE FROM vault_auto_deposits WHERE id = :id")
-    suspend fun deleteAutoDeposit(id: Long)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertContribution(entity: VaultContributionEntity): Long
@@ -78,24 +71,39 @@ interface SmartVaultDao {
     @Query("DELETE FROM vault_contributions WHERE id = :id")
     suspend fun deleteContribution(id: Long)
 
-    @Transaction
-    suspend fun attachAutoDeposit(vaultId: Long, schedule: VaultAutoDepositEntity) {
-        val existing = getAutoDepositForVault(vaultId)
-        if (existing != null) {
-            updateAutoDeposit(schedule.copy(id = existing.id, vaultId = vaultId))
-        } else {
-            upsertAutoDeposit(schedule.copy(vaultId = vaultId))
-        }
-    }
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertSchedule(entity: VaultScheduleEntity): Long
 
-    @Query("SELECT * FROM vault_auto_deposits WHERE vaultId = :vaultId LIMIT 1")
-    suspend fun getAutoDepositForVault(vaultId: Long): VaultAutoDepositEntity?
-    
-    @Query("SELECT * FROM vault_auto_deposits WHERE active = 1")
-    suspend fun getActiveAutoDepositSchedules(): List<VaultAutoDepositEntity>
+    @Update
+    suspend fun updateSchedule(entity: VaultScheduleEntity)
 
-    @Transaction
-    suspend fun removeAutoDepositForVault(vaultId: Long) {
-        getAutoDepositForVault(vaultId)?.let { deleteAutoDeposit(it.id) }
-    }
+    @Delete
+    suspend fun deleteSchedule(entity: VaultScheduleEntity)
+
+    @Query("DELETE FROM vault_schedules WHERE id = :id")
+    suspend fun deleteSchedule(id: Long)
+
+    @Query("SELECT * FROM vault_schedules WHERE vaultId = :vaultId ORDER BY nextRunAt IS NULL, nextRunAt ASC")
+    suspend fun getSchedulesForVault(vaultId: Long): List<VaultScheduleEntity>
+
+    @Query("SELECT * FROM vault_schedules WHERE enabled = 1")
+    suspend fun getEnabledSchedules(): List<VaultScheduleEntity>
+
+    @Query("SELECT * FROM vault_schedules WHERE enabled = 1 AND (nextRunAt IS NULL OR nextRunAt <= :cutoff)")
+    suspend fun getDueSchedules(cutoff: LocalDateTime): List<VaultScheduleEntity>
+
+    @Query("DELETE FROM vault_contributions")
+    suspend fun clearAllContributions()
+
+    @Query("DELETE FROM vault_balance_adjustments")
+    suspend fun clearAllAdjustments()
+
+    @Query("DELETE FROM vault_schedules")
+    suspend fun clearAllSchedules()
+
+    @Query("SELECT * FROM vault_contributions")
+    suspend fun getAllContributions(): List<VaultContributionEntity>
+
+    @Query("SELECT * FROM vault_balance_adjustments")
+    suspend fun getAllAdjustments(): List<VaultBalanceAdjustmentEntity>
 }

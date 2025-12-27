@@ -1,5 +1,6 @@
 package com.example.sparely.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -7,14 +8,16 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.Relation
 import com.example.sparely.domain.model.AccountType
-import com.example.sparely.domain.model.AutoDepositFrequency
 import com.example.sparely.domain.model.VaultAllocationMode
 import com.example.sparely.domain.model.VaultContributionSource
 import com.example.sparely.domain.model.VaultAdjustmentType
 import com.example.sparely.domain.model.VaultPriority
+import com.example.sparely.domain.model.VaultScheduleType
+import com.example.sparely.domain.model.VaultTransferDirection
 import com.example.sparely.domain.model.VaultType
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 @Entity(tableName = "smart_vaults")
 data class SmartVaultEntity(
@@ -28,9 +31,7 @@ data class SmartVaultEntity(
     val monthlyNeed: Double?,
     val priorityWeight: Double,
     val autoSaveEnabled: Boolean,
-    // If true this vault will be excluded from any automatic allocation/saving-tax/rounding
-    // mechanisms and will only receive manual or explicitly scheduled transfers.
-    val excludedFromAutoAllocation: Boolean = false,
+    @ColumnInfo(name = "allow_auto_income") val allowAutoIncome: Boolean = true,
     val priority: VaultPriority,
     val type: VaultType,
     val interestRate: Double?,
@@ -43,7 +44,12 @@ data class SmartVaultEntity(
     val accountType: AccountType?,
     val accountNumber: String?,
     val accountNotes: String?,
-    val createdAt: LocalDate = LocalDate.now()
+    val createdAt: LocalDate = LocalDate.now(),
+    @ColumnInfo(name = "default_manual_deposit_deduct_main")
+    val defaultManualDepositDeductFromMain: Boolean = true,
+    @ColumnInfo(name = "default_manual_withdraw_add_main")
+    val defaultManualWithdrawalCreditMain: Boolean = true,
+    val iconName: String? = null
 )
 
 {
@@ -69,7 +75,8 @@ data class SmartVaultEntity(
         accountType: com.example.sparely.domain.model.AccountType?,
         accountNumber: String?,
         accountNotes: String?,
-        createdAt: LocalDate?
+        createdAt: LocalDate?,
+        iconName: String? = null
     ) : this(
         id = id,
         name = name,
@@ -81,7 +88,7 @@ data class SmartVaultEntity(
         monthlyNeed = null,
         priorityWeight = 1.0,
         autoSaveEnabled = true,
-        excludedFromAutoAllocation = false,
+        allowAutoIncome = true,
         priority = priority,
         type = type,
         interestRate = interestRate,
@@ -94,46 +101,12 @@ data class SmartVaultEntity(
         accountType = accountType,
         accountNumber = accountNumber,
         accountNotes = accountNotes,
-        createdAt = createdAt ?: LocalDate.now()
+        createdAt = createdAt ?: LocalDate.now(),
+        defaultManualDepositDeductFromMain = true,
+        defaultManualWithdrawalCreditMain = true,
+        iconName = iconName
     )
 }
-
-@Entity(
-    tableName = "vault_auto_deposits",
-    foreignKeys = [
-        ForeignKey(
-            entity = SmartVaultEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["vaultId"],
-            onDelete = ForeignKey.CASCADE
-        )
-    ],
-    indices = [Index("vaultId")]
-)
-data class VaultAutoDepositEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0L,
-    val vaultId: Long,
-    val amount: Double,
-    val frequency: AutoDepositFrequency,
-    val startDate: LocalDate,
-    val endDate: LocalDate?,
-    val sourceAccountId: Long?,
-    val lastExecutionDate: LocalDate?,
-    val active: Boolean,
-    // If true, the worker will attempt to move funds from the main account into the vault
-    // automatically when the schedule is due. If false, a pending contribution will be created
-    // and the user will need to reconcile it manually.
-    val executeAutomatically: Boolean = false
-    // Optional scheduling details for more advanced recurring logic
-    // dayOfMonth: 1..31 (if null not used for monthly schedules)
-    ,val dayOfMonth: Int? = null
-    // dayOfWeek: 1..7 (ISO-8601 where Monday=1) for weekly schedules
-    ,val dayOfWeek: Int? = null
-    // custom interval in days when using custom frequency
-    ,val customIntervalDays: Int? = null
-    // next predicted run (stored as LocalDate) to help the scheduler; nullable
-    ,val nextRunAt: LocalDate? = null
-)
 
 @Entity(
     tableName = "vault_contributions",
@@ -179,7 +152,42 @@ data class VaultBalanceAdjustmentEntity(
     val reason: String?
 )
 
-data class SmartVaultWithSchedule(
+@Entity(
+    tableName = "vault_schedules",
+    foreignKeys = [
+        ForeignKey(
+            entity = SmartVaultEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["vaultId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("vaultId"), Index("enabled"), Index("nextRunAt")]
+)
+data class VaultScheduleEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val vaultId: Long,
+    val type: VaultScheduleType,
+    val amount: Double?,
+    val percentage: Double?,
+    val direction: VaultTransferDirection,
+    val dateValue: LocalDate?,
+    val repeatAnnually: Boolean,
+    val dayOfMonth: Int?,
+    val dayOfWeek: Int?,
+    val weekInterval: Int?,
+    val onlyIfBalanceAvailable: Boolean,
+    val notifyBefore: Boolean,
+    val notifyAfter: Boolean,
+    val notifyOnFailure: Boolean,
+    val nextRunAt: LocalDateTime?,
+    val lastRunAt: LocalDateTime?,
+    val enabled: Boolean,
+    val createdAt: Instant,
+    val updatedAt: Instant
+)
+
+data class SmartVaultWithSchedules(
     @Embedded val vault: SmartVaultEntity,
-    @Relation(parentColumn = "id", entityColumn = "vaultId") val schedules: List<VaultAutoDepositEntity>
+    @Relation(parentColumn = "id", entityColumn = "vaultId") val schedules: List<VaultScheduleEntity>
 )

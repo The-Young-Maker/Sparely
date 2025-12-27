@@ -99,7 +99,8 @@ data class SavingsAccountInput(
     val reminderEnabled: Boolean,
     val syncProvider: BankSyncProvider? = null,
     val externalAccountId: String? = null,
-    val autoRefreshEnabled: Boolean = false
+    val autoRefreshEnabled: Boolean = false,
+    val iconName: String? = null
 )
 
 data class SmartVaultSetup(
@@ -116,7 +117,8 @@ data class SmartVaultSetup(
     val allocationMode: VaultAllocationMode = VaultAllocationMode.DYNAMIC_AUTO,
     val manualAllocationPercent: Double? = null,
     val savingTaxRateOverride: Double? = null,
-    val accountNotes: String? = null
+    val accountNotes: String? = null,
+    val iconName: String? = null
 )
 
 fun SmartVaultSetup.toSmartVault(): SmartVault = SmartVault(
@@ -134,10 +136,11 @@ fun SmartVaultSetup.toSmartVault(): SmartVault = SmartVault(
     manualAllocationPercent = manualAllocationPercent?.coerceIn(0.0, 1.0),
     nextExpectedContribution = null,
     lastContributionDate = null,
-    autoDepositSchedule = null,
+    schedules = emptyList(),
     savingTaxRateOverride = savingTaxRateOverride?.coerceIn(0.0, 1.0) ?: 0.01, // Enable by default at 1%
     archived = false,
-    accountNotes = accountNotes
+    accountNotes = accountNotes,
+    iconName = iconName
 )
 
 fun SavingsAccountInput.toSmartVaultSetup(monthlyIncome: Double): SmartVaultSetup {
@@ -162,6 +165,7 @@ fun SavingsAccountInput.toSmartVaultSetup(monthlyIncome: Double): SmartVaultSetu
         targetAmount = targetBalance?.takeIf { it > 0.0 } ?: fallbackTarget,
         currentBalance = currentBalance.coerceAtLeast(0.0),
         priority = priority,
-        type = type
+        type = type,
+        iconName = iconName
     )
 }

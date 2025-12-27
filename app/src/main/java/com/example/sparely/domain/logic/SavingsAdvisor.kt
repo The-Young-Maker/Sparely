@@ -144,6 +144,11 @@ object SavingsAdvisor {
             reminderDays: Int = 7,
             reminderEnabled: Boolean = true
         ) {
+            val iconName = when (category) {
+                SavingsCategory.EMERGENCY -> "savings"
+                SavingsCategory.INVESTMENT -> "rocket_launch"
+                SavingsCategory.FUN -> "restaurant"
+            }
             plans += SavingsAccountInput(
                 name = name,
                 category = category,
@@ -153,7 +158,8 @@ object SavingsAdvisor {
                 targetBalance = target?.takeIf { it > 0.0 },
                 isPrimary = primarySuggestion,
                 reminderFrequencyDays = if (reminderEnabled) reminderDays else null,
-                reminderEnabled = reminderEnabled
+                reminderEnabled = reminderEnabled,
+                iconName = iconName
             )
         }
 

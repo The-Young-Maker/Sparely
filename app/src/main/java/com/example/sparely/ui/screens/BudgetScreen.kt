@@ -18,12 +18,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.text.style.TextOverflow
 import com.example.sparely.domain.model.*
 import com.example.sparely.ui.components.ExpressiveCard
 import com.example.sparely.ui.components.SingleLineText
+import com.example.sparely.ui.components.SparelyButton
 import com.example.sparely.ui.state.SparelyUiState
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.theme.MaterialSymbols
+import com.example.sparely.ui.components.SparelyTextField
+import com.example.sparely.ui.components.SparelyTonalButton
+import com.example.sparely.ui.theme.spacing
+import com.example.sparely.ui.theme.getCategoryColor
+import com.example.sparely.ui.theme.getCategoryIcon
 import java.time.YearMonth
 import kotlin.math.abs
 
@@ -37,6 +50,7 @@ fun BudgetScreen(
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var budgetToEdit by remember { mutableStateOf<CategoryBudget?>(null) }
+    var budgetToDelete by remember { mutableStateOf<CategoryBudget?>(null) }
     val budgetLookup = remember(uiState.budgets) {
         uiState.budgets.associateBy { it.category to it.yearMonth }
     }
@@ -55,18 +69,17 @@ fun BudgetScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
-                FilledTonalButton(
+                SparelyButton(
                     onClick = { showAddDialog = true },
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+                    icon = {
+                        MaterialSymbolIcon(
+                            icon = MaterialSymbols.ADD,
+                            contentDescription = "Add Budget",
+                            size = 18.dp
+                        )
+                    }
                 ) {
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.ADD,
-                        contentDescription = "Add Budget",
-                        size = 18.dp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    SingleLineText(text = "Add Budget")
+                    Text(text = "Add Budget")
                 }
             }
         }
@@ -82,10 +95,8 @@ fun BudgetScreen(
         val monthlyIncome = uiState.settings.monthlyIncome
         if (totalBudgets > monthlyIncome && monthlyIncome > 0.0) {
             item {
-                ElevatedCard(
-                    colors = CardDefaults.elevatedCardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    ),
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp)
                 ) {
@@ -132,10 +143,10 @@ fun BudgetScreen(
 
         if (meaningfulSuggestions.isNotEmpty()) {
             item {
-                Text(
-                    text = "Smart suggestions",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                BudgetSectionHeader(
+                    title = "Smart Suggestions",
+                    subtitle = "AI-powered budget recommendations",
+                    icon = MaterialSymbols.PIE_CHART
                 )
             }
 
@@ -158,10 +169,10 @@ fun BudgetScreen(
 
         if (summary?.categoryStatuses?.isNotEmpty() == true) {
             item {
-                Text(
-                    text = "Category Budgets",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                BudgetSectionHeader(
+                    title = "Category Budgets",
+                    subtitle = "${summary.categoryStatuses.size} active budgets",
+                    icon = MaterialSymbols.ACCOUNT_BALANCE_WALLET
                 )
             }
 
@@ -173,7 +184,7 @@ fun BudgetScreen(
                         budget?.let { budgetToEdit = it }
                     },
                     onDelete = {
-                        budget?.let { onDeleteBudget(it.id) }
+                        budget?.let { budgetToDelete = it }
                     }
                 )
             }
@@ -210,113 +221,140 @@ fun BudgetScreen(
             }
         )
     }
+
+    budgetToDelete?.let { budget ->
+        DeleteBudgetConfirmationDialog(
+            budget = budget,
+            onConfirm = {
+                onDeleteBudget(budget.id)
+                budgetToDelete = null
+            },
+            onDismiss = { budgetToDelete = null }
+        )
+    }
 }
 
 @Composable
 fun BudgetSummaryCard(summary: BudgetSummary) {
-    val gradientColors = when (summary.overallHealth) {
-        BudgetHealthStatus.HEALTHY -> listOf(Color(0xFF4CAF50), Color(0xFF66BB6A))
-        BudgetHealthStatus.WARNING -> listOf(Color(0xFFFFC107), Color(0xFFFFD54F))
-        BudgetHealthStatus.CRITICAL -> listOf(Color(0xFFFF9800), Color(0xFFFFB74D))
-        BudgetHealthStatus.OVER_BUDGET -> listOf(Color(0xFFF44336), Color(0xFFE57373))
-    }
-
-    ElevatedCard(
+    val spacing = MaterialTheme.spacing
+    
+    // Modern Flat Card with Donut Chart
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween, // Title Left, Status Right
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = YearMonth.now().month.name.lowercase().replaceFirstChar { it.uppercase() } + " Budget",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
+                 Column {
+                    Text(
+                        text = YearMonth.now().month.name.lowercase().replaceFirstChar { it.uppercase() } + " Budget",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                         text = "${formatCurrency(summary.totalRemaining)} left",
+                         style = MaterialTheme.typography.titleMedium,
+                         color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            when (summary.overallHealth) {
+                                BudgetHealthStatus.HEALTHY -> MaterialTheme.colorScheme.primaryContainer
+                                BudgetHealthStatus.WARNING -> MaterialTheme.colorScheme.tertiaryContainer
+                                else -> MaterialTheme.colorScheme.errorContainer
+                            }
+                        )
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = when (summary.overallHealth) {
+                            BudgetHealthStatus.HEALTHY -> "On Track"
+                            BudgetHealthStatus.WARNING -> "Warning"
+                            else -> "Over Budget"
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = when (summary.overallHealth) {
+                            BudgetHealthStatus.HEALTHY -> MaterialTheme.colorScheme.onPrimaryContainer
+                            BudgetHealthStatus.WARNING -> MaterialTheme.colorScheme.onTertiaryContainer
+                            else -> MaterialTheme.colorScheme.onErrorContainer
+                        }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Donut Chart
+            Box(contentAlignment = Alignment.Center) {
+                BudgetDonutChart(
+                    summary = summary,
+                    modifier = Modifier.size(220.dp)
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "Spent",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = formatCurrency(summary.totalSpent),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "of ${formatCurrency(summary.totalBudget)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            // Legend (Top 3 + Others)
+            val sortedCategories = summary.categoryStatuses.sortedByDescending { it.percentageUsed }
+            val topCategories = sortedCategories.take(3)
+            
+            if (topCategories.isNotEmpty()) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.Top
                 ) {
-                    Column {
-                        Text(
-                            text = "Total Budget",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.9f)
-                        )
-                        Text(
-                            text = formatCurrency(summary.totalBudget),
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = "Spent",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.9f)
-                        )
-                        Text(
-                            text = formatCurrency(summary.totalSpent),
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                LinearProgressIndicator(
-                    progress = { (summary.percentageUsed.toFloat()).coerceIn(0f, 1f) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(10.dp)
-                        .clip(RoundedCornerShape(999.dp)),
-                    color = Color.White,
-                    trackColor = Color.White.copy(alpha = 0.3f)
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Text(
-                    text = "${formatPercent(summary.percentageUsed)} of budget used • ${formatCurrency(summary.totalRemaining)} remaining",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.9f)
-                )
-
-                if (summary.categoriesOverBudget > 0) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Surface(
-                        color = Color.White.copy(alpha = 0.2f),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    for (catStatus in topCategories) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            MaterialSymbolIcon(
-                                icon = MaterialSymbols.WARNING,
-                                contentDescription = null,
-                                tint = Color.White,
-                                size = 18.dp
+                            Box(
+                                modifier = Modifier
+                                    .size(12.dp)
+                                    .background(getCategoryColor(catStatus.category), CircleShape)
                             )
+                            Spacer(Modifier.height(4.dp))
                             Text(
-                                text = "${summary.categoriesOverBudget} ${if (summary.categoriesOverBudget == 1) "category" else "categories"} over budget",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium,
-                                color = Color.White
+                                text = catStatus.category.displayName(),
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                             Text(
+                                text = formatPercent(catStatus.percentageUsed),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
@@ -327,95 +365,257 @@ fun BudgetSummaryCard(summary: BudgetSummary) {
 }
 
 @Composable
+private fun BudgetDonutChart(
+    summary: BudgetSummary,
+    modifier: Modifier = Modifier
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    // Sort logic should match legend
+    val sortedCategories = remember(summary) { summary.categoryStatuses.sortedByDescending { it.percentageUsed } }
+
+    Canvas(modifier = modifier) {
+        val strokeWidth = 24.dp.toPx()
+        val radius = size.minDimension / 2 - strokeWidth / 2
+        val center = Offset(size.width / 2, size.height / 2)
+        
+        // Background Ring
+        drawCircle(
+            color = colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            radius = radius,
+            center = center,
+            style = Stroke(width = strokeWidth)
+        )
+
+        var startAngle = -90f
+        val total = summary.totalBudget.coerceAtLeast(1.0)
+        
+        for (status in sortedCategories) {
+            val sweepAngle = ((status.spent / total) * 360f).toFloat()
+            if (sweepAngle > 0) {
+                drawArc(
+                    color = getCategoryColor(status.category),
+                    startAngle = startAngle,
+                    sweepAngle = sweepAngle,
+                    useCenter = false,
+                    topLeft = Offset(center.x - radius, center.y - radius),
+                    size = Size(radius * 2, radius * 2),
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
+                )
+                startAngle += sweepAngle
+            }
+        }
+    }
+}
+
+// Category icons and colors are now sourced from com.example.sparely.ui.theme.CategoryUtils
+
+@Composable
 fun CategoryBudgetCard(
     status: BudgetStatus,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
+    val colorScheme = MaterialTheme.colorScheme
+    val categoryColor = getCategoryColor(status.category)
+    val categoryIcon = getCategoryIcon(status.category)
+    
+    val statusColor = when (status.status) {
+        BudgetHealthStatus.HEALTHY -> Color(0xFF4CAF50) // Green for healthy
+        BudgetHealthStatus.WARNING -> Color(0xFFFFA726) // Orange for warning
+        BudgetHealthStatus.CRITICAL -> Color(0xFFEF5350) // Red-ish for critical
+        BudgetHealthStatus.OVER_BUDGET -> colorScheme.error
+    }
+    
+    val progressValue = status.percentageUsed.toFloat().coerceIn(0f, 1f)
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = colorScheme.surfaceContainerHigh
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = status.category.displayName(),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "${formatCurrency(status.spent)} of ${formatCurrency(status.limit)}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    StatusBadge(status.status)
-                    IconButton(onClick = onEdit) {
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.EDIT,
-                            contentDescription = "Edit budget",
-                            size = 20.dp
-                        )
-                    }
-                    IconButton(onClick = onDelete) {
-                        MaterialSymbolIcon(
-                            icon = MaterialSymbols.DELETE,
-                            contentDescription = "Delete budget",
-                            size = 20.dp,
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            LinearProgressIndicator(
-                progress = { (status.percentageUsed.toFloat()).coerceIn(0f, 1f) },
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Subtle Gradient Background
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(999.dp)),
-                color = when (status.status) {
-                    BudgetHealthStatus.HEALTHY -> Color(0xFF4CAF50)
-                    BudgetHealthStatus.WARNING -> Color(0xFFFFC107)
-                    BudgetHealthStatus.CRITICAL -> Color(0xFFFF9800)
-                    BudgetHealthStatus.OVER_BUDGET -> Color(0xFFF44336)
-                },
-                trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                categoryColor.copy(alpha = 0.08f),
+                                colorScheme.surface.copy(alpha = 0.5f)
+                            )
+                        )
+                    )
             )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+
+            // Watermark Icon
+            MaterialSymbolIcon(
+                icon = categoryIcon,
+                contentDescription = null,
+                size = 140.dp,
+                tint = categoryColor.copy(alpha = 0.06f),
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .offset(x = 30.dp, y = 10.dp)
+            )
+
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = if (status.isOverBudget) {
-                        "Over by ${formatCurrency(status.spent - status.limit)}"
-                    } else {
-                        "${formatCurrency(status.remaining)} left • ${status.daysRemainingInMonth} days"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                // Header Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Icon Circle
+                        Surface(
+                            shape = CircleShape,
+                            color = categoryColor.copy(alpha = 0.15f),
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                MaterialSymbolIcon(
+                                    icon = categoryIcon,
+                                    contentDescription = null,
+                                    size = 24.dp,
+                                    tint = categoryColor
+                                )
+                            }
+                        }
+
+                        Column {
+                            Text(
+                                text = status.category.displayName(),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                StatusBadge(status.status)
+                            }
+                        }
+                    }
+
+                    // Action Buttons
+
+                }
+
+                // Balance Display
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        Column {
+                            Text(
+                                text = "Spent",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = formatCurrency(status.spent),
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = statusColor
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                text = "Budget",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = formatCurrency(status.limit),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+
+                // Progress Bar
+                LinearProgressIndicator(
+                    progress = { progressValue },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(10.dp)
+                        .clip(RoundedCornerShape(999.dp)),
+                    color = statusColor,
+                    trackColor = colorScheme.surfaceVariant
                 )
-                
-                Text(
-                    text = formatPercent(status.percentageUsed),
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold
-                )
+
+                // Footer Stats
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = if (status.isOverBudget) {
+                            "Over by ${formatCurrency(status.spent - status.limit)}"
+                        } else {
+                            "${formatCurrency(status.remaining)} left • ${status.daysRemainingInMonth} days"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (status.isOverBudget) colorScheme.error else colorScheme.onSurfaceVariant
+                    )
+
+                    Text(
+                        text = formatPercent(status.percentageUsed),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = statusColor
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SparelyButton(
+                        onClick = onDelete,
+                        modifier = Modifier.weight(1f),
+                        containerColor = colorScheme.errorContainer,
+                        contentColor = colorScheme.error,
+                        icon = {
+                            MaterialSymbolIcon(
+                                icon = MaterialSymbols.DELETE,
+                                contentDescription = null,
+                                size = 18.dp
+                            )
+                        }
+                    ) {
+                        Text("Delete")
+                    }
+                    SparelyButton(
+                        onClick = onEdit,
+                        modifier = Modifier.weight(1f),
+                        icon = {
+                            MaterialSymbolIcon(
+                                icon = MaterialSymbols.EDIT,
+                                contentDescription = null,
+                                size = 18.dp
+                            )
+                        }
+                    ) {
+                        Text("Edit")
+                    }
+                }
             }
         }
     }
@@ -427,6 +627,10 @@ fun BudgetSuggestionCard(
     currentBudget: CategoryBudget?,
     onApply: (Double) -> Unit
 ) {
+    val colorScheme = MaterialTheme.colorScheme
+    val categoryColor = getCategoryColor(suggestion.category)
+    val categoryIcon = getCategoryIcon(suggestion.category)
+    
     val difference = currentBudget?.let { suggestion.suggestedLimit - it.monthlyLimit }
     val differenceLabel = when {
         difference == null && currentBudget == null -> "Creates a new budget"
@@ -436,118 +640,264 @@ fun BudgetSuggestionCard(
         else -> "Reduce by ${formatCurrency(abs(difference))}"
     }
     val differenceColor = when {
-        difference == null -> MaterialTheme.colorScheme.secondary
-        abs(difference) < 1.0 -> MaterialTheme.colorScheme.onSurfaceVariant
-        difference > 0 -> MaterialTheme.colorScheme.error
-        else -> MaterialTheme.colorScheme.primary
+        difference == null -> colorScheme.tertiary
+        abs(difference) < 1.0 -> colorScheme.onSurfaceVariant
+        difference > 0 -> colorScheme.error
+        else -> colorScheme.primary
     }
-    val chipColors = when (suggestion.confidence) {
-        SuggestionConfidence.HIGH -> AssistChipDefaults.assistChipColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            labelColor = MaterialTheme.colorScheme.onPrimaryContainer
-        )
-        SuggestionConfidence.MEDIUM -> AssistChipDefaults.assistChipColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-            labelColor = MaterialTheme.colorScheme.onSecondaryContainer
-        )
-        SuggestionConfidence.LOW -> AssistChipDefaults.assistChipColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    
+    val confidenceColor = when (suggestion.confidence) {
+        SuggestionConfidence.HIGH -> colorScheme.primary
+        SuggestionConfidence.MEDIUM -> colorScheme.secondary
+        SuggestionConfidence.LOW -> colorScheme.onSurfaceVariant
     }
 
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = colorScheme.surfaceContainerHigh
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = suggestion.category.displayName(),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Subtle Gradient Background
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                categoryColor.copy(alpha = 0.06f),
+                                colorScheme.surface.copy(alpha = 0.5f)
+                            )
+                        )
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Suggested ${formatCurrency(suggestion.suggestedLimit)}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                AssistChip(
-                    onClick = {},
-                    label = { Text(suggestion.confidence.displayLabel()) },
-                    colors = chipColors
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Current limit", style = MaterialTheme.typography.labelMedium)
-                    Text(
-                        text = currentBudget?.let { formatCurrency(it.monthlyLimit) } ?: "Not set",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-                Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-                    Text("Historic avg", style = MaterialTheme.typography.labelMedium)
-                    Text(
-                        text = formatCurrency(suggestion.historicalAverage),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Profile target",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = formatCurrency(suggestion.profileTarget),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Text(
-                text = differenceLabel,
-                style = MaterialTheme.typography.bodySmall,
-                color = differenceColor
             )
 
+            // Watermark Icon
+            MaterialSymbolIcon(
+                icon = MaterialSymbols.PIE_CHART,
+                contentDescription = null,
+                size = 120.dp,
+                tint = colorScheme.primary.copy(alpha = 0.05f),
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .offset(x = 20.dp, y = (-10).dp)
+            )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Header Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Icon Circle
+                        Surface(
+                            shape = CircleShape,
+                            color = categoryColor.copy(alpha = 0.15f),
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                MaterialSymbolIcon(
+                                    icon = categoryIcon,
+                                    contentDescription = null,
+                                    size = 24.dp,
+                                    tint = categoryColor
+                                )
+                            }
+                        }
+
+                        Column {
+                            Text(
+                                text = suggestion.category.displayName(),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                MaterialSymbolIcon(
+                                    icon = MaterialSymbols.PIE_CHART,
+                                    contentDescription = null,
+                                    size = 14.dp,
+                                    tint = confidenceColor
+                                )
+                                Text(
+                                    text = "${suggestion.confidence.displayLabel()} confidence",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = confidenceColor
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Suggested Amount
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "Suggested Budget",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = formatCurrency(suggestion.suggestedLimit),
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = colorScheme.primary
+                    )
+                }
+
+                // Comparison Stats
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Current",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = currentBudget?.let { formatCurrency(it.monthlyLimit) } ?: "Not set",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Historic Avg",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = formatCurrency(suggestion.historicalAverage),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Profile Target",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = formatCurrency(suggestion.profileTarget),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // Difference Indicator
+                Surface(
+                    color = differenceColor.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        MaterialSymbolIcon(
+                            icon = when {
+                                difference == null -> MaterialSymbols.ADD
+                                difference > 0 -> MaterialSymbols.TRENDING_UP
+                                difference < 0 -> MaterialSymbols.TRENDING_DOWN
+                                else -> MaterialSymbols.CHECK
+                            },
+                            contentDescription = null,
+                            size = 16.dp,
+                            tint = differenceColor
+                        )
+                        Text(
+                            text = differenceLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = differenceColor,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                // Rationale
+                Text(
+                    text = suggestion.rationale,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant
+                )
+
+                // Apply Button
+                SparelyButton(
+                    onClick = { onApply(suggestion.suggestedLimit) },
+                    modifier = Modifier.fillMaxWidth(),
+                    icon = {
+                        MaterialSymbolIcon(
+                            icon = MaterialSymbols.CHECK,
+                            contentDescription = null,
+                            size = 18.dp
+                        )
+                    }
+                ) {
+                    Text(
+                        text = if (currentBudget == null) "Create Budget" else "Apply Suggestion"
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BudgetSectionHeader(
+    title: String,
+    subtitle: String,
+    icon: Int
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier.size(40.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                MaterialSymbolIcon(
+                    icon = icon,
+                    contentDescription = null,
+                    size = 20.dp,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        }
+        Column {
             Text(
-                text = suggestion.rationale,
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-
-            FilledTonalButton(
-                onClick = { onApply(suggestion.suggestedLimit) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                SingleLineText(text = if (currentBudget == null) "Create with suggestion" else "Apply suggestion")
-            }
         }
     }
 }
@@ -579,45 +929,85 @@ fun StatusBadge(status: BudgetHealthStatus) {
 
 @Composable
 fun EmptyBudgetState(onAddBudget: () -> Unit) {
-    ElevatedCard(
+    val colorScheme = MaterialTheme.colorScheme
+    
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        shape = RoundedCornerShape(24.dp),
+        color = colorScheme.surfaceContainerHigh
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Gradient Background
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                colorScheme.primary.copy(alpha = 0.05f),
+                                colorScheme.surface.copy(alpha = 0.5f)
+                            )
+                        )
+                    )
+            )
+
+            // Watermark Icon
             MaterialSymbolIcon(
                 icon = MaterialSymbols.ACCOUNT_BALANCE_WALLET,
                 contentDescription = null,
-                size = 64.dp,
-                tint = MaterialTheme.colorScheme.primary
+                size = 180.dp,
+                tint = colorScheme.primary.copy(alpha = 0.05f),
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .offset(x = 40.dp)
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "No Budgets Set",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Set category budgets to track and control your spending",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            FilledTonalButton(
-                onClick = onAddBudget,
-                shape = RoundedCornerShape(12.dp)
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null, size = 18.dp)
-                Spacer(modifier = Modifier.width(8.dp))
-                SingleLineText(text = "Create Budget")
+                Surface(
+                    shape = CircleShape,
+                    color = colorScheme.primary.copy(alpha = 0.1f),
+                    modifier = Modifier.size(80.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        MaterialSymbolIcon(
+                            icon = MaterialSymbols.ACCOUNT_BALANCE_WALLET,
+                            contentDescription = null,
+                            size = 40.dp,
+                            tint = colorScheme.primary
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(20.dp))
+                Text(
+                    text = "No Budgets Yet",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Set category budgets to track and control your spending habits",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                SparelyButton(
+                    onClick = onAddBudget,
+                    icon = {
+                        MaterialSymbolIcon(
+                            icon = MaterialSymbols.ADD,
+                            contentDescription = null,
+                            size = 18.dp
+                        )
+                    }
+                ) {
+                    Text(text = "Create Your First Budget")
+                }
             }
         }
     }
@@ -634,9 +1024,10 @@ fun AddBudgetDialog(
     var expanded by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = onDismiss) {
-        ExpressiveCard(
+        Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp)
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh
         ) {
             Column(
                 modifier = Modifier
@@ -660,7 +1051,7 @@ fun AddBudgetDialog(
                         expanded = expanded,
                         onExpandedChange = { expanded = it }
                     ) {
-                        OutlinedTextField(
+                        SparelyTextField(
                             value = selectedCategory.displayName(),
                             onValueChange = {},
                             readOnly = true,
@@ -668,13 +1059,12 @@ fun AddBudgetDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                            shape = RoundedCornerShape(12.dp)
                         )
                         ExposedDropdownMenu(
                             expanded = expanded,
                             onDismissRequest = { expanded = false }
                         ) {
-                            ExpenseCategory.values().forEach { category ->
+                            for (category in ExpenseCategory.entries) {
                                 DropdownMenuItem(
                                     text = { Text(category.displayName()) },
                                     onClick = {
@@ -687,13 +1077,12 @@ fun AddBudgetDialog(
                     }
                 }
 
-                OutlinedTextField(
+                SparelyTextField(
                     value = amount,
                     onValueChange = { amount = it.filter { ch -> ch.isDigit() || ch == '.' } },
                     label = { Text("Monthly Limit") },
                     prefix = { Text("$") },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
 
@@ -701,14 +1090,13 @@ fun AddBudgetDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    OutlinedButton(
+                    SparelyButton(
                         onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp)
+                        modifier = Modifier.weight(1f)
                     ) {
                         Text("Cancel")
                     }
-                    Button(
+                    SparelyButton(
                         onClick = {
                             amount.toDoubleOrNull()?.let { limitAmount ->
                                 if (limitAmount > 0) {
@@ -717,8 +1105,7 @@ fun AddBudgetDialog(
                             }
                         },
                         enabled = amount.toDoubleOrNull()?.let { it > 0 } == true,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp)
+                        modifier = Modifier.weight(1f)
                     ) {
                         Text("Set Budget")
                     }
@@ -737,70 +1124,138 @@ fun EditBudgetDialog(
     onDelete: () -> Unit
 ) {
     var amount by remember { mutableStateOf(budget.monthlyLimit.toString()) }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
 
-    Dialog(onDismissRequest = onDismiss) {
-        ExpressiveCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+    if (showDeleteConfirmation) {
+        // Show inline delete confirmation
+        Dialog(onDismissRequest = { showDeleteConfirmation = false }) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh
             ) {
-                Text(
-                    text = "Edit ${budget.category.displayName()} budget",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = { amount = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                    label = { Text("Monthly Limit") },
-                    prefix = { Text("$") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal)
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    OutlinedButton(
-                        onClick = onDelete,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        MaterialSymbolIcon(
+                            icon = MaterialSymbols.WARNING,
+                            contentDescription = null,
+                            size = 32.dp,
+                            tint = MaterialTheme.colorScheme.error
                         )
-                    ) {
-                        Text("Delete")
+                        Text(
+                            text = "Delete Budget?",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp)
+
+                    Text(
+                        text = "Are you sure you want to delete the ${budget.category.displayName()} budget?",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+
+                    Text(
+                        text = "This action cannot be undone.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text("Cancel")
+                        SparelyButton(
+                            onClick = { showDeleteConfirmation = false },
+                            modifier = Modifier.weight(1f),
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ) {
+                            Text("Cancel")
+                        }
+
+                        SparelyButton(
+                            onClick = onDelete,
+                            modifier = Modifier.weight(1f),
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        ) {
+                            Text("Delete")
+                        }
                     }
                 }
-
-                Button(
-                    onClick = {
-                        amount.toDoubleOrNull()?.let { value ->
-                            if (value > 0) {
-                                onConfirm(value)
-                            }
-                        }
-                    },
-                    enabled = amount.toDoubleOrNull()?.let { it > 0 } == true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+            }
+        }
+    } else {
+        Dialog(onDismissRequest = onDismiss) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text("Save")
+                    Text(
+                        text = "Edit ${budget.category.displayName()} budget",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    SparelyTextField(
+                        value = amount,
+                        onValueChange = { amount = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                        label = { Text("Monthly Limit") },
+                        prefix = { Text("$") },
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        SparelyButton(
+                            onClick = { showDeleteConfirmation = true },
+                            modifier = Modifier.weight(1f),
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.error
+                        ) {
+                            Text("Delete")
+                        }
+                        SparelyButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.weight(1f),
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ) {
+                            Text("Cancel")
+                        }
+                    }
+
+                    SparelyButton(
+                        onClick = {
+                            amount.toDoubleOrNull()?.let { value ->
+                                if (value > 0) {
+                                    onConfirm(value)
+                                }
+                            }
+                        },
+                        enabled = amount.toDoubleOrNull()?.let { it > 0 } == true,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Save")
+                    }
                 }
             }
         }
@@ -819,3 +1274,108 @@ private fun SuggestionConfidence.displayLabel(): String = when (this) {
 // Extension function for ExpenseCategory.displayName() - using the one from RecurringScreen.kt
 // (It's defined as a public function there, so we can use it directly)
 
+@Composable
+private fun DeleteBudgetConfirmationDialog(
+    budget: CategoryBudget,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val categoryColor = getCategoryColor(budget.category)
+    val categoryIcon = getCategoryIcon(budget.category)
+    
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.WARNING,
+                        contentDescription = null,
+                        size = 32.dp,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                    Text(
+                        text = "Delete Budget?",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Text(
+                    text = "Are you sure you want to delete the budget for '${budget.category.displayName()}'?",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+
+                Surface(
+                    color = categoryColor.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        MaterialSymbolIcon(
+                            icon = categoryIcon,
+                            contentDescription = null,
+                            size = 24.dp,
+                            tint = categoryColor
+                        )
+                        Column {
+                            Text(
+                                text = budget.category.displayName(),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Monthly limit: ${formatCurrency(budget.monthlyLimit)}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                Text(
+                    text = "This action cannot be undone. You can always create a new budget for this category later.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SparelyButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    ) {
+                        Text("Cancel")
+                    }
+
+                    SparelyButton(
+                        onClick = onConfirm,
+                        modifier = Modifier.weight(1f),
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    ) {
+                        Text("Delete")
+                    }
+                }
+            }
+        }
+    }
+}

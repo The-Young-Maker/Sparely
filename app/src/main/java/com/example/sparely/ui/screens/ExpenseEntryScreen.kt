@@ -1,6 +1,5 @@
 package com.example.sparely.ui.screens
 
-import android.app.DatePickerDialog
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,10 +22,15 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import com.example.sparely.ui.components.SparelyChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
-import androidx.compose.material3.OutlinedTextField
+import com.example.sparely.ui.components.SparelyTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,8 +49,18 @@ import com.example.sparely.domain.model.RecommendationResult
 import com.example.sparely.domain.model.SmartVault
 import com.example.sparely.domain.model.SparelySettings
 import com.example.sparely.domain.model.SavingsPercentages
+import com.example.sparely.ui.components.SparelyButton
+import com.example.sparely.ui.components.SparelyTonalButton
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.rememberDatePickerState
+import com.example.sparely.ui.utils.toSafeDatePickerMillis
+import java.time.Instant
+import java.time.ZoneOffset
+import com.example.sparely.ui.components.SparelyTextButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,6 +85,12 @@ fun ExpenseEntryScreen(
     var funPercent by remember { mutableFloatStateOf(settings.defaultPercentages.`fun`.toFloat()) }
     var errorText by remember { mutableStateOf<String?>(null) }
     var vaultDropdownExpanded by remember { mutableStateOf(false) }
+    
+    // Date Picker State
+    var showDatePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = selectedDate.toSafeDatePickerMillis()
+    )
 
     val activeVaults = remember(vaults) { vaults.filter { !it.archived } }
     val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
@@ -95,13 +115,13 @@ fun ExpenseEntryScreen(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        OutlinedTextField(
+        SparelyTextField(
             value = description,
             onValueChange = { description = it },
             label = { Text("Description") },
             modifier = Modifier.fillMaxWidth()
         )
-        OutlinedTextField(
+        SparelyTextField(
             value = amountText,
             onValueChange = { amountText = it.filter { ch -> ch.isDigit() || ch == '.' } },
             label = { Text("Amount") },
@@ -111,26 +131,44 @@ fun ExpenseEntryScreen(
         CategorySelector(selected = category, onSelect = { category = it })
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
         ) {
             Column {
                 Text("Purchase date")
                 Text(selectedDate.format(dateFormatter), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Button(onClick = {
-                DatePickerDialog(
-                    context,
-                    { _, year, month, day ->
-                        selectedDate = LocalDate.of(year, month + 1, day)
-                    },
-                    selectedDate.year,
-                    selectedDate.monthValue - 1,
-                    selectedDate.dayOfMonth
-                ).show()
-            }) {
+            SparelyTonalButton(
+                onClick = { showDatePicker = true },
+                modifier = Modifier
+            ) {
                 Text("Change")
             }
         }
+        
+        if (showDatePicker) {
+            DatePickerDialog(
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    SparelyTextButton(onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            selectedDate = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+                        }
+                        showDatePicker = false
+                    }) {
+                        Text("OK")
+                    }
+                },
+                dismissButton = {
+                    SparelyTextButton(onClick = { showDatePicker = false }) {
+                        Text("Cancel")
+                    }
+                }
+            ) {
+                DatePicker(state = datePickerState)
+            }
+        }
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
@@ -147,12 +185,22 @@ fun ExpenseEntryScreen(
         }
         if (!manualMode) {
             recommendation?.let {
-                Card {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text("Applied suggestion", style = MaterialTheme.typography.titleSmall)
+                Surface(
+                   color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                   shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                   modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Emergency ${formatPercent(it.recommendedPercentages.emergency)}, Invest ${formatPercent(it.recommendedPercentages.invest)}, Fun ${formatPercent(it.recommendedPercentages.`fun`)}",
-                            style = MaterialTheme.typography.bodySmall
+                            text = "Applied suggestion", 
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Emergency ${formatPercent(it.recommendedPercentages.emergency)}  •  Invest ${formatPercent(it.recommendedPercentages.invest)}  •  Fun ${formatPercent(it.recommendedPercentages.`fun`)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -216,7 +264,7 @@ fun ExpenseEntryScreen(
                     expanded = vaultDropdownExpanded,
                     onExpandedChange = { vaultDropdownExpanded = it }
                 ) {
-                    OutlinedTextField(
+                    SparelyTextField(
                         value = deductFromVaultId?.let { id -> 
                             activeVaults.find { it.id == id }?.name ?: "None"
                         } ?: "None",
@@ -248,24 +296,22 @@ fun ExpenseEntryScreen(
                                 vaultDropdownExpanded = false
                             }
                         )
-                        activeVaults.forEach { vault ->
-                            DropdownMenuItem(
-                                text = { 
-                                    Column {
-                                        Text(vault.name)
-                                        Text(
-                                            text = "Balance: $${String.format("%.2f", vault.currentBalance)}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                },
-                                onClick = {
-                                    deductFromVaultId = vault.id
-                                    vaultDropdownExpanded = false
-                                }
+                        for (vault in activeVaults) {
+                    DropdownMenuItem(
+                        text = { Text(vault.name) },
+                        onClick = {
+                            deductFromVaultId = vault.id
+                            vaultDropdownExpanded = false
+                        },
+                        trailingIcon = {
+                            Text(
+                                text = "$${String.format("%.2f", vault.currentBalance)}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                    )
+                }
                     }
                 }
             }
@@ -278,11 +324,11 @@ fun ExpenseEntryScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Button(onClick = {
+            SparelyButton(onClick = {
                 val amount = amountText.toDoubleOrNull()
                 if (amount == null || amount <= 0.0) {
                     errorText = "Enter a valid amount"
-                    return@Button
+                    return@SparelyButton
                 }
                 val manualPercentages = if (manualMode) {
                     SavingsPercentages(
@@ -310,7 +356,7 @@ fun ExpenseEntryScreen(
             }, modifier = Modifier.weight(1f)) {
                 Text("Save")
             }
-            Button(onClick = onCancel, modifier = Modifier.weight(1f)) {
+            SparelyTonalButton(onClick = onCancel, modifier = Modifier.weight(1f)) {
                 Text("Cancel")
             }
         }
@@ -318,6 +364,7 @@ fun ExpenseEntryScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CategorySelector(
     selected: ExpenseCategory,
@@ -327,34 +374,16 @@ private fun CategorySelector(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text("Category", style = MaterialTheme.typography.titleSmall)
-        for (rowCategories in ExpenseCategory.entries.chunked(3)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                for (category in rowCategories) {
-                    val isSelected = category == selected
-                    Card(
-                        modifier = Modifier.weight(1f),
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp)
-                                .clickable { onSelect(category) }
-                        ) {
-                            Text(category.name.lowercase().replaceFirstChar { it.uppercase() })
-                        }
-                    }
-                }
-                if (rowCategories.size < 3) {
-                    repeat(3 - rowCategories.size) {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                }
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            for (category in ExpenseCategory.entries) {
+                SparelyChip(
+                    selected = selected == category,
+                    onClick = { onSelect(category) },
+                    label = { Text(category.name.lowercase().replaceFirstChar { it.uppercase() }) }
+                )
             }
         }
     }

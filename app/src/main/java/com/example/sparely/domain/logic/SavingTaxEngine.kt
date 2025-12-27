@@ -31,7 +31,7 @@ object SavingTaxEngine {
 
         // Exclude archived vaults and vaults explicitly opted out of automatic allocations
         val eligibleVaults = context.vaults.filter { vault ->
-            !vault.archived && !vault.excludedFromAutoAllocation && (vault.targetAmount > 0.0) && (vault.targetAmount - vault.currentBalance) > 0.0
+            !vault.archived && vault.allowAutoIncome && (vault.targetAmount > 0.0) && (vault.targetAmount - vault.currentBalance) > 0.0
         }
         if (eligibleVaults.isEmpty()) return emptyList()
 
@@ -42,7 +42,7 @@ object SavingTaxEngine {
 
         val weights = DynamicAllocationEngine.calculateWeights(
             vaults = eligibleVaults,
-            globalMode = context.settings.vaultAllocationMode,
+            settings = context.settings,
             today = context.expenseDate
         )
         if (weights.isEmpty()) return emptyList()
@@ -65,21 +65,17 @@ object SavingTaxEngine {
         if (baseCents <= 0) return emptyList()
 
         // Round UP to cents for each vault contribution
-        val drafts = normalized.map { (vaultId, weight) ->
+        val results = normalized.map { (vaultId, weight) ->
             val rawCents = weight * baseCents
             val ceilCents = ceil(rawCents).toInt()
-            ContributionDraft(
-                vaultId = vaultId,
-                cents = ceilCents,
-                fractional = rawCents - ceilCents
-            )
-        }.toMutableList()
+            val amount = ceilCents / 100.0
 
-        // No need for remainder distribution since we're rounding up each contribution
-        return drafts
-            .filter { it.cents > 0 }
-            .map { PlannedContribution(it.vaultId, it.cents / 100.0) }
-            .filter { it.amount >= context.minimumContribution }
+            if (amount >= context.minimumContribution) {
+                PlannedContribution(vaultId, amount)
+            } else null
+        }.filterNotNull()
+
+        return results
     }
 
     private fun overrideMultiplier(baseRate: Double, override: Double?): Double {

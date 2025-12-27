@@ -26,6 +26,12 @@ interface ChallengeDao {
 
     @Query("DELETE FROM savings_challenges WHERE id = :id")
     suspend fun deleteChallengeById(id: Long)
+
+    @Query("DELETE FROM savings_challenges")
+    suspend fun deleteAllChallenges()
+
+    @Query("DELETE FROM challenge_milestones")
+    suspend fun deleteAllMilestones()
 }
 
 data class SavingsChallengeWithMilestones(

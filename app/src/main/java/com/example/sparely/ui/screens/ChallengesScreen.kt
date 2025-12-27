@@ -15,6 +15,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.model.*
+import com.example.sparely.ui.components.ExpressiveCard
+import com.example.sparely.ui.components.SparelyButton
+import com.example.sparely.ui.components.SparelyTextButton
+import com.example.sparely.ui.components.SingleLineText
+import androidx.compose.foundation.shape.RoundedCornerShape
 import com.example.sparely.ui.state.SparelyUiState
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.theme.MaterialSymbols
@@ -105,11 +110,10 @@ fun ChallengesScreen(
 
 @Composable
 fun ChallengeCard(challenge: SavingsChallenge) {
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(20.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(
@@ -195,7 +199,7 @@ fun ChallengeCard(challenge: SavingsChallenge) {
                     MaterialSymbolIcon(
                         icon = MaterialSymbols.LOCAL_FIRE_DEPARTMENT,
                         contentDescription = null,
-                        tint = Color(0xFFFF9800),
+                        tint = MaterialTheme.colorScheme.secondary,
                         modifier = Modifier.size(20.dp),
                         size = 20.dp
                     )
@@ -271,11 +275,10 @@ fun ChallengeCard(challenge: SavingsChallenge) {
 
 @Composable
 private fun ChallengeOverviewCard() {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-        )
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        shape = RoundedCornerShape(20.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
@@ -300,11 +303,10 @@ private fun ChallengeOverviewCard() {
 
 @Composable
 fun CompletedChallengeCard(challenge: SavingsChallenge) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF4CAF50).copy(alpha = 0.1f)
-        ),
-        border = BorderStroke(2.dp, Color(0xFF4CAF50))
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(20.dp)
     ) {
         Row(
             modifier = Modifier
@@ -317,7 +319,7 @@ fun CompletedChallengeCard(challenge: SavingsChallenge) {
                 MaterialSymbolIcon(
                     icon = MaterialSymbols.CHECK_CIRCLE,
                     contentDescription = null,
-                    tint = Color(0xFF4CAF50),
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(32.dp),
                     size = 32.dp
                 )
@@ -339,7 +341,7 @@ fun CompletedChallengeCard(challenge: SavingsChallenge) {
                 text = formatCurrency(challenge.currentAmount),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF4CAF50)
+                color = MaterialTheme.colorScheme.primary,
             )
         }
     }
@@ -347,11 +349,10 @@ fun CompletedChallengeCard(challenge: SavingsChallenge) {
 
 @Composable
 fun AchievementsSection(achievements: List<Achievement>) {
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer
-        )
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(20.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -369,7 +370,7 @@ fun AchievementsSection(achievements: List<Achievement>) {
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            achievements.forEach { achievement ->
+            for (achievement in achievements) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -395,7 +396,7 @@ fun AchievementsSection(achievements: List<Achievement>) {
                     }
                 }
                 if (achievement != achievements.last()) {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         }
@@ -404,11 +405,10 @@ fun AchievementsSection(achievements: List<Achievement>) {
 
 @Composable
 fun EmptyChallengesState(onStartChallenge: () -> Unit) {
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(20.dp)
     ) {
         Column(
             modifier = Modifier
@@ -435,10 +435,10 @@ fun EmptyChallengesState(onStartChallenge: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = onStartChallenge) {
+            SparelyButton(onClick = onStartChallenge) {
                 MaterialSymbolIcon(icon = MaterialSymbols.PLAY_ARROW, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Start Challenge")
+                SingleLineText("Start Challenge")
             }
         }
     }
@@ -491,8 +491,8 @@ fun ChallengeSelectionDialog(
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
+            SparelyTextButton(onClick = onDismiss) {
+                SingleLineText("Cancel")
             }
         }
     )
@@ -505,9 +505,11 @@ fun ChallengeOption(
     @androidx.annotation.DrawableRes icon: Int,
     onClick: () -> Unit
 ) {
-    Card(
+    Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Row(
             modifier = Modifier

@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.example.sparely.ui.components.SparelyTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -16,6 +17,9 @@ import com.example.sparely.data.local.MainAccountTransactionType
 import com.example.sparely.domain.model.MainAccountTransaction
 import java.time.format.DateTimeFormatter
 import androidx.compose.foundation.text.KeyboardOptions
+import com.example.sparely.ui.components.SparelyButton
+import com.example.sparely.ui.components.SparelyTextButton
+import com.example.sparely.ui.components.SparelyTonalButton
 import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,13 +48,10 @@ fun MainAccountScreen(
             
             // Balance Card
             item {
-                Card(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    shape = RoundedCornerShape(24.dp), // Updated to 24.dp
+                    color = MaterialTheme.colorScheme.primaryContainer,
                 ) {
                     Column(
                         modifier = Modifier
@@ -80,35 +81,30 @@ fun MainAccountScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Button(
+                    SparelyButton(
                         onClick = { showDepositDialog = true },
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp)
+                        icon = { MaterialSymbolIcon(icon = MaterialSymbols.ADD, null, modifier = Modifier.size(18.dp)) }
                     ) {
-                        MaterialSymbolIcon(icon = MaterialSymbols.ADD, null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
                         Text("Deposit")
                     }
                     
-                    OutlinedButton(
+                    SparelyTonalButton(
                         onClick = { showWithdrawDialog = true },
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp)
+                        icon = { MaterialSymbolIcon(icon = MaterialSymbols.REMOVE, null, modifier = Modifier.size(18.dp)) }
                     ) {
-                        MaterialSymbolIcon(icon = MaterialSymbols.REMOVE, null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
                         Text("Withdraw")
                     }
                 }
             }
 
             item {
-                TextButton(
+                SparelyTextButton(
                     onClick = { showAdjustDialog = true },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    icon = { MaterialSymbolIcon(icon = MaterialSymbols.EDIT, null, modifier = Modifier.size(18.dp)) }
                 ) {
-                    MaterialSymbolIcon(icon = MaterialSymbols.EDIT, null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Adjust Balance")
                 }
             }
@@ -125,28 +121,36 @@ fun MainAccountScreen(
 
             if (transactions.isEmpty()) {
                 item {
-                    Card(
+                    Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh, // Updated to surfaceContainerHigh
+                        shape = RoundedCornerShape(24.dp) // Updated to 24.dp
                     ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                .padding(48.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            MaterialSymbolIcon(icon = MaterialSymbols.RECEIPT,
-                                contentDescription = null,
-                                modifier = Modifier.size(48.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
+                             Surface(
+                                shape = RoundedCornerShape(24.dp),
+                                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f),
+                                modifier = Modifier.size(80.dp)
+                            ) {
+                                 Box(contentAlignment = Alignment.Center) {
+                                     MaterialSymbolIcon(
+                                         icon = MaterialSymbols.RECEIPT,
+                                         contentDescription = null,
+                                         tint = MaterialTheme.colorScheme.secondary,
+                                         size = 40.dp
+                                     )
+                                 }
+                            }
                             Text(
                                 text = "No transactions yet",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
@@ -201,19 +205,18 @@ fun MainAccountScreen(
 
 @Composable
 private fun TransactionItem(transaction: MainAccountTransaction) {
-    val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm") }
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM dd, HH:mm") } // Shortened date
     
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(24.dp) // Updated to 24.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(20.dp), // Increased padding
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Icon
@@ -226,17 +229,17 @@ private fun TransactionItem(transaction: MainAccountTransaction) {
             }
             
             Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = color.copy(alpha = 0.1f),
-                modifier = Modifier.size(40.dp)
+                shape = RoundedCornerShape(16.dp), // Updated shape
+                color = color.copy(alpha = 0.15f), // Slightly more opaque
+                modifier = Modifier.size(48.dp) // Larger icon container
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     MaterialSymbolIcon(
                         icon = icon,
                         contentDescription = null,
                         tint = color,
-                        modifier = Modifier.size(20.dp),
-                        size = 20.dp
+                        modifier = Modifier.size(24.dp), // Larger icon
+                        size = 24.dp
                     )
                 }
             }
@@ -247,12 +250,12 @@ private fun TransactionItem(transaction: MainAccountTransaction) {
             ) {
                 Text(
                     text = transaction.description,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium
+                    style = MaterialTheme.typography.titleMedium, // Larger title
+                    fontWeight = FontWeight.Bold
                 )
                 Text(
                     text = transaction.timestamp.format(dateFormatter),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -278,14 +281,14 @@ private fun TransactionItem(transaction: MainAccountTransaction) {
                 
                 Text(
                     text = "$sign${formatCurrency(transaction.amount)}",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium, // Larger amount
+                    fontWeight = FontWeight.ExtraBold,
                     color = amountColor
                 )
                 Text(
                     text = formatCurrency(transaction.balanceAfter),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
             }
         }
@@ -314,7 +317,7 @@ private fun TransactionDialog(
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                OutlinedTextField(
+                SparelyTextField(
                     value = amount,
                     onValueChange = { amount = it.filter { ch -> ch.isDigit() || ch == '.' } },
                     label = { Text("Amount") },
@@ -324,7 +327,7 @@ private fun TransactionDialog(
                     singleLine = true
                 )
                 
-                OutlinedTextField(
+                SparelyTextField(
                     value = description,
                     onValueChange = { description = it },
                     label = { Text("Description") },
@@ -335,7 +338,7 @@ private fun TransactionDialog(
             }
         },
         confirmButton = {
-            Button(
+            SparelyButton(
                 onClick = {
                     val amountValue = amount.toDoubleOrNull()
                     if (amountValue != null && amountValue > 0) {
@@ -348,7 +351,7 @@ private fun TransactionDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            SparelyTextButton(onClick = onDismiss) {
                 Text("Cancel")
             }
         }
@@ -381,7 +384,7 @@ private fun AdjustBalanceDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 
-                OutlinedTextField(
+                SparelyTextField(
                     value = newBalance,
                     onValueChange = { newBalance = it.filter { ch -> ch.isDigit() || ch == '.' } },
                     label = { Text("New Balance") },
@@ -391,7 +394,7 @@ private fun AdjustBalanceDialog(
                     singleLine = true
                 )
                 
-                OutlinedTextField(
+                SparelyTextField(
                     value = reason,
                     onValueChange = { reason = it },
                     label = { Text("Reason") },
@@ -402,7 +405,7 @@ private fun AdjustBalanceDialog(
             }
         },
         confirmButton = {
-            Button(
+            SparelyButton(
                 onClick = {
                     val balanceValue = newBalance.toDoubleOrNull()
                     if (balanceValue != null && balanceValue >= 0) {
@@ -415,7 +418,7 @@ private fun AdjustBalanceDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            SparelyTextButton(onClick = onDismiss) {
                 Text("Cancel")
             }
         }

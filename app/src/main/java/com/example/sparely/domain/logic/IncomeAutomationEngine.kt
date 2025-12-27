@@ -62,11 +62,13 @@ object IncomeAutomationEngine {
         rationale += "Applied save rate: ${String.format("%.1f%%", recommendedSaveRate * 100)}"
         rationale += "Saving tax skim: ${String.format("%.1f%%", recommendedSavingTaxRate * 100)}"
 
-        return Recommendation(
+        val result = Recommendation(
             saveRate = recommendedSaveRate.coerceIn(0.0, 1.0),
             savingTaxRate = recommendedSavingTaxRate.coerceIn(0.0, 1.0),
             rationale = rationale
         )
+        
+        return result
     }
 
     private fun paychecksPerMonth(schedule: PayScheduleSettings): Double {

@@ -6,17 +6,23 @@ import androidx.work.WorkerParameters
 import com.example.sparely.data.local.SparelyDatabase
 import com.example.sparely.data.local.toDomain
 import com.example.sparely.data.repository.SavingsRepository
-import com.example.sparely.domain.model.AutoDepositFrequency
-import com.example.sparely.domain.model.VaultContribution
-import com.example.sparely.domain.model.VaultContributionSource
+import com.example.sparely.domain.model.RecurringFrequency
+import com.example.sparely.domain.model.SmartVault
+import com.example.sparely.domain.model.VaultSchedule
+import com.example.sparely.domain.model.VaultScheduleType
+import com.example.sparely.domain.model.VaultTransferDirection
 import com.example.sparely.notifications.NotificationHelper
+import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.YearMonth
 import java.time.temporal.ChronoUnit
-// No additional imports required here
+import java.time.temporal.TemporalAdjusters
+import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
- * Background worker that processes scheduled auto-deposits for Smart Vaults.
- * Runs daily to check for due deposits and creates pending contributions.
+ * Background worker that evaluates advanced vault schedules and recurring expenses.
  */
 class VaultAutoDepositWorker(
     appContext: Context,
@@ -26,6 +32,7 @@ class VaultAutoDepositWorker(
     override suspend fun doWork(): Result {
         return try {
             val database = SparelyDatabase.getInstance(applicationContext)
+            val preferencesRepository = com.example.sparely.data.preferences.UserPreferencesRepository(applicationContext)
             val savingsRepository = SavingsRepository(
                 expenseDao = database.expenseDao(),
                 transferDao = database.transferDao(),
@@ -36,154 +43,76 @@ class VaultAutoDepositWorker(
                 savingsAccountDao = database.savingsAccountDao(),
                 smartVaultDao = database.smartVaultDao(),
                 mainAccountDao = database.mainAccountDao(),
-                frozenFundDao = database.frozenFundDao()
+                frozenFundDao = database.frozenFundDao(),
+                allocationHistoryDao = database.allocationHistoryDao(),
+                preferencesRepository = preferencesRepository
             )
 
-            val today = LocalDate.now()
-            val dueDeposits = findDueAutoDeposits(database, today)
+            val now = LocalDateTime.now()
+            val today = now.toLocalDate()
 
-            if (dueDeposits.isNotEmpty()) {
-                dueDeposits.forEach { deposit ->
-                    val scheduleEntity = database.smartVaultDao().getAutoDepositForVault(deposit.vaultId)
-                    val executeAutomatically = scheduleEntity?.executeAutomatically ?: false
+            val scheduleEntities = database.smartVaultDao().getEnabledSchedules()
+            val schedules = scheduleEntities.map { it.toDomain() }
 
-                    if (executeAutomatically) {
-                        // Execute immediately: log contribution as reconciled and insert a main account transaction
-                        val contribution = VaultContribution(
-                            vaultId = deposit.vaultId,
-                            amount = deposit.amount,
-                            date = today,
-                            source = VaultContributionSource.AUTO_DEPOSIT,
-                            note = "Auto deposit - ${deposit.frequency.displayName}",
-                            reconciled = true
-                        )
-                        savingsRepository.logVaultContribution(contribution)
-                        // Record last execution and update vault balance
-                        savingsRepository.recordAutoDepositExecution(deposit.vaultId, deposit.amount, today)
+            var executedCount = 0
+            var executedTotal = 0.0
 
-                        // Insert a corresponding main account transaction decrementing balance
-                        val currentBalance = savingsRepository.getLatestMainAccountBalance()
-                        val vaultTransaction = com.example.sparely.domain.model.MainAccountTransaction(
-                            type = com.example.sparely.data.local.MainAccountTransactionType.VAULT_CONTRIBUTION,
-                            amount = deposit.amount,
-                            balanceAfter = (currentBalance - deposit.amount).coerceAtLeast(0.0),
-                            timestamp = java.time.LocalDateTime.now(),
-                            description = "Auto deposit to vault ${deposit.vaultId}",
-                            relatedExpenseId = null,
-                            relatedVaultContributionIds = listOf() // will be empty; mapping stored elsewhere
+            schedules.forEach { schedule ->
+                if (!isScheduleDue(schedule, today, now)) return@forEach
+
+                val vault = savingsRepository.getSmartVaultById(schedule.vaultId)
+                val amount = computeTransferAmount(schedule, savingsRepository, vault)
+                if (amount <= 0.0) return@forEach
+
+                val vaultName = vault?.name ?: "Vault ${schedule.vaultId}"
+                val note = buildTransferNote(schedule, amount, vaultName)
+
+                if (schedule.notifyBefore) {
+                    NotificationHelper.showVaultScheduleNotificationBefore(
+                        context = applicationContext,
+                        vaultName = vaultName,
+                        amount = amount,
+                        schedule = schedule
+                    )
+                }
+
+                val executed = savingsRepository.executeVaultTransfer(schedule, amount, now, note)
+                if (executed) {
+                    executedCount += 1
+                    executedTotal += amount
+
+                    val nextRun = computeNextRun(schedule, today)
+                    savingsRepository.recordScheduleExecution(schedule.id, schedule.vaultId, amount, now, nextRun)
+
+                    if (schedule.notifyAfter) {
+                        NotificationHelper.showVaultScheduleNotificationAfter(
+                            context = applicationContext,
+                            vaultName = vaultName,
+                            amount = amount,
+                            schedule = schedule
                         )
-                        savingsRepository.insertMainAccountTransaction(vaultTransaction)
-                    } else {
-                        // Create pending contribution (not reconciled) and freeze funds logically by inserting a pending main transaction
-                        val contribution = VaultContribution(
-                            vaultId = deposit.vaultId,
-                            amount = deposit.amount,
-                            date = today,
-                            source = VaultContributionSource.AUTO_DEPOSIT,
-                            note = "Auto deposit - ${deposit.frequency.displayName}",
-                            reconciled = false
-                        )
-                        val contributionId = savingsRepository.logVaultContribution(contribution)
-                        // Update last execution date so we don't recreate repeatedly
-                        savingsRepository.recordAutoDepositExecution(deposit.vaultId, deposit.amount, today)
-                        // Mark funds as frozen (do not remove from canonical main account balance yet)
-                        savingsRepository.insertFrozenFund(
-                            pendingType = "VAULT_CONTRIBUTION",
-                            pendingId = contributionId,
-                            amount = contribution.amount,
-                            description = "Pending auto-deposit for vault ${deposit.vaultId}"
+                    }
+                } else {
+                    if (schedule.notifyOnFailure) {
+                        NotificationHelper.showVaultScheduleNotificationFailure(
+                            context = applicationContext,
+                            vaultName = vaultName,
+                            amount = amount,
+                            schedule = schedule
                         )
                     }
                 }
+            }
 
-                // Show notification to user
-                NotificationHelper.showAutoDepositReminder(
+            if (executedCount > 0) {
+                NotificationHelper.showVaultScheduleSummary(
                     applicationContext,
-                    dueDeposits.size,
-                    dueDeposits.sumOf { it.amount }
+                    executedCount,
+                    executedTotal
                 )
             }
 
-            // Process recurring expenses due today
-            val recurringEntities = database.recurringExpenseDao().getAll()
-            val dueRecurring = recurringEntities.mapNotNull { entity ->
-                if (!entity.isActive) return@mapNotNull null
-                val last = entity.lastProcessedDate ?: entity.startDate.minusDays(1)
-                val daysSince = ChronoUnit.DAYS.between(last, today)
-                val isDue = when (entity.frequency) {
-                    com.example.sparely.domain.model.RecurringFrequency.DAILY -> daysSince >= 1
-                    com.example.sparely.domain.model.RecurringFrequency.WEEKLY -> daysSince >= 7
-                    com.example.sparely.domain.model.RecurringFrequency.BIWEEKLY -> daysSince >= 14
-                    com.example.sparely.domain.model.RecurringFrequency.MONTHLY -> {
-                        val lastMonth = last.monthValue
-                        val currentMonth = today.monthValue
-                        val lastYear = last.year
-                        val currentYear = today.year
-                        (currentYear > lastYear) || (currentYear == lastYear && currentMonth > lastMonth)
-                    }
-                    com.example.sparely.domain.model.RecurringFrequency.QUARTERLY -> daysSince >= 90
-                    com.example.sparely.domain.model.RecurringFrequency.YEARLY -> daysSince >= 365
-                }
-                if (isDue) entity else null
-            }
-
-            if (dueRecurring.isNotEmpty()) {
-                dueRecurring.forEach { re ->
-                    val executeAuto = re.executeAutomatically
-                    if (executeAuto) {
-                        // Create expense immediately. ExpenseEntity requires many fields; fill defaults where not available from recurring entry.
-                        val expenseEntity = com.example.sparely.data.local.ExpenseEntity(
-                            id = 0L,
-                            description = re.description,
-                            amount = re.amount,
-                            category = re.category,
-                            date = today,
-                            includesTax = re.includesTax,
-                            emergencyAmount = 0.0,
-                            investmentAmount = 0.0,
-                            funAmount = 0.0,
-                            safeInvestmentAmount = 0.0,
-                            highRiskInvestmentAmount = 0.0,
-                            autoRecommended = false,
-                            appliedPercentEmergency = 0.0,
-                            appliedPercentInvest = 0.0,
-                            appliedPercentFun = 0.0,
-                            appliedSafeSplit = 0.5,
-                            riskLevelUsed = com.example.sparely.domain.model.RiskLevel.BALANCED,
-                            deductedFromVaultId = re.deductedFromVaultId
-                        )
-                        savingsRepository.upsertExpense(expenseEntity)
-
-                        // insert main account transaction to reflect deduction
-                        val currentBalance = savingsRepository.getLatestMainAccountBalance()
-                        val trans = com.example.sparely.domain.model.MainAccountTransaction(
-                            type = com.example.sparely.data.local.MainAccountTransactionType.EXPENSE,
-                            amount = re.amount,
-                            balanceAfter = (currentBalance - re.amount).coerceAtLeast(0.0),
-                            timestamp = java.time.LocalDateTime.now(),
-                            description = "Auto-logged recurring expense: ${re.description}",
-                            relatedExpenseId = null,
-                            relatedVaultContributionIds = listOf()
-                        )
-                        savingsRepository.insertMainAccountTransaction(trans)
-                        // mark processed
-                        savingsRepository.updateRecurringExpenseProcessed(re.id, today)
-                    } else {
-                        // Create a logical freeze by inserting a main account transaction that reduces the available balance.
-                        val currentBalance = savingsRepository.getLatestMainAccountBalance()
-                        // Mark funds as frozen for this pending recurring payment
-                        val pendingExpenseId = 0L // no expense row created yet; use recurring id as reference
-                        savingsRepository.insertFrozenFund(
-                            pendingType = "RECURRING_PAYMENT",
-                            pendingId = re.id,
-                            amount = re.amount,
-                            description = "Pending recurring payment: ${re.description}"
-                        )
-                        // mark processed so it doesn't create repeatedly; reconciliation/approval flows can be added later
-                        savingsRepository.updateRecurringExpenseProcessed(re.id, today)
-                    }
-                }
-            }
+            processRecurringExpenses(database, savingsRepository, today)
 
             Result.success()
         } catch (e: Exception) {
@@ -192,65 +121,197 @@ class VaultAutoDepositWorker(
         }
     }
 
-    private suspend fun findDueAutoDeposits(
+    private suspend fun processRecurringExpenses(
         database: SparelyDatabase,
+        repository: SavingsRepository,
         today: LocalDate
-    ): List<DueDeposit> {
-        val dao = database.smartVaultDao()
-        val allVaultsWithSchedules = dao.observeActiveVaults()
-        
-        // Since we're in a suspend function, we need to get the current value
-        // In a real scenario, you'd query directly from DAO
-        val activeSchedules = database.smartVaultDao().getActiveAutoDepositSchedules()
-        
-        return activeSchedules.mapNotNull { scheduleEntity ->
-            val schedule = scheduleEntity.toDomain()
-            
-            // Check if schedule is active and not ended
-            if (!scheduleEntity.active) return@mapNotNull null
-            if (schedule.endDate != null && !today.isBefore(schedule.endDate)) return@mapNotNull null
-            if (today.isBefore(schedule.startDate)) return@mapNotNull null
-            
-            // Check if deposit is due
-            val lastExecution = schedule.lastExecutionDate ?: schedule.startDate.minusDays(1)
-            val daysSinceLastExecution = ChronoUnit.DAYS.between(lastExecution, today)
-            
-            val isDue = when (schedule.frequency) {
-                AutoDepositFrequency.WEEKLY -> daysSinceLastExecution >= 7
-                AutoDepositFrequency.BIWEEKLY -> daysSinceLastExecution >= 14
-                AutoDepositFrequency.MONTHLY -> {
-                    // Check if we're in a new month since last execution
-                    val lastMonth = lastExecution.monthValue
+    ) {
+        val recurringEntities = database.recurringExpenseDao().getAll()
+        val dueRecurring = recurringEntities.mapNotNull { entity ->
+            if (!entity.isActive) return@mapNotNull null
+            val last = entity.lastProcessedDate ?: entity.startDate.minusDays(1)
+            val daysSince = ChronoUnit.DAYS.between(last, today)
+            val isDue = when (entity.frequency) {
+                RecurringFrequency.DAILY -> daysSince >= 1
+                RecurringFrequency.WEEKLY -> daysSince >= 7
+                RecurringFrequency.BIWEEKLY -> daysSince >= 14
+                RecurringFrequency.MONTHLY -> {
+                    // Check if at least one month has passed
+                    val lastMonth = last.monthValue
                     val currentMonth = today.monthValue
-                    val lastYear = lastExecution.year
+                    val lastYear = last.year
                     val currentYear = today.year
-                    
                     (currentYear > lastYear) || (currentYear == lastYear && currentMonth > lastMonth)
                 }
+                RecurringFrequency.QUARTERLY -> {
+                    // Check if at least 3 months have passed
+                    val monthsDiff = (today.year - last.year) * 12 + (today.monthValue - last.monthValue)
+                    monthsDiff >= 3
+                }
+                RecurringFrequency.YEARLY -> {
+                    // Check if at least one year has passed
+                    today.year > last.year
+                }
             }
-            
-            if (isDue) {
-                DueDeposit(
-                    vaultId = scheduleEntity.vaultId,
-                    amount = schedule.amount,
-                    frequency = schedule.frequency
+            if (isDue) entity else null
+        }
+
+        if (dueRecurring.isEmpty()) return
+
+        dueRecurring.forEach { re ->
+            val executeAuto = re.executeAutomatically
+            if (executeAuto) {
+                val expenseEntity = com.example.sparely.data.local.ExpenseEntity(
+                    id = 0L,
+                    description = re.description,
+                    amount = re.amount,
+                    category = re.category,
+                    date = today,
+                    includesTax = re.includesTax,
+                    emergencyAmount = 0.0,
+                    investmentAmount = 0.0,
+                    funAmount = 0.0,
+                    safeInvestmentAmount = 0.0,
+                    highRiskInvestmentAmount = 0.0,
+                    autoRecommended = false,
+                    appliedPercentEmergency = 0.0,
+                    appliedPercentInvest = 0.0,
+                    appliedPercentFun = 0.0,
+                    appliedSafeSplit = 0.5,
+                    riskLevelUsed = com.example.sparely.domain.model.RiskLevel.BALANCED,
+                    deductedFromVaultId = re.deductedFromVaultId
                 )
+                repository.upsertExpense(expenseEntity)
+
+                val currentBalance = repository.getLatestMainAccountBalance()
+                val trans = com.example.sparely.domain.model.MainAccountTransaction(
+                    type = com.example.sparely.data.local.MainAccountTransactionType.EXPENSE,
+                    amount = re.amount,
+                    balanceAfter = (currentBalance - re.amount).coerceAtLeast(0.0),
+                    timestamp = LocalDateTime.now(),
+                    description = "Auto-logged recurring expense: ${re.description}",
+                    relatedExpenseId = null,
+                    relatedVaultContributionIds = listOf()
+                )
+                repository.insertMainAccountTransaction(trans)
+                repository.updateRecurringExpenseProcessed(re.id, today)
             } else {
-                null
+                repository.insertFrozenFund(
+                    pendingType = "RECURRING_PAYMENT",
+                    pendingId = re.id,
+                    amount = re.amount,
+                    description = "Pending recurring payment: ${re.description}"
+                )
+                repository.updateRecurringExpenseProcessed(re.id, today)
             }
         }
     }
 
-    private data class DueDeposit(
-        val vaultId: Long,
-        val amount: Double,
-        val frequency: AutoDepositFrequency
-    )
-}
+    private fun isScheduleDue(schedule: VaultSchedule, today: LocalDate, now: LocalDateTime): Boolean {
+        if (!schedule.enabled) return false
+        val lastRunDate = schedule.lastRunAt?.toLocalDate()
+        if (lastRunDate != null && lastRunDate == today) return false
 
-private val AutoDepositFrequency.displayName: String
-    get() = when (this) {
-        AutoDepositFrequency.WEEKLY -> "Weekly"
-        AutoDepositFrequency.BIWEEKLY -> "Bi-weekly"
-        AutoDepositFrequency.MONTHLY -> "Monthly"
+        schedule.nextRunAt?.let { nextRun ->
+            return !nextRun.isAfter(now)
+        }
+
+        return when (schedule.type) {
+            VaultScheduleType.SPECIFIC_DATE -> {
+                val target = schedule.dateValue ?: return false
+                if (!schedule.repeatAnnually) {
+                    target == today && lastRunDate == null
+                } else {
+                    val candidate = adjustDateForYear(target, today.year)
+                    val matchesToday = candidate == today
+                    matchesToday && (lastRunDate == null || lastRunDate.year < today.year)
+                }
+            }
+            VaultScheduleType.DAY_OF_MONTH -> {
+                val desiredDay = schedule.dayOfMonth ?: today.dayOfMonth
+                val monthLength = YearMonth.from(today).lengthOfMonth()
+                val actualDay = min(desiredDay, monthLength)
+                if (today.dayOfMonth != actualDay) return false
+                if (lastRunDate == null) return true
+                lastRunDate.year != today.year || lastRunDate.monthValue != today.monthValue
+            }
+            VaultScheduleType.DAY_OF_WEEK -> {
+                val desired = schedule.dayOfWeek ?: today.dayOfWeek.value
+                val desiredDow = DayOfWeek.of(((desired - 1) % 7) + 1)
+                if (today.dayOfWeek != desiredDow) return false
+                val interval = schedule.weekInterval?.takeIf { it > 0 } ?: 1
+                if (lastRunDate == null) return true
+                val weeksSince = ChronoUnit.WEEKS.between(lastRunDate, today)
+                weeksSince >= interval
+            }
+        }
     }
+
+    private fun computeNextRun(schedule: VaultSchedule, runDate: LocalDate): LocalDateTime? {
+        return when (schedule.type) {
+            VaultScheduleType.SPECIFIC_DATE -> {
+                if (!schedule.repeatAnnually) return null
+                val base = schedule.dateValue ?: return null
+                val nextYearCandidate = adjustDateForYear(base, runDate.year)
+                val nextDate = if (nextYearCandidate.isAfter(runDate)) {
+                    nextYearCandidate
+                } else {
+                    adjustDateForYear(base, runDate.year + 1)
+                }
+                nextDate.atStartOfDay()
+            }
+            VaultScheduleType.DAY_OF_MONTH -> {
+                val desiredDay = schedule.dayOfMonth ?: runDate.dayOfMonth
+                val nextMonth = YearMonth.from(runDate).plusMonths(1)
+                val day = min(desiredDay, nextMonth.lengthOfMonth())
+                LocalDate.of(nextMonth.year, nextMonth.month, day).atStartOfDay()
+            }
+            VaultScheduleType.DAY_OF_WEEK -> {
+                val interval = schedule.weekInterval?.takeIf { it > 0 } ?: 1
+                val desired = schedule.dayOfWeek ?: runDate.dayOfWeek.value
+                val desiredDow = DayOfWeek.of(((desired - 1) % 7) + 1)
+                val nextBase = runDate.plusWeeks(interval.toLong())
+                val nextDate = nextBase.with(TemporalAdjusters.nextOrSame(desiredDow))
+                nextDate.atStartOfDay()
+            }
+        }
+    }
+
+    private fun adjustDateForYear(base: LocalDate, year: Int): LocalDate {
+        val yearMonth = YearMonth.of(year, base.monthValue)
+        val day = min(base.dayOfMonth, yearMonth.lengthOfMonth())
+        return LocalDate.of(year, base.monthValue, day)
+    }
+
+    private suspend fun computeTransferAmount(
+        schedule: VaultSchedule,
+        repository: SavingsRepository,
+        vault: SmartVault?
+    ): Double {
+        schedule.amount?.takeIf { it > 0.0 }?.let { return it.roundCurrency() }
+
+        val percent = schedule.percentage ?: return 0.0
+        val base = when (schedule.direction) {
+            VaultTransferDirection.MAIN_TO_VAULT -> repository.getLatestMainAccountBalance()
+            VaultTransferDirection.VAULT_TO_MAIN -> vault?.currentBalance ?: 0.0
+        }
+        if (base <= 0.0) return 0.0
+        return (base * percent).roundCurrency()
+    }
+
+    private fun Double.roundCurrency(): Double = (this * 100.0).roundToInt() / 100.0
+
+    private fun buildTransferNote(schedule: VaultSchedule, amount: Double, vaultName: String): String {
+        val formattedAmount = NotificationHelper.formatAmount(amount)
+        val descriptor = when (schedule.type) {
+            VaultScheduleType.SPECIFIC_DATE -> "specific date"
+            VaultScheduleType.DAY_OF_MONTH -> "day-of-month"
+            VaultScheduleType.DAY_OF_WEEK -> "weekly"
+        }
+        val direction = when (schedule.direction) {
+            VaultTransferDirection.MAIN_TO_VAULT -> "to"
+            VaultTransferDirection.VAULT_TO_MAIN -> "from"
+        }
+        return "Scheduled $descriptor transfer $direction $vaultName ($formattedAmount)"
+    }
+}

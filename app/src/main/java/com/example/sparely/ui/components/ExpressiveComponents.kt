@@ -20,24 +20,41 @@ import com.example.sparely.ui.theme.ExpressiveShapes
 @Composable
 fun ExpressiveCard(
     modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
     contentColor: Color = contentColorFor(containerColor),
     shape: Shape = ExpressiveShapes.large,
     tonalElevation: Dp = 6.dp,
-    shadowElevation: Dp = 1.dp,
+    shadowElevation: Dp = 0.dp,
     contentPadding: Dp = 20.dp,
     content: @Composable () -> Unit
 ) {
-    Surface(
-        modifier = modifier,
-        shape = shape,
-        color = containerColor,
-        contentColor = contentColor,
-        tonalElevation = tonalElevation,
-        shadowElevation = shadowElevation
-    ) {
-        Box(modifier = Modifier.padding(contentPadding)) {
-            content()
+    if (onClick != null) {
+        Surface(
+            onClick = onClick,
+            modifier = modifier,
+            shape = shape,
+            color = containerColor,
+            contentColor = contentColor,
+            tonalElevation = tonalElevation,
+            shadowElevation = shadowElevation
+        ) {
+            Box(modifier = Modifier.padding(contentPadding)) {
+                content()
+            }
+        }
+    } else {
+        Surface(
+            modifier = modifier,
+            shape = shape,
+            color = containerColor,
+            contentColor = contentColor,
+            tonalElevation = tonalElevation,
+            shadowElevation = shadowElevation
+        ) {
+            Box(modifier = Modifier.padding(contentPadding)) {
+                content()
+            }
         }
     }
 }

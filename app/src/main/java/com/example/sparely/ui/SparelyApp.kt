@@ -23,6 +23,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.rememberDatePickerState
+import com.example.sparely.ui.utils.toSafeDatePickerMillis
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import java.time.LocalDate
@@ -112,10 +113,18 @@ fun SparelyApp(
         }
     }
 
+    val context = LocalContext.current
+
     if (!uiState.onboardingCompleted) {
         OnboardingScreen(
             onComplete = { profile -> viewModel.completeOnboarding(profile) },
-            onSkip = viewModel::skipOnboarding
+            onImportData = { uri ->
+                viewModel.importData(uri, context) {
+                    // Success callback
+                }
+            },
+            onSkip = viewModel::skipOnboarding,
+            snackbarHostState = snackbarHostState
         )
     } else {
         SparelyScaffold(
@@ -144,7 +153,9 @@ private fun SparelyScaffold(
         modifier = Modifier.fillMaxSize(),
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
-            SparelyTopBar(currentDestination, navController)
+            if (currentDestination?.route != SparelyDestination.Dashboard.route) {
+                SparelyTopBar(currentDestination, navController)
+            }
         },
         bottomBar = {
             SparelyBottomBar(
@@ -270,7 +281,7 @@ private fun SparelyScaffold(
                     )
 
                     if (showDatePicker.value) {
-                        val initialMillis = manualDate.value.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                        val initialMillis = manualDate.value.toSafeDatePickerMillis()
                         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
                         DatePickerDialog(
                             onDismissRequest = { showDatePicker.value = false },
@@ -355,38 +366,33 @@ private fun SparelyBottomBar(
     currentDestination: NavDestination?,
     navController: NavHostController
 ) {
-    NavigationBar {
-        bottomBarDestinations.forEach { destination ->
+    NavigationBar(
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 8.dp
+    ) {
+        for (destination in bottomBarDestinations) {
             val selected = currentDestination?.hierarchy?.any { it.route == destination.route } == true
             NavigationBarItem(
                 selected = selected,
                 onClick = {
-                    val targetRoute = destination.route
-                    if (selected) {
-                        navController.popBackStack(targetRoute, inclusive = false)
-                    } else {
-                        navController.navigate(targetRoute) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
+                    navController.navigate(destination.route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
                         }
+                        launchSingleTop = true
+                        restoreState = true
                     }
                 },
                 icon = {
-                    val labelLocalized = destination.labelRes?.let { stringResource(it) } ?: ""
-                    if (destination.iconDrawable != null) {
+                    val icon = destination.iconDrawable
+                    if (icon != null) {
                         MaterialSymbolIcon(
-                            icon = destination.iconDrawable,
-                            contentDescription = labelLocalized,
-                            size = 24.dp
+                            icon = icon,
+                            contentDescription = destination.labelRes?.let { stringResource(it) } ?: ""
                         )
-                    } else if (destination.icon != null) {
-                        Icon(imageVector = destination.icon, contentDescription = labelLocalized)
                     }
                 },
-                label = { Text(destination.labelRes?.let { stringResource(it) } ?: "" ) }
+                label = { Text(destination.labelRes?.let { stringResource(it) } ?: "") }
             )
         }
     }
@@ -399,6 +405,7 @@ private fun SparelyNavHost(
     viewModel: SparelyViewModel,
     uiState: com.example.sparely.ui.state.SparelyUiState
 ) {
+    val context = LocalContext.current
     NavHost(
         navController = navController,
         startDestination = SparelyDestination.Dashboard.route,
@@ -433,15 +440,18 @@ private fun SparelyNavHost(
         composable(SparelyDestination.Vaults.route) {
             VaultManagementScreen(
                 vaults = uiState.smartVaults,
+                monthlyIncome = uiState.settings.monthlyIncome, // Ensure this is checked or passed if distinct
+                recentMonthlyExpenses = uiState.analytics.totalSpent, // Or consistent source
+                savingsRate = uiState.smartSavingSummary?.actualSavingsRate ?: 0.0,
                 onAddVault = viewModel::addSmartVault,
                 onUpdateVault = viewModel::updateSmartVault,
                 onDeleteVault = viewModel::deleteSmartVault,
                 onNavigateBack = { navController.popBackStack() },
-                onManualDeposit = { vaultId, amount, reason ->
-                    viewModel.depositToVault(vaultId, amount, reason)
+                onManualDeposit = { vaultId, amount, reason, adjustMainAccount ->
+                    viewModel.depositToVault(vaultId, amount, reason, adjustMainAccount)
                 },
-                onManualWithdrawal = { vaultId, amount, reason ->
-                    viewModel.deductFromVault(vaultId, amount, reason)
+                onManualWithdrawal = { vaultId, amount, reason, creditMainAccount ->
+                    viewModel.deductFromVault(vaultId, amount, reason, creditMainAccount)
                 },
                 onViewHistory = { vaultId ->
                     viewModel.loadVaultAdjustmentHistory(vaultId)
@@ -516,7 +526,8 @@ private fun SparelyNavHost(
                 autoDepositsEnabled = uiState.settings.paySchedule.autoDistributeToVaults,
                 autoDepositCheckHour = uiState.autoDepositCheckHour,
                 onRegionalSettingsChange = viewModel::updateRegionalSettings,
-                onMainAccountBalanceChange = viewModel::updateMainAccountBalance
+                onMainAccountBalanceChange = viewModel::updateMainAccountBalance,
+                onExportData = { uri -> viewModel.exportData(uri, context) }
             )
         }
         composable(SparelyDestination.ExpenseEntry.route) {

@@ -17,14 +17,14 @@ import androidx.room.TypeConverters
         AchievementEntity::class,
         SavingsAccountEntity::class,
         SmartVaultEntity::class,
-        VaultAutoDepositEntity::class,
+        VaultScheduleEntity::class,
         VaultContributionEntity::class,
         VaultBalanceAdjustmentEntity::class,
         FrozenFundEntity::class,
         AllocationHistoryEntity::class,
         MainAccountTransactionEntity::class
     ],
-    version = 13,
+    version = 15,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -69,7 +69,9 @@ abstract class SparelyDatabase : RoomDatabase() {
                     MIGRATION_9_12,
                     MIGRATION_10_12,
                     MIGRATION_11_12,
-                    MIGRATION_12_13
+                    MIGRATION_12_13,
+                    MIGRATION_13_14,
+                    MIGRATION_14_15
                 )
                 .build()
         }
@@ -298,6 +300,154 @@ abstract class SparelyDatabase : RoomDatabase() {
                 database.execSQL("ALTER TABLE vault_auto_deposits ADD COLUMN dayOfWeek INTEGER")
                 database.execSQL("ALTER TABLE vault_auto_deposits ADD COLUMN customIntervalDays INTEGER")
                 database.execSQL("ALTER TABLE vault_auto_deposits ADD COLUMN nextRunAt INTEGER")
+            }
+        }
+
+        val MIGRATION_13_14 = object : androidx.room.migration.Migration(13, 14) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                fun hasColumn(tableName: String, columnName: String): Boolean {
+                    val cursor = database.query("PRAGMA table_info($tableName)")
+                    cursor.use { c ->
+                        val nameIndex = c.getColumnIndex("name")
+                        while (c.moveToNext()) {
+                            if (c.getString(nameIndex) == columnName) return true
+                        }
+                    }
+                    return false
+                }
+
+                val hadExcludedColumn = hasColumn("smart_vaults", "excludedFromAutoAllocation")
+
+                if (hasColumn("smart_vaults", "allow_auto_income").not()) {
+                    database.execSQL("ALTER TABLE smart_vaults ADD COLUMN allow_auto_income INTEGER NOT NULL DEFAULT 1")
+                }
+                if (hadExcludedColumn) {
+                    database.execSQL(
+                        "UPDATE smart_vaults SET allow_auto_income = CASE WHEN excludedFromAutoAllocation = 1 THEN 0 ELSE 1 END"
+                    )
+                }
+                if (hasColumn("smart_vaults", "default_manual_deposit_deduct_main").not()) {
+                    database.execSQL("ALTER TABLE smart_vaults ADD COLUMN default_manual_deposit_deduct_main INTEGER NOT NULL DEFAULT 1")
+                }
+                if (hasColumn("smart_vaults", "default_manual_withdraw_add_main").not()) {
+                    database.execSQL("ALTER TABLE smart_vaults ADD COLUMN default_manual_withdraw_add_main INTEGER NOT NULL DEFAULT 1")
+                }
+
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS smart_vaults_new (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "name TEXT NOT NULL, " +
+                        "targetAmount REAL NOT NULL, " +
+                        "currentBalance REAL NOT NULL, " +
+                        "targetDate INTEGER, " +
+                        "startDate INTEGER, " +
+                        "endDate INTEGER, " +
+                        "monthlyNeed REAL, " +
+                        "priorityWeight REAL NOT NULL, " +
+                        "autoSaveEnabled INTEGER NOT NULL, " +
+                        "allow_auto_income INTEGER NOT NULL DEFAULT 1, " +
+                        "priority TEXT NOT NULL, " +
+                        "type TEXT NOT NULL, " +
+                        "interestRate REAL, " +
+                        "allocationMode TEXT NOT NULL, " +
+                        "manualAllocationPercent REAL, " +
+                        "nextExpectedContribution REAL, " +
+                        "lastContributionDate INTEGER, " +
+                        "savingTaxRateOverride REAL, " +
+                        "archived INTEGER NOT NULL, " +
+                        "accountType TEXT, " +
+                        "accountNumber TEXT, " +
+                        "accountNotes TEXT, " +
+                        "createdAt INTEGER NOT NULL, " +
+                        "default_manual_deposit_deduct_main INTEGER NOT NULL DEFAULT 1, " +
+                        "default_manual_withdraw_add_main INTEGER NOT NULL DEFAULT 1" +
+                        ")"
+                )
+
+                database.execSQL(
+                    "INSERT INTO smart_vaults_new (" +
+                        "id, name, targetAmount, currentBalance, targetDate, startDate, endDate, monthlyNeed, priorityWeight, autoSaveEnabled, " +
+                        "allow_auto_income, priority, type, interestRate, allocationMode, manualAllocationPercent, nextExpectedContribution, " +
+                        "lastContributionDate, savingTaxRateOverride, archived, accountType, accountNumber, accountNotes, createdAt, " +
+                        "default_manual_deposit_deduct_main, default_manual_withdraw_add_main" +
+                        ") " +
+                        "SELECT " +
+                        "id, name, targetAmount, currentBalance, targetDate, startDate, endDate, monthlyNeed, priorityWeight, autoSaveEnabled, " +
+                        "COALESCE(allow_auto_income, 1), priority, type, interestRate, allocationMode, manualAllocationPercent, nextExpectedContribution, " +
+                        "lastContributionDate, savingTaxRateOverride, archived, accountType, accountNumber, accountNotes, " +
+                        "COALESCE(createdAt, CAST(strftime('%s','now') / 86400 AS INTEGER)), " +
+                        "COALESCE(default_manual_deposit_deduct_main, 1), COALESCE(default_manual_withdraw_add_main, 1) " +
+                        "FROM smart_vaults"
+                )
+
+                database.execSQL("PRAGMA foreign_keys=OFF")
+                database.execSQL("DROP TABLE smart_vaults")
+                database.execSQL("ALTER TABLE smart_vaults_new RENAME TO smart_vaults")
+                database.execSQL("PRAGMA foreign_keys=ON")
+
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS vault_schedules (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "vaultId INTEGER NOT NULL, " +
+                        "type TEXT NOT NULL, " +
+                        "amount REAL, " +
+                        "percentage REAL, " +
+                        "direction TEXT NOT NULL, " +
+                        "dateValue INTEGER, " +
+                        "repeatAnnually INTEGER NOT NULL DEFAULT 0, " +
+                        "dayOfMonth INTEGER, " +
+                        "dayOfWeek INTEGER, " +
+                        "weekInterval INTEGER, " +
+                        "onlyIfBalanceAvailable INTEGER NOT NULL DEFAULT 1, " +
+                        "notifyBefore INTEGER NOT NULL DEFAULT 0, " +
+                        "notifyAfter INTEGER NOT NULL DEFAULT 0, " +
+                        "notifyOnFailure INTEGER NOT NULL DEFAULT 1, " +
+                        "nextRunAt INTEGER, " +
+                        "lastRunAt INTEGER, " +
+                        "enabled INTEGER NOT NULL DEFAULT 1, " +
+                        "createdAt INTEGER NOT NULL, " +
+                        "updatedAt INTEGER NOT NULL, " +
+                        "FOREIGN KEY(vaultId) REFERENCES smart_vaults(id) ON DELETE CASCADE)"
+                )
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_vault_schedules_vaultId ON vault_schedules(vaultId)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_vault_schedules_enabled ON vault_schedules(enabled)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_vault_schedules_nextRunAt ON vault_schedules(nextRunAt)")
+
+                val nowMillis = System.currentTimeMillis()
+                database.execSQL(
+                    "INSERT INTO vault_schedules (" +
+                        "vaultId, type, amount, percentage, direction, dateValue, repeatAnnually, dayOfMonth, dayOfWeek, weekInterval, onlyIfBalanceAvailable, notifyBefore, notifyAfter, notifyOnFailure, nextRunAt, lastRunAt, enabled, createdAt, updatedAt" +
+                        ") " +
+                        "SELECT " +
+                        "vaultId, " +
+                        "CASE frequency WHEN 'WEEKLY' THEN 'DAY_OF_WEEK' WHEN 'BIWEEKLY' THEN 'DAY_OF_WEEK' ELSE 'DAY_OF_MONTH' END AS type, " +
+                        "amount, " +
+                        "NULL AS percentage, " +
+                        "'MAIN_TO_VAULT' AS direction, " +
+                        "NULL AS dateValue, " +
+                        "0 AS repeatAnnually, " +
+                        "CASE WHEN frequency = 'MONTHLY' THEN COALESCE(dayOfMonth, (startDate % 30) + 1) ELSE NULL END AS dayOfMonth, " +
+                        "CASE WHEN frequency IN ('WEEKLY','BIWEEKLY') THEN COALESCE(dayOfWeek, ((startDate + 4) % 7) + 1) ELSE NULL END AS dayOfWeek, " +
+                        "CASE WHEN frequency = 'BIWEEKLY' THEN 2 ELSE 1 END AS weekInterval, " +
+                        "1 AS onlyIfBalanceAvailable, " +
+                        "0 AS notifyBefore, " +
+                        "0 AS notifyAfter, " +
+                        "1 AS notifyOnFailure, " +
+                        "CASE WHEN nextRunAt IS NOT NULL THEN nextRunAt * 86400 ELSE NULL END AS nextRunAt, " +
+                        "CASE WHEN lastExecutionDate IS NOT NULL THEN lastExecutionDate * 86400 ELSE NULL END AS lastRunAt, " +
+                        "active, " +
+                        "CASE WHEN startDate IS NOT NULL THEN startDate * 86400000 ELSE $nowMillis END AS createdAt, " +
+                        "CASE WHEN startDate IS NOT NULL THEN startDate * 86400000 ELSE $nowMillis END AS updatedAt " +
+                        "FROM vault_auto_deposits"
+                )
+
+                database.execSQL("DROP TABLE IF EXISTS vault_auto_deposits")
+            }
+        }
+
+        val MIGRATION_14_15 = object : androidx.room.migration.Migration(14, 15) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE smart_vaults ADD COLUMN iconName TEXT")
             }
         }
     }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import com.example.sparely.ui.components.ExpressiveCard
 import androidx.compose.runtime.Composable
@@ -27,28 +28,12 @@ fun VaultHistoryScreen(
     adjustments: List<VaultBalanceAdjustment>,
     onNavigateBack: () -> Unit
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.vault_history_title, vaultName)) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        MaterialSymbolIcon(icon = MaterialSymbols.ARROW_BACK, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            )
-        }
-    ) { paddingValues ->
-        if (adjustments.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
+    // Removed local TopAppBar - using global SparelyTopBar instead
+    if (adjustments.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -70,21 +55,20 @@ fun VaultHistoryScreen(
                     )
                 }
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
                 items(adjustments) { adjustment ->
                     AdjustmentCard(adjustment)
                 }
             }
         }
     }
-}
+
+
 
 @Composable
 private fun AdjustmentCard(adjustment: VaultBalanceAdjustment) {
@@ -96,9 +80,10 @@ private fun AdjustmentCard(adjustment: VaultBalanceAdjustment) {
     val oldBalance = adjustment.resultingBalance - adjustment.delta
     val newBalance = adjustment.resultingBalance
     
-    ExpressiveCard(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceVariant
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(12.dp)
     ) {
         Row(
             modifier = Modifier

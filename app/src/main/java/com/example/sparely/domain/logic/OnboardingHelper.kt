@@ -161,7 +161,7 @@ object OnboardingHelper {
                 manualAllocationPercent = null,
                 nextExpectedContribution = null,
                 lastContributionDate = null,
-                autoDepositSchedule = null,
+                schedules = emptyList(),
                 savingTaxRateOverride = null,
                 archived = false
             )
@@ -182,7 +182,7 @@ object OnboardingHelper {
                     manualAllocationPercent = null,
                     nextExpectedContribution = null,
                     lastContributionDate = null,
-                    autoDepositSchedule = null,
+                    schedules = emptyList(),
                     savingTaxRateOverride = null,
                     archived = false
                 )
@@ -204,7 +204,7 @@ object OnboardingHelper {
                     manualAllocationPercent = null,
                     nextExpectedContribution = null,
                     lastContributionDate = null,
-                    autoDepositSchedule = null,
+                    schedules = emptyList(),
                     savingTaxRateOverride = null,
                     archived = false
                 )
@@ -226,7 +226,7 @@ object OnboardingHelper {
                     manualAllocationPercent = null,
                     nextExpectedContribution = null,
                     lastContributionDate = null,
-                    autoDepositSchedule = null,
+                    schedules = emptyList(),
                     savingTaxRateOverride = null,
                     archived = false
                 )
@@ -248,7 +248,7 @@ object OnboardingHelper {
                     manualAllocationPercent = null,
                     nextExpectedContribution = null,
                     lastContributionDate = null,
-                    autoDepositSchedule = null,
+                    schedules = emptyList(),
                     savingTaxRateOverride = null,
                     archived = false
                 )

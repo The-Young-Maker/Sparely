@@ -10,7 +10,6 @@ import com.example.sparely.data.local.SavingsAccountDao
 import com.example.sparely.data.local.SavingsTransferDao
 import com.example.sparely.data.local.SavingsTransferEntity
 import com.example.sparely.data.local.SmartVaultDao
-import com.example.sparely.data.local.VaultAutoDepositEntity
 import com.example.sparely.data.local.toDomain
 import com.example.sparely.data.local.toEntity
 import com.example.sparely.domain.model.BankSyncProvider
@@ -27,11 +26,15 @@ import com.example.sparely.domain.model.VaultBalanceAdjustment
 import com.example.sparely.domain.model.VaultContribution
 import com.example.sparely.domain.model.VaultContributionSource
 import com.example.sparely.domain.model.VaultAdjustmentType
+import com.example.sparely.domain.model.VaultSchedule
+import com.example.sparely.domain.model.VaultScheduleType
+import com.example.sparely.domain.model.VaultTransferDirection
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 class SavingsRepository(
     private val expenseDao: ExpenseDao,
@@ -43,7 +46,9 @@ class SavingsRepository(
     private val savingsAccountDao: SavingsAccountDao,
     private val smartVaultDao: SmartVaultDao,
     private val mainAccountDao: com.example.sparely.data.local.MainAccountDao,
-    private val frozenFundDao: com.example.sparely.data.local.FrozenFundDao
+    private val frozenFundDao: com.example.sparely.data.local.FrozenFundDao,
+    private val allocationHistoryDao: com.example.sparely.data.local.AllocationHistoryDao,
+    private val preferencesRepository: com.example.sparely.data.preferences.UserPreferencesRepository
 ) {
 
     fun observeExpenses(): Flow<List<ExpenseEntity>> = expenseDao.observeExpenses()
@@ -142,9 +147,7 @@ class SavingsRepository(
     suspend fun upsertSmartVault(vault: SmartVault) {
         val assignedId = smartVaultDao.upsertVault(vault.toEntity())
         val resolvedId = if (vault.id == 0L) assignedId else vault.id
-        vault.autoDepositSchedule?.let { schedule ->
-            smartVaultDao.attachAutoDeposit(resolvedId, schedule.toEntity(resolvedId))
-        }
+        syncVaultSchedules(resolvedId, vault.schedules)
     }
 
     suspend fun seedSmartVaults(vaults: List<SmartVault>) {
@@ -209,27 +212,13 @@ class SavingsRepository(
         removeFrozenForPending("VAULT_CONTRIBUTION", contributionId)
     }
 
-    suspend fun recordAutoDepositExecution(vaultId: Long, amount: Double, date: LocalDate) {
-        val schedule = smartVaultDao.getAutoDepositForVault(vaultId)
-        if (schedule != null) {
-            smartVaultDao.updateAutoDeposit(schedule.copy(lastExecutionDate = date))
-        }
-        val contribution = VaultContribution(
-            vaultId = vaultId,
-            amount = amount,
-            date = date,
-            source = VaultContributionSource.AUTO_DEPOSIT
-        )
-        logVaultContribution(contribution)
-    }
-
     suspend fun getVaultContributions(vaultId: Long): List<VaultContribution> =
         smartVaultDao.getContributionsForVault(vaultId).map { it.toDomain() }
 
     suspend fun getVaultAdjustments(vaultId: Long): List<VaultBalanceAdjustment> =
         smartVaultDao.getAdjustmentsForVault(vaultId).map { it.toDomain() }
 
-    suspend fun depositToVault(vaultId: Long, amount: Double, reason: String?) {
+    suspend fun depositToVault(vaultId: Long, amount: Double, reason: String?, adjustMainAccount: Boolean) {
         if (amount <= 0.0) return
         val vault = smartVaultDao.getVaultById(vaultId) ?: return
         val sanitizedAmount = amount.coerceAtLeast(0.0)
@@ -241,9 +230,21 @@ class SavingsRepository(
             type = VaultAdjustmentType.MANUAL_DEPOSIT,
             reason = reason
         )
+
+        if (adjustMainAccount) {
+            val currentBalance = getLatestMainAccountBalance()
+            val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                type = com.example.sparely.data.local.MainAccountTransactionType.WITHDRAWAL,
+                amount = sanitizedAmount,
+                balanceAfter = (currentBalance - sanitizedAmount).coerceAtLeast(0.0),
+                timestamp = java.time.LocalDateTime.now(),
+                description = reason?.take(100) ?: "Manual vault deposit"
+            )
+            insertMainAccountTransaction(transaction)
+        }
     }
 
-    suspend fun deductFromVault(vaultId: Long, amount: Double, reason: String?) {
+    suspend fun deductFromVault(vaultId: Long, amount: Double, reason: String?, creditMainAccount: Boolean) {
         if (amount <= 0.0) return
         val vault = smartVaultDao.getVaultById(vaultId) ?: return
         val sanitizedAmount = amount.coerceAtLeast(0.0)
@@ -255,6 +256,18 @@ class SavingsRepository(
             type = VaultAdjustmentType.MANUAL_DEDUCTION,
             reason = reason
         )
+
+        if (creditMainAccount) {
+            val currentBalance = getLatestMainAccountBalance()
+            val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                type = com.example.sparely.data.local.MainAccountTransactionType.DEPOSIT,
+                amount = sanitizedAmount,
+                balanceAfter = currentBalance + sanitizedAmount,
+                timestamp = java.time.LocalDateTime.now(),
+                description = reason?.take(100) ?: "Manual vault withdrawal"
+            )
+            insertMainAccountTransaction(transaction)
+        }
     }
 
     suspend fun overrideVaultBalance(vaultId: Long, newBalance: Double, reason: String?) {
@@ -272,14 +285,6 @@ class SavingsRepository(
 
     suspend fun updateVaultArchived(vaultId: Long, archived: Boolean) {
         smartVaultDao.updateVaultArchived(vaultId, archived)
-    }
-
-    suspend fun setVaultAutoDeposit(vaultId: Long, schedule: VaultAutoDepositEntity?) {
-        if (schedule == null) {
-            smartVaultDao.removeAutoDepositForVault(vaultId)
-        } else {
-            smartVaultDao.attachAutoDeposit(vaultId, schedule.copy(vaultId = vaultId))
-        }
     }
 
     suspend fun recordVaultBalanceAdjustment(
@@ -329,6 +334,10 @@ class SavingsRepository(
         budgetDao.deleteById(id)
     }
 
+    suspend fun clearBudgets() {
+        budgetDao.clear()
+    }
+
     fun observeRecurringExpenses(): Flow<List<RecurringExpense>> =
         recurringExpenseDao.observeRecurringExpenses().map { entities ->
             entities.map { it.toDomain() }
@@ -344,6 +353,10 @@ class SavingsRepository(
 
     suspend fun updateRecurringExpenseProcessed(id: Long, processedDate: LocalDate?) {
         recurringExpenseDao.updateLastProcessedDate(id, processedDate)
+    }
+
+    suspend fun clearRecurringExpenses() {
+        recurringExpenseDao.clear()
     }
 
     fun observeChallenges(): Flow<List<SavingsChallenge>> =
@@ -414,8 +427,12 @@ class SavingsRepository(
     suspend fun insertMainAccountTransaction(transaction: com.example.sparely.domain.model.MainAccountTransaction): Long =
         mainAccountDao.insertTransaction(transaction.toEntity())
 
-    suspend fun getLatestMainAccountBalance(): Double =
-        mainAccountDao.getLatestTransaction()?.balanceAfter ?: 0.0
+    suspend fun getLatestMainAccountBalance(): Double {
+        val transactionBalance = mainAccountDao.getLatestTransaction()?.balanceAfter
+        // Fall back to preferences if no transactions exist yet
+        // This fixes the bug where the first deduction would use 0.0 instead of the actual balance
+        return transactionBalance ?: preferencesRepository.getSettingsSnapshot().mainAccountBalance
+    }
 
     suspend fun calculateMainAccountBalance(): Double =
         mainAccountDao.calculateBalanceFromTransactions()
@@ -424,6 +441,10 @@ class SavingsRepository(
         val canonical = getLatestMainAccountBalance()
         val frozen = getTotalFrozenAmount()
         return (canonical - frozen).coerceAtLeast(0.0)
+    }
+
+    suspend fun clearMainAccountTransactions() {
+        mainAccountDao.deleteAllTransactions()
     }
 
     // Frozen funds methods
@@ -444,5 +465,227 @@ class SavingsRepository(
 
     suspend fun getTotalFrozenAmount(): Double {
         return frozenFundDao.totalFrozen()
+    }
+
+    fun observeFrozenFunds(): Flow<List<com.example.sparely.data.local.FrozenFundEntity>> = frozenFundDao.observeAll()
+
+    suspend fun clearFrozenFunds() {
+        frozenFundDao.deleteAll()
+    }
+
+    suspend fun upsertFrozenFund(entity: com.example.sparely.data.local.FrozenFundEntity) {
+        frozenFundDao.insert(entity)
+    }
+
+    private suspend fun syncVaultSchedules(vaultId: Long, schedules: List<VaultSchedule>) {
+        val existing = smartVaultDao.getSchedulesForVault(vaultId)
+        val now = Instant.now()
+        val incoming = schedules.map { schedule ->
+            val created = if (schedule.id == 0L) now else schedule.createdAt
+            schedule.copy(
+                id = schedule.id,
+                vaultId = vaultId,
+                createdAt = created,
+                updatedAt = now
+            )
+        }
+
+        val incomingById = incoming.associateBy { it.id }
+
+        // Update or delete existing
+        val existingIds = existing.map { it.id }.toSet()
+
+        incoming.forEach { schedule ->
+            val entity = schedule.toEntity()
+            if (schedule.id == 0L) {
+                smartVaultDao.upsertSchedule(entity)
+            } else {
+                smartVaultDao.updateSchedule(entity)
+            }
+        }
+
+        existing.filter { it.id !in incomingById.keys }.forEach { obsolete ->
+            smartVaultDao.deleteSchedule(obsolete)
+        }
+    }
+
+    suspend fun addVaultSchedule(vaultId: Long, schedule: VaultSchedule): Long {
+        val now = Instant.now()
+        val toPersist = schedule.copy(
+            id = 0L,
+            vaultId = vaultId,
+            createdAt = now,
+            updatedAt = now
+        )
+        return smartVaultDao.upsertSchedule(toPersist.toEntity())
+    }
+
+    suspend fun updateVaultSchedule(schedule: VaultSchedule) {
+        if (schedule.id == 0L) {
+            addVaultSchedule(schedule.vaultId, schedule)
+        } else {
+            smartVaultDao.updateSchedule(
+                schedule.copy(updatedAt = Instant.now()).toEntity()
+            )
+        }
+    }
+
+    suspend fun deleteVaultSchedule(scheduleId: Long) {
+        smartVaultDao.deleteSchedule(scheduleId)
+    }
+
+    suspend fun getSchedulesForVault(vaultId: Long): List<VaultSchedule> {
+        return smartVaultDao.getSchedulesForVault(vaultId).map { it.toDomain() }
+    }
+
+    suspend fun getSmartVaultById(vaultId: Long): SmartVault? {
+        val entity = smartVaultDao.getVaultById(vaultId) ?: return null
+        val schedules = smartVaultDao.getSchedulesForVault(vaultId).map { it.toDomain() }
+        return entity.toDomain(schedules)
+    }
+
+    suspend fun recordScheduleExecution(
+        scheduleId: Long,
+        vaultId: Long,
+        amount: Double,
+        runTimestamp: LocalDateTime,
+        nextRunAt: LocalDateTime?
+    ) {
+        val scheduleEntity = smartVaultDao.getSchedulesForVault(vaultId).firstOrNull { it.id == scheduleId }
+            ?: return
+
+        smartVaultDao.updateSchedule(
+            scheduleEntity.copy(
+                lastRunAt = runTimestamp,
+                nextRunAt = nextRunAt,
+                updatedAt = Instant.now(),
+                enabled = if (nextRunAt == null) false else scheduleEntity.enabled
+            )
+        )
+
+        val contribution = VaultContribution(
+            vaultId = vaultId,
+            amount = amount,
+            date = runTimestamp.toLocalDate(),
+            source = VaultContributionSource.AUTO_DEPOSIT,
+            note = "Scheduled transfer",
+            reconciled = true
+        )
+        smartVaultDao.upsertContribution(contribution.toEntity())
+    }
+
+    suspend fun executeVaultTransfer(
+        schedule: VaultSchedule,
+        amount: Double,
+        runTimestamp: LocalDateTime,
+        notes: String?
+    ): Boolean {
+        val vault = smartVaultDao.getVaultById(schedule.vaultId) ?: return false
+        return when (schedule.direction) {
+            VaultTransferDirection.MAIN_TO_VAULT -> {
+                val available = if (schedule.onlyIfBalanceAvailable) getAvailableMainAccountBalance() else Double.MAX_VALUE
+                if (available + 1e-6 < amount) {
+                    false
+                } else {
+                    val newBalance = vault.currentBalance + amount
+                    recordVaultBalanceAdjustment(
+                        vaultId = vault.id,
+                        previousBalance = vault.currentBalance,
+                        newBalance = newBalance,
+                        type = VaultAdjustmentType.AUTOMATIC_RECURRING_TRANSFER,
+                        reason = notes
+                    )
+                    val currentMain = getLatestMainAccountBalance()
+                    val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                        type = com.example.sparely.data.local.MainAccountTransactionType.VAULT_CONTRIBUTION,
+                        amount = amount,
+                        balanceAfter = (currentMain - amount).coerceAtLeast(0.0),
+                        timestamp = runTimestamp,
+                        description = notes ?: "Scheduled transfer to vault ${vault.name}"
+                    )
+                    insertMainAccountTransaction(transaction)
+                    true
+                }
+            }
+            VaultTransferDirection.VAULT_TO_MAIN -> {
+                val available = vault.currentBalance
+                if (schedule.onlyIfBalanceAvailable && available + 1e-6 < amount) {
+                    false
+                } else {
+                    val newBalance = (vault.currentBalance - amount).coerceAtLeast(0.0)
+                    recordVaultBalanceAdjustment(
+                        vaultId = vault.id,
+                        previousBalance = vault.currentBalance,
+                        newBalance = newBalance,
+                        type = VaultAdjustmentType.AUTOMATIC_RECURRING_TRANSFER,
+                        reason = notes
+                    )
+                    val currentMain = getLatestMainAccountBalance()
+                    val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                        type = com.example.sparely.data.local.MainAccountTransactionType.DEPOSIT,
+                        amount = amount,
+                        balanceAfter = currentMain + amount,
+                        timestamp = runTimestamp,
+                        description = notes ?: "Scheduled transfer from vault ${vault.name}"
+                    )
+                    insertMainAccountTransaction(transaction)
+                    true
+                }
+            }
+        }
+    }
+
+    // Backup & Restore methods
+    suspend fun getAllChallenges(): List<SavingsChallenge> =
+        challengeDao.observeChallenges().first().map { it.toDomain() }
+
+    suspend fun getAllAchievements(): List<Achievement> =
+        achievementDao.observeAchievements().first().map { it.toDomain() }
+
+    suspend fun getAllTransfers(): List<SavingsTransfer> =
+        transferDao.observeTransfers().first().map { it.toDomain() }
+
+    suspend fun getAllVaultContributions(): List<VaultContribution> =
+        smartVaultDao.getAllContributions().map { it.toDomain() }
+
+    suspend fun getAllVaultAdjustments(): List<VaultBalanceAdjustment> =
+        smartVaultDao.getAllAdjustments().map { it.toDomain() }
+
+    suspend fun getAllAllocationHistory(): List<com.example.sparely.data.local.AllocationHistoryEntity> =
+        allocationHistoryDao.observeAll().first()
+
+    suspend fun clearChallenges() {
+        challengeDao.deleteAllMilestones()
+        challengeDao.deleteAllChallenges()
+    }
+
+    suspend fun clearVaultData() {
+        smartVaultDao.clearAllContributions()
+        smartVaultDao.clearAllAdjustments()
+        smartVaultDao.clearAllSchedules()
+    }
+
+    suspend fun clearAllocationHistory() {
+        allocationHistoryDao.deleteAll()
+    }
+
+    suspend fun insertAchievements(achievements: List<Achievement>) {
+        achievementDao.upsertAll(achievements.map { it.toEntity() })
+    }
+
+    suspend fun insertTransfers(transfers: List<SavingsTransfer>) {
+        transfers.forEach { transferDao.upsert(it.toEntity()) }
+    }
+
+    suspend fun insertVaultContributions(contributions: List<VaultContribution>) {
+        contributions.forEach { smartVaultDao.upsertContribution(it.toEntity()) }
+    }
+
+    suspend fun insertVaultAdjustments(adjustments: List<VaultBalanceAdjustment>) {
+        adjustments.forEach { smartVaultDao.insertAdjustment(it.toEntity()) }
+    }
+
+    suspend fun insertAllocationHistory(history: List<com.example.sparely.data.local.AllocationHistoryEntity>) {
+        history.forEach { allocationHistoryDao.insert(it) }
     }
 }

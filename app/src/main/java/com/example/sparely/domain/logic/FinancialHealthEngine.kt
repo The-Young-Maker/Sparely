@@ -76,9 +76,10 @@ object FinancialHealthEngine {
         val totalSpent = analytics.totalSpent
         val totalSaved = analytics.totalReserved
         
-        if (totalSpent == 0.0) return if (isNewUser) 75 else 50
+        val totalIncomeProxy = totalSpent + totalSaved
+        if (totalIncomeProxy == 0.0) return if (isNewUser) 75 else 50
 
-        val savingsRate = totalSaved / totalSpent
+        val savingsRate = totalSaved / totalIncomeProxy
         
         val baseScore = when {
             savingsRate >= 0.30 -> 100
@@ -94,21 +95,23 @@ object FinancialHealthEngine {
     }
 
     private fun calculateEmergencyFundScore(analytics: AnalyticsSnapshot, settings: SparelySettings, isNewUser: Boolean): Int {
+        // If living with parents, user considers themselves covered. 
+        // We grant full score to avoid penalizing them for "0 emergency fund".
+        if (settings.livingSituation == LivingSituation.WITH_PARENTS) {
+            return 100
+        }
+
         val emergencyFund = analytics.totalEmergency
-        val monthlyExpenses = settings.monthlyIncome * 0.7 // Assume 70% of income for expenses
+        val monthlyExpenses = settings.monthlyIncome * 0.7 // Default assumption
         
         val monthsCovered = if (monthlyExpenses > 0) emergencyFund / monthlyExpenses else 0.0
 
-        val baseScore = when {
-            monthsCovered >= 6.0 -> 100
-            monthsCovered >= 5.0 -> 95
-            monthsCovered >= 4.0 -> 85
-            monthsCovered >= 3.0 -> 75
-            monthsCovered >= 2.0 -> 60
-            monthsCovered >= 1.0 -> 40
-            monthsCovered >= 0.5 -> 25
-            else -> 10
-        }
+        val targetMonths = 6.0 // Standard requirement
+
+        // Normalize actual coverage against the target (cap at 1.0 for 100% score logic)
+        val scoreRatio = (monthsCovered / targetMonths).coerceIn(0.0, 1.2)
+        
+        val baseScore = (scoreRatio * 100).toInt()
         
         return if (isNewUser) (baseScore + 20).coerceIn(60, 100) else baseScore.coerceIn(0, 100)
     }

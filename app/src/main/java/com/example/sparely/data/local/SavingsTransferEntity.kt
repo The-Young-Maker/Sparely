@@ -27,3 +27,14 @@ fun SavingsTransferEntity.toDomain(): SavingsTransfer =
         destinationAccountId = destinationAccountId,
         note = note
     )
+
+fun SavingsTransfer.toEntity(): SavingsTransferEntity =
+    SavingsTransferEntity(
+        id = id,
+        category = category,
+        amount = amount,
+        date = date,
+        sourceAccountId = sourceAccountId,
+        destinationAccountId = destinationAccountId,
+        note = note
+    )

@@ -24,6 +24,9 @@ import com.example.sparely.domain.model.*
 import com.example.sparely.ui.state.SparelyUiState
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.theme.MaterialSymbols
+import com.example.sparely.ui.components.ExpressiveCard
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Brush
 
 @Composable
 fun FinancialHealthScreen(
@@ -94,60 +97,60 @@ fun FinancialHealthScreen(
 
 @Composable
 fun HealthScoreCard(healthScore: FinancialHealthScore) {
-    Card(
+    // Determine gradient colors based on health level
+    val (startColor, endColor) = when (healthScore.healthLevel) {
+        HealthLevel.EXCELLENT -> Color(0xFF4CAF50) to Color(0xFF81C784)
+        HealthLevel.GOOD -> Color(0xFF2196F3) to Color(0xFF64B5F6)
+        HealthLevel.FAIR -> Color(0xFFFFC107) to Color(0xFFFFD54F)
+        HealthLevel.NEEDS_WORK -> Color(0xFFFF9800) to Color(0xFFFFB74D)
+        HealthLevel.CRITICAL -> Color(0xFFF44336) to Color(0xFFE57373)
+    }
+
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = when (healthScore.healthLevel) {
-                HealthLevel.EXCELLENT -> Color(0xFF4CAF50)
-                HealthLevel.GOOD -> Color(0xFF8BC34A)
-                HealthLevel.FAIR -> Color(0xFFFFC107)
-                HealthLevel.NEEDS_WORK -> Color(0xFFFF9800)
-                HealthLevel.CRITICAL -> Color(0xFFF44336)
-            }
-        )
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(32.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
+                .padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Your Score",
+                text = "Financial Health",
                 style = MaterialTheme.typography.titleMedium,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
             
-            AnimatedScoreCircle(
+            EnhancedAnimatedScoreCircle(
                 score = healthScore.overallScore,
-                size = 200.dp,
-                strokeWidth = 20.dp
+                size = 240.dp,
+                strokeWidth = 24.dp,
+                primaryColor = startColor,
+                secondaryColor = endColor
             )
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
             
             Text(
                 text = healthScore.healthLevel.label,
                 style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-            
-            Text(
-                text = "Financial Health",
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color.White.copy(alpha = 0.9f)
+                fontWeight = FontWeight.ExtraBold,
+                color = startColor
             )
         }
     }
 }
 
 @Composable
-fun AnimatedScoreCircle(
+fun EnhancedAnimatedScoreCircle(
     score: Int,
-    size: Dp = 150.dp,
-    strokeWidth: Dp = 16.dp
+    size: Dp = 200.dp,
+    strokeWidth: Dp = 20.dp,
+    primaryColor: Color,
+    secondaryColor: Color
 ) {
     var animatedScore by remember { mutableStateOf(0f) }
     
@@ -168,46 +171,126 @@ fun AnimatedScoreCircle(
         Canvas(modifier = Modifier.fillMaxSize()) {
             val diameter = this.size.minDimension
             val strokeWidthPx = strokeWidth.toPx()
+             val radiusWidth = diameter - strokeWidthPx
+            val topLeftOffset = Offset(strokeWidthPx / 2, strokeWidthPx / 2)
             
-            // Background circle
+            // Background Track with Ticks style or solid
             drawArc(
-                color = Color.White.copy(alpha = 0.3f),
-                startAngle = -90f,
-                sweepAngle = 360f,
+                color = Color.LightGray.copy(alpha = 0.3f),
+                startAngle = 135f,
+                sweepAngle = 270f,
                 useCenter = false,
                 style = Stroke(strokeWidthPx, cap = StrokeCap.Round),
-                size = Size(diameter - strokeWidthPx, diameter - strokeWidthPx),
-                topLeft = Offset(strokeWidthPx * 0.5f, strokeWidthPx * 0.5f)
+                size = Size(radiusWidth, radiusWidth),
+                topLeft = topLeftOffset
             )
             
-            // Score arc
-            drawArc(
-                color = Color.White,
-                startAngle = -90f,
-                sweepAngle = (animatedScore / 100f) * 360f,
-                useCenter = false,
-                style = Stroke(strokeWidthPx, cap = StrokeCap.Round),
-                size = Size(diameter - strokeWidthPx, diameter - strokeWidthPx),
-                topLeft = Offset(strokeWidthPx * 0.5f, strokeWidthPx * 0.5f)
-            )
+            // Gradient Score Arc
+            val sweepAngle = (animatedScore / 100f) * 270f
+            
+            if (sweepAngle > 0) {
+                 drawArc(
+                    brush = Brush.sweepGradient(
+                        0.0f to secondaryColor,
+                         0.5f to primaryColor,
+                         1.0f to primaryColor,
+                         center = center
+                    ),
+                    startAngle = 135f,
+                    sweepAngle = sweepAngle,
+                    useCenter = false,
+                    style = Stroke(strokeWidthPx, cap = StrokeCap.Round),
+                    size = Size(radiusWidth, radiusWidth),
+                    topLeft = topLeftOffset
+                )
+            }
         }
         
-        Text(
-            text = "${animatedScore.toInt()}",
-            style = MaterialTheme.typography.displayLarge,
-            fontWeight = FontWeight.Bold,
-            color = Color.White
-        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+             Text(
+                text = "${animatedScore.toInt()}",
+                style = MaterialTheme.typography.displayLarge.copy(fontSize = androidx.compose.ui.unit.TextUnit(64f, androidx.compose.ui.unit.TextUnitType.Sp)),
+                fontWeight = FontWeight.Bold,
+                 color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "/100",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
 @Composable
 fun ScoreBreakdownCard(healthScore: FinancialHealthScore) {
-    Card {
-        Column(modifier = Modifier.padding(16.dp)) {
-            healthScore.scoreBreakdown.forEach { (category, score) ->
-                ScoreBreakdownRow(category, score)
-                Spacer(modifier = Modifier.height(12.dp))
+    // Grid Layout for Breakdown items
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        val items = healthScore.scoreBreakdown.entries.toList()
+        items.chunked(2).forEach { rowItems ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                for ((category, score) in rowItems) {
+                    BreakdownTile(
+                        category = category,
+                        score = score,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                if (rowItems.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BreakdownTile(category: String, score: Int, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.height(110.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = category,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                 Text(
+                    text = "$score",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = when {
+                        score >= 80 -> MaterialTheme.colorScheme.primary
+                        score >= 60 -> MaterialTheme.colorScheme.secondary
+                        else -> MaterialTheme.colorScheme.error
+                    }
+                )
+                // Mini indicator
+                CircularProgressIndicator(
+                    progress = { score / 100f },
+                    modifier = Modifier.size(24.dp),
+                    strokeWidth = 3.dp,
+                    color = when {
+                        score >= 80 -> MaterialTheme.colorScheme.primary
+                        score >= 60 -> MaterialTheme.colorScheme.secondary
+                        else -> MaterialTheme.colorScheme.error
+                    },
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                )
             }
         }
     }
@@ -229,35 +312,35 @@ fun ScoreBreakdownRow(category: String, score: Int) {
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
                 color = when {
-                    score >= 80 -> Color(0xFF4CAF50)
-                    score >= 60 -> Color(0xFFFFC107)
-                    else -> Color(0xFFF44336)
+                    score >= 80 -> MaterialTheme.colorScheme.primary
+                    score >= 60 -> MaterialTheme.colorScheme.secondary
+                    else -> MaterialTheme.colorScheme.error
                 }
             )
         }
         Spacer(modifier = Modifier.height(4.dp))
         LinearProgressIndicator(
-        progress = { (score / 100f).coerceIn(0f, 1f) },
-        modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp),
-        color = when {
-                        score >= 80 -> Color(0xFF4CAF50)
-                        score >= 60 -> Color(0xFFFFC107)
-                        else -> Color(0xFFF44336)
-                    },
-        trackColor = ProgressIndicatorDefaults.linearTrackColor,
-        strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
+            progress = { (score / 100f).coerceIn(0f, 1f) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp),
+            color = when {
+                score >= 80 -> MaterialTheme.colorScheme.primary
+                score >= 60 -> MaterialTheme.colorScheme.secondary
+                else -> MaterialTheme.colorScheme.error
+            },
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            strokeCap = StrokeCap.Round
         )
+
     }
 }
 
 @Composable
 fun StrengthCard(strength: String) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
+    Surface(
+        color = MaterialTheme.colorScheme.primaryContainer,
+        shape = RoundedCornerShape(12.dp)
     ) {
         Row(
             modifier = Modifier
@@ -283,14 +366,13 @@ fun StrengthCard(strength: String) {
 
 @Composable
 fun ImprovementTipCard(tip: ImprovementTip) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = when (tip.priority) {
-                Priority.HIGH -> MaterialTheme.colorScheme.errorContainer
-                Priority.MEDIUM -> MaterialTheme.colorScheme.secondaryContainer
-                Priority.LOW -> MaterialTheme.colorScheme.surfaceVariant
-            }
-        )
+    Surface(
+        color = when (tip.priority) {
+            Priority.HIGH -> MaterialTheme.colorScheme.errorContainer
+            Priority.MEDIUM -> MaterialTheme.colorScheme.secondaryContainer
+            Priority.LOW -> MaterialTheme.colorScheme.surfaceVariant
+        },
+        shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(

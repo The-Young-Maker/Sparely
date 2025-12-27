@@ -1,6 +1,7 @@
 package com.example.sparely.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,13 +18,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.model.SmartVault
 import com.example.sparely.domain.model.VaultContribution
 import com.example.sparely.domain.model.VaultContributionSource
+import com.example.sparely.ui.components.SparelyButton
+import com.example.sparely.ui.components.SparelyTextButton
+import com.example.sparely.ui.components.SparelyTonalButton
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
+
 @Composable
 fun VaultTransfersScreen(
     vaults: List<SmartVault>,
@@ -34,30 +40,15 @@ fun VaultTransfersScreen(
     onStartNotificationWorkflow: () -> Unit = {},
     onNavigateBack: () -> Unit
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Pending Transfers") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        MaterialSymbolIcon(icon = MaterialSymbols.ARROW_BACK, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            )
-        }
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            if (pendingContributions.isEmpty()) {
-                item {
+    // Removed local TopAppBar - using global SparelyTopBar instead
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        if (pendingContributions.isEmpty()) {
+            item {
                     EmptyStateCard()
                 }
             } else {
@@ -100,36 +91,50 @@ fun VaultTransfersScreen(
             }
         }
     }
-}
+
 
 @Composable
 private fun EmptyStateCard() {
-    ExpressiveCard(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surfaceVariant
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(24.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(32.dp),
+                .padding(48.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            MaterialSymbolIcon(icon = MaterialSymbols.CHECK_CIRCLE,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                text = "All Caught Up!",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "You have no pending vault transfers. Keep logging expenses to accumulate saving tax contributions.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                modifier = Modifier.size(80.dp)
+            ) {
+                 Box(contentAlignment = Alignment.Center) {
+                     MaterialSymbolIcon(
+                         icon = MaterialSymbols.CHECK_CIRCLE,
+                         contentDescription = null,
+                         tint = MaterialTheme.colorScheme.primary,
+                         size = 40.dp
+                     )
+                 }
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "All caught up",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "No pending transfers at the moment. Good job keeping your vaults funded!",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
         }
     }
 }
@@ -144,53 +149,61 @@ private fun SummaryCard(
         .groupBy { it.vaultId }
         .mapValues { (_, contributions) -> contributions.sumOf { it.amount } }
     
-    ExpressiveCard(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.primaryContainer
+        color = MaterialTheme.colorScheme.primary, // Hero style
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        shape = RoundedCornerShape(24.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Column {
                 Text(
-                    text = "Total to Transfer",
+                    text = "Ready to transfer",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
                 )
                 Text(
                     text = String.format("$%.2f", totalPending),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    style = MaterialTheme.typography.displayMedium,
+                    fontWeight = FontWeight.Bold
                 )
             }
             
-            HorizontalDivider()
+            HorizontalDivider(color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f))
             
-            vaultBreakdown.forEach { (vaultId, amount) ->
-                val vault = vaults.find { it.id == vaultId }
-                if (vault != null) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = vault.name,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            text = String.format("$%.2f", amount),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                vaultBreakdown.entries.take(4).forEach { (vaultId, amount) ->
+                    val vault = vaults.find { it.id == vaultId }
+                    if (vault != null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = vault.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = String.format("$%.2f", amount),
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
+                }
+                if (vaultBreakdown.size > 4) {
+                    Text(
+                        text = "+ ${vaultBreakdown.size - 4} more vaults...",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+                    )
                 }
             }
         }
@@ -210,37 +223,54 @@ private fun AggregatedPendingContributionCard(
     var showConfirmAll by remember { mutableStateOf(false) }
 
     val totalAmount = contributions.sumOf { it.amount }
-    val formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy")
+    val formatter = DateTimeFormatter.ofPattern("MMM dd")
     val sources = contributions.groupBy { it.source }
-    val notes = contributions.mapNotNull { it.note?.takeIf { note -> note.isNotBlank() } }
 
-    ExpressiveCard(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surface
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(20.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = vault?.name ?: "Unknown Vault",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "${contributions.size} pending ${if (contributions.size == 1) "transfer" else "transfers"}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                     // Vault Icon / Placeholder
+                     Surface(
+                         shape = RoundedCornerShape(16.dp),
+                         color = MaterialTheme.colorScheme.surface, 
+                         modifier = Modifier.size(56.dp)
+                     ) {
+                         Box(contentAlignment = Alignment.Center) {
+                             MaterialSymbolIcon(
+                                 icon = MaterialSymbols.SAVINGS,
+                                 contentDescription = null,
+                                 tint = MaterialTheme.colorScheme.primary,
+                                 size = 28.dp
+                             )
+                         }
+                     }
+                     Column {
+                        Text(
+                            text = vault?.name ?: "Unknown Vault",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "${contributions.size} pending",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                 }
                 Text(
                     text = String.format("$%.2f", totalAmount),
                     style = MaterialTheme.typography.headlineSmall,
@@ -250,123 +280,88 @@ private fun AggregatedPendingContributionCard(
             }
 
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                sources.entries.sortedByDescending { it.value.sumOf(VaultContribution::amount) }.forEach { (source, entries) ->
+                val sortedSources = sources.entries.sortedByDescending { it.value.sumOf(VaultContribution::amount) }
+                for ((source, entries) in sortedSources) {
                     val sourceTotal = entries.sumOf { it.amount }
-                    AssistChip(
-                        onClick = {},
-                        enabled = false,
-                        label = {
-                            Text(
-                                when (source) {
-                                    VaultContributionSource.SAVING_TAX -> "Saving tax ${String.format("$%.2f", sourceTotal)}"
-                                    VaultContributionSource.INCOME -> "Income ${String.format("$%.2f", sourceTotal)}"
-                                    VaultContributionSource.AUTO_DEPOSIT -> "Auto deposit ${String.format("$%.2f", sourceTotal)}"
-                                    VaultContributionSource.MANUAL -> "Manual ${String.format("$%.2f", sourceTotal)}"
-                                    VaultContributionSource.TRANSFER -> "Transfer ${String.format("$%.2f", sourceTotal)}"
-                                }
-                            )
-                        },
-                        colors = AssistChipDefaults.assistChipColors(disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant)
-                    )
-                }
-            }
-
-            val notePreview = notes.take(3)
-            if (notePreview.isNotEmpty()) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    notePreview.forEach { note ->
+                    val sourceLabel = when (source) {
+                        VaultContributionSource.SAVING_TAX -> "Saving tax"
+                        VaultContributionSource.INCOME -> "Income"
+                        VaultContributionSource.AUTO_DEPOSIT -> "Auto deposit"
+                        VaultContributionSource.MANUAL -> "Manual"
+                        VaultContributionSource.TRANSFER -> "Transfer"
+                    }
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
                         Text(
-                            text = "• $note",
-                            style = MaterialTheme.typography.bodySmall,
+                            text = "$sourceLabel: ${String.format("$%.2f", sourceTotal)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    if (notes.size > notePreview.size) {
-                        Text(
-                            text = "${notes.size - notePreview.size} more note${if (notes.size - notePreview.size == 1) "" else "s"} hidden",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
-                    }
                 }
             }
 
-            Button(
-                onClick = { showConfirmAll = true },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                MaterialSymbolIcon(icon = MaterialSymbols.CHECK_CIRCLE,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Mark all as transferred")
-            }
-
-            TextButton(onClick = { expanded = !expanded }) {
-                Text(if (expanded) "Hide individual contributions" else "See individual contributions")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SparelyButton(
+                    onClick = { showConfirmAll = true },
+                    modifier = Modifier.weight(1f),
+                    icon = {
+                        MaterialSymbolIcon(icon = MaterialSymbols.CHECK_CIRCLE, contentDescription = null, size = 18.dp)
+                    }
+                ) {
+                    Text("Transfer all")
+                }
+                SparelyTonalButton(
+                    onClick = { expanded = !expanded },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(if (expanded) "Hide details" else "View details")
+                }
             }
 
             if (expanded) {
-                HorizontalDivider()
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    contributions.sortedByDescending { it.date }.forEach { contribution ->
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = contribution.date.format(formatter),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                    contribution.note?.takeIf { it.isNotBlank() }?.let { note ->
-                                        Text(
-                                            text = note,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                                Text(
-                                    text = String.format("$%.2f", contribution.amount),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                AssistChip(
-                                    onClick = {},
-                                    enabled = false,
-                                    label = {
-                                        Text(
-                                            when (contribution.source) {
-                                                VaultContributionSource.SAVING_TAX -> "Saving tax"
-                                                VaultContributionSource.INCOME -> "Income"
-                                                VaultContributionSource.AUTO_DEPOSIT -> "Auto deposit"
-                                                VaultContributionSource.MANUAL -> "Manual"
-                                                VaultContributionSource.TRANSFER -> "Transfer"
-                                            }
-                                        )
-                                    },
-                                    colors = AssistChipDefaults.assistChipColors(disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant)
-                                )
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    TextButton(onClick = { onApproveIndividual(contribution.id) }) {
-                                        Text("Approve")
-                                    }
-                                    TextButton(onClick = { onCancelIndividual(contribution.id) }) {
-                                        Text("Cancel")
-                                    }
-                                }
-                            }
-                            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    val sortedContributions = contributions.sortedByDescending { it.date }
+                    for (contribution in sortedContributions) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                             Column(modifier = Modifier.weight(1f)) {
+                                 Text(
+                                     text = contribution.date.format(formatter),
+                                     style = MaterialTheme.typography.bodyMedium,
+                                     fontWeight = FontWeight.SemiBold
+                                 )
+                                 Text(
+                                    text = when (contribution.source) {
+                                            VaultContributionSource.SAVING_TAX -> "Saving Tax"
+                                            else -> "Contribution"
+                                        } + (contribution.note?.let { " • $it" } ?: ""),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                 )
+                             }
+                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                 Text(
+                                     text = String.format("$%.2f", contribution.amount),
+                                     style = MaterialTheme.typography.bodyMedium,
+                                     fontWeight = FontWeight.Bold
+                                 )
+                                 IconButton(onClick = { onApproveIndividual(contribution.id) }, modifier = Modifier.size(32.dp)) {
+                                     MaterialSymbolIcon(icon = MaterialSymbols.CHECK, contentDescription = "Approve", size = 20.dp, tint = MaterialTheme.colorScheme.primary)
+                                 }
+                                 IconButton(onClick = { onCancelIndividual(contribution.id) }, modifier = Modifier.size(32.dp)) {
+                                     MaterialSymbolIcon(icon = MaterialSymbols.CLOSE, contentDescription = "Cancel", size = 20.dp, tint = MaterialTheme.colorScheme.error)
+                                 }
+                             }
                         }
                     }
                 }
@@ -379,21 +374,21 @@ private fun AggregatedPendingContributionCard(
             onDismissRequest = { showConfirmAll = false },
             title = { Text("Confirm transfer") },
             text = {
-                Text("Have you moved $${String.format("%.2f", totalAmount)} to ${vault?.name}? All ${contributions.size} entries will be marked as transferred.")
+                Text("Have you moved ${String.format("$%.2f", totalAmount)} to ${vault?.name}? All ${contributions.size} entries will be marked as transferred.")
             },
             confirmButton = {
-                TextButton(
+                SparelyButton(
                     onClick = {
                         onApproveAll(contributions.map { it.id })
                         showConfirmAll = false
                     }
                 ) {
-                    Text("Yes, all done")
+                    Text("Yes, transferred")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showConfirmAll = false }) {
-                    Text("Not yet")
+                SparelyTextButton(onClick = { showConfirmAll = false }) {
+                    Text("Cancel")
                 }
             }
         )
@@ -402,57 +397,53 @@ private fun AggregatedPendingContributionCard(
 
 @Composable
 private fun InstructionsCard() {
-    ExpressiveCard(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.tertiaryContainer
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(24.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                MaterialSymbolIcon(icon = MaterialSymbols.INFO,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onTertiaryContainer
-                )
+                Surface(
+                   shape = RoundedCornerShape(12.dp),
+                   color = MaterialTheme.colorScheme.tertiaryContainer,
+                   modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        MaterialSymbolIcon(icon = MaterialSymbols.INFO,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                            size = 20.dp
+                        )
+                    }
+                }
                 Text(
-                    text = "How It Works",
-                    style = MaterialTheme.typography.titleMedium,
+                    text = "How it works",
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
             }
             
             InstructionStep(
                 number = "1",
-                text = "Sparely calculates saving tax contributions from your logged expenses"
+                text = "Sparely calculates saving tax contributions from your logged expenses."
             )
             InstructionStep(
                 number = "2",
-                text = "Open your banking app and transfer the amounts to your actual savings accounts"
+                text = "Transfer the total amount to your actual savings accounts via your banking app."
             )
             InstructionStep(
                 number = "3",
-                text = "Return here and tap \"Mark as Transferred\" to update your vault balances"
+                text = "Tap 'Transfer all' to update your vault balances in Sparely."
             )
-            
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f))
-                    .padding(12.dp)
-            ) {
-                Text(
-                    text = "💡 Tip: You can batch transfers weekly to minimize transaction fees",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                )
-            }
         }
     }
 }
@@ -460,78 +451,56 @@ private fun InstructionsCard() {
 @Composable
 private fun InstructionStep(number: String, text: String) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.Top
     ) {
-        Box(
-            modifier = Modifier
-                .size(24.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.tertiary),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = number,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onTertiary
-            )
-        }
+        Text(
+            text = number,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.ExtraBold,
+            color = MaterialTheme.colorScheme.tertiary
+        )
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f)
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
 
 @Composable
 private fun NotificationWorkflowButton(onStartWorkflow: () -> Unit) {
-    ExpressiveCard(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.secondaryContainer
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        shape = RoundedCornerShape(24.dp)
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(20.dp)
+                .clickable(onClick = onStartWorkflow),
+             horizontalArrangement = Arrangement.SpaceBetween,
+             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                MaterialSymbolIcon(icon = MaterialSymbols.NOTIFICATIONS,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-                Text(
-                    text = "Transfer via Notification",
+            Column(modifier = Modifier.weight(1f)) {
+                 Text(
+                    text = "Smart transfer workflow",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                 Text(
+                    text = "Step-by-step notification guide",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
                 )
             }
-            
-            Text(
-                text = "Use step-by-step notifications to transfer funds without switching back to Sparely. Each notification shows one vault at a time.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer
+            MaterialSymbolIcon(
+                icon = MaterialSymbols.ARROW_FORWARD,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSecondaryContainer
             )
-            
-            Button(
-                onClick = onStartWorkflow,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondary
-                )
-            ) {
-                MaterialSymbolIcon(icon = MaterialSymbols.PLAY_ARROW,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Start Notification Workflow")
-            }
         }
     }
 }

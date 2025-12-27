@@ -4,13 +4,17 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.theme.MaterialSymbolIcon
+import com.example.sparely.ui.components.*
+import com.example.sparely.ui.utils.toSafeDatePickerMillis
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.LinearProgressIndicator
@@ -23,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.example.sparely.domain.logic.SavingsAdvisor
 import com.example.sparely.domain.model.*
 import java.time.Instant
@@ -37,11 +42,19 @@ import kotlin.math.roundToInt
 @Composable
 fun OnboardingScreen(
     onComplete: (UserProfileSetup) -> Unit,
-    onSkip: () -> Unit
+    onImportData: (android.net.Uri) -> Unit,
+    onSkip: () -> Unit,
+    snackbarHostState: SnackbarHostState? = null
 ) {
     var currentStep by remember { mutableStateOf(0) }
     var selectedCountry by remember { mutableStateOf<CountryConfig?>(null) }
     var userName by remember { mutableStateOf("") }
+
+    val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { onImportData(it) }
+    }
     var age by remember { mutableStateOf("30") }
     var birthday by remember { mutableStateOf<LocalDate?>(null) }
     var monthlyIncome by remember { mutableStateOf("") }
@@ -151,6 +164,15 @@ fun OnboardingScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
+        if (snackbarHostState != null) {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp)
+                    .zIndex(1f)
+            )
+        }
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
@@ -185,6 +207,7 @@ fun OnboardingScreen(
                         1 -> WelcomeStep(
                             countryConfig = selectedCountry,
                             onNext = { currentStep = 2 },
+                            onImport = { importLauncher.launch(arrayOf("*/*")) },
                             onSkip = onSkip
                         )
                         2 -> NameStep(
@@ -356,7 +379,9 @@ fun OnboardingProgressBar(
 
 @Composable
 fun WelcomeStep(
+    countryConfig: CountryConfig?,
     onNext: () -> Unit,
+    onImport: () -> Unit,
     onSkip: () -> Unit
 ) {
     Column(
@@ -423,18 +448,26 @@ fun WelcomeStep(
         
         Spacer(modifier = Modifier.height(48.dp))
         
-        Button(
+        SparelyButton(
             onClick = onNext,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
         ) {
             Text("Get Started", style = MaterialTheme.typography.titleMedium)
         }
         
         Spacer(modifier = Modifier.height(12.dp))
+
+        SparelyTonalButton(
+            onClick = onImport,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Import Backup")
+        }
         
-        TextButton(onClick = onSkip) {
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        SparelyTextButton(onClick = onSkip) {
             Text("Skip Setup")
         }
     }
@@ -519,8 +552,8 @@ private fun TransferReminderStep(
         )
         Spacer(modifier = Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            reminderOptions.forEach { option ->
-                FilterChip(
+            for (option in reminderOptions) {
+                SparelyChip(
                     selected = reminderFrequency == option,
                     onClick = { onReminderFrequencyChange(option) },
                     enabled = reminderEnabled,
@@ -560,11 +593,10 @@ private fun TransferReminderStep(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        Button(
+        SparelyButton(
             onClick = onNext,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
         ) {
             Text("Continue", style = MaterialTheme.typography.titleMedium)
         }
@@ -604,7 +636,7 @@ private fun SmartVaultsStep(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            drafts.forEachIndexed { index, draft ->
+            for ((index, draft) in drafts.withIndex()) {
                 SmartVaultCard(
                     draft = draft,
                     onDraftChange = { updated -> onDraftChange(index, updated) },
@@ -614,18 +646,17 @@ private fun SmartVaultsStep(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            OutlinedButton(onClick = onAddVault) {
+            SparelyTonalButton(onClick = onAddVault) {
                 Text("Add another vault")
             }
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            Button(
+            SparelyButton(
                 onClick = onNext,
                 enabled = canProceed,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
             ) {
                 Text("Continue", style = MaterialTheme.typography.titleMedium)
             }
@@ -647,25 +678,74 @@ private fun SmartVaultsStep(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
-                OutlinedTextField(
+                val icons = listOf(
+                    MaterialSymbols.ACCOUNT_BALANCE_WALLET,
+                    MaterialSymbols.SAVINGS,
+                    MaterialSymbols.DIRECTIONS_CAR,
+                    MaterialSymbols.HOME,
+                    MaterialSymbols.FLIGHT,
+                    MaterialSymbols.SCHOOL,
+                    MaterialSymbols.SHOPPING_BAG,
+                    MaterialSymbols.PETS,
+                    MaterialSymbols.RESTAURANT,
+                    MaterialSymbols.COMPUTER,
+                )
+
+                Text(
+                    text = "Vault icon",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    Modifier.fillMaxWidth().height(48.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    for (iconRes in icons) {
+                        val iconStableName = MaterialSymbols.getNameByIcon(iconRes)
+                        val isSelected = (draft.iconName == null && iconRes == MaterialSymbols.ACCOUNT_BALANCE_WALLET) || (draft.iconName == iconStableName)
+                        Surface(
+                            modifier = Modifier.size(36.dp).clickable { onDraftChange(draft.copy(iconName = iconStableName)) },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                MaterialSymbolIcon(
+                                    icon = iconRes,
+                                    contentDescription = null,
+                                    size = 20.dp,
+                                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                SparelyTextField(
                     value = draft.name,
                     onValueChange = { onDraftChange(draft.copy(name = it)) },
                     label = { Text("Vault name") },
-                    leadingIcon = { MaterialSymbolIcon(icon = MaterialSymbols.ACCOUNT_BALANCE_WALLET, contentDescription = null) },
+                    leadingIcon = { 
+                        val displayIcon = MaterialSymbols.getIconByName(draft.iconName) ?: MaterialSymbols.ACCOUNT_BALANCE_WALLET
+                        MaterialSymbolIcon(icon = displayIcon, contentDescription = null) 
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
+                    SparelyTextField(
                         value = draft.targetAmount,
                         onValueChange = { onDraftChange(draft.copy(targetAmount = it)) },
                         label = { Text("Target amount") },
                         modifier = Modifier.weight(1f),
                         leadingIcon = { MaterialSymbolIcon(icon = MaterialSymbols.FLAG, contentDescription = null) }
                     )
-                    OutlinedTextField(
+                    SparelyTextField(
                         value = draft.currentBalance,
                         onValueChange = { onDraftChange(draft.copy(currentBalance = it)) },
                         label = { Text("Current balance") },
@@ -683,8 +763,8 @@ private fun SmartVaultsStep(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    VaultPriority.entries.forEach { priority ->
-                        FilterChip(
+                    for (priority in VaultPriority.entries) {
+                        SparelyChip(
                             selected = draft.priority == priority,
                             onClick = { onDraftChange(draft.copy(priority = priority)) },
                             label = { Text(priority.displayName()) }
@@ -703,8 +783,8 @@ private fun SmartVaultsStep(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     // Show only core vault types during onboarding to keep choices simple
                     val allowedTypes = listOf(VaultType.GOAL, VaultType.EMERGENCY, VaultType.INVESTMENT)
-                    allowedTypes.forEach { type ->
-                        FilterChip(
+                    for (type in allowedTypes) {
+                        SparelyChip(
                             selected = draft.type == type,
                             onClick = { onDraftChange(draft.copy(type = type)) },
                             label = { Text(type.displayName()) }
@@ -721,14 +801,14 @@ private fun SmartVaultsStep(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
+                    SparelyChip(
                         selected = draft.allocationMode == VaultAllocationMode.DYNAMIC_AUTO,
                         onClick = {
                             onDraftChange(draft.copy(allocationMode = VaultAllocationMode.DYNAMIC_AUTO, manualPercent = ""))
                         },
                         label = { Text("Dynamic") }
                     )
-                    FilterChip(
+                    SparelyChip(
                         selected = draft.allocationMode == VaultAllocationMode.MANUAL,
                         onClick = {
                             onDraftChange(draft.copy(allocationMode = VaultAllocationMode.MANUAL))
@@ -739,7 +819,7 @@ private fun SmartVaultsStep(
 
                 if (draft.allocationMode == VaultAllocationMode.MANUAL) {
                     Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
+                    SparelyTextField(
                         value = draft.manualPercent,
                         onValueChange = { onDraftChange(draft.copy(manualPercent = it)) },
                         label = { Text("Manual allocation %") },
@@ -751,7 +831,7 @@ private fun SmartVaultsStep(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                OutlinedTextField(
+                SparelyTextField(
                     value = draft.savingTaxRate,
                     onValueChange = { onDraftChange(draft.copy(savingTaxRate = it)) },
                     label = { Text("Saving tax boost % (optional)") },
@@ -780,7 +860,8 @@ private fun SmartVaultsStep(
         val allocationMode: VaultAllocationMode,
         val manualPercent: String,
         val savingTaxRate: String,
-        val recommended: Boolean
+        val recommended: Boolean,
+        val iconName: String? = null
     ) {
         companion object {
             fun blank(): VaultDraft = VaultDraft(
@@ -793,7 +874,8 @@ private fun SmartVaultsStep(
                 allocationMode = VaultAllocationMode.DYNAMIC_AUTO,
                 manualPercent = "",
                 savingTaxRate = "",
-                recommended = false
+                recommended = false,
+                iconName = "account_balance_wallet"
             )
         }
 
@@ -817,7 +899,8 @@ private fun SmartVaultsStep(
                 type = type,
                 allocationMode = allocationMode,
                 manualAllocationPercent = manualShare,
-                savingTaxRateOverride = taxOverride
+                savingTaxRateOverride = taxOverride,
+                iconName = iconName
             )
         }
     }
@@ -857,7 +940,8 @@ private fun SmartVaultsStep(
         allocationMode = allocationMode,
         manualPercent = manualAllocationPercent?.let { (it * 100).toPercentageInput() } ?: "",
         savingTaxRate = savingTaxRateOverride?.let { (it * 100).toPercentageInput() } ?: "",
-        recommended = recommended
+        recommended = recommended,
+        iconName = iconName
     )
 
 private fun EducationStatus.displayName(): String = when (this) {
@@ -958,7 +1042,7 @@ fun NameStep(
         
         Spacer(modifier = Modifier.height(48.dp))
         
-        OutlinedTextField(
+        SparelyTextField(
             value = name,
             onValueChange = onNameChange,
             label = { Text("Your name (optional)") },
@@ -1038,7 +1122,7 @@ fun IncomeStep(
         
         Spacer(modifier = Modifier.height(48.dp))
         
-        OutlinedTextField(
+        SparelyTextField(
             value = income,
             onValueChange = onIncomeChange,
             label = { Text("Monthly Income") },
@@ -1053,7 +1137,7 @@ fun IncomeStep(
         
         Spacer(modifier = Modifier.height(16.dp))
 
-        OutlinedButton(
+        FilledTonalButton(
             onClick = { showBirthdayPicker = true },
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -1087,7 +1171,7 @@ fun IncomeStep(
             "You can adjust this later in settings."
         }
 
-        OutlinedTextField(
+        SparelyTextField(
             value = age,
             onValueChange = onAgeChange,
             label = { Text("Your Age") },
@@ -1141,7 +1225,7 @@ fun IncomeStep(
     }
 
     if (showBirthdayPicker) {
-        val initialMillis = birthday?.atStartOfDay(ZoneOffset.UTC)?.toInstant()?.toEpochMilli()
+        val initialMillis = birthday.toSafeDatePickerMillis()
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
         LaunchedEffect(initialMillis) {
             if (initialMillis != null && datePickerState.selectedDateMillis != initialMillis) {
@@ -1383,8 +1467,8 @@ private fun FinancialSituationStep(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                EducationStatus.entries.forEach { status ->
-                    FilterChip(
+                for (status in EducationStatus.entries) {
+                    SparelyChip(
                         selected = educationStatus == status,
                         onClick = { onEducationStatusChange(status) },
                         label = { Text(status.displayName()) },
@@ -1403,8 +1487,8 @@ private fun FinancialSituationStep(
         )
         Spacer(modifier = Modifier.height(8.dp))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            EmploymentStatus.entries.forEach { status ->
-                FilterChip(
+            for (status in EmploymentStatus.entries) {
+                SparelyChip(
                     selected = employmentStatus == status,
                     onClick = { onEmploymentStatusChange(status) },
                     label = { Text(status.displayName()) },
@@ -1422,8 +1506,8 @@ private fun FinancialSituationStep(
         )
         Spacer(modifier = Modifier.height(8.dp))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            LivingSituation.entries.forEach { option ->
-                FilterChip(
+            for (option in LivingSituation.entries) {
+                SparelyChip(
                     selected = livingSituation == option,
                     onClick = { onLivingSituationChange(option) },
                     label = { Text(option.displayName()) },
@@ -1434,7 +1518,7 @@ private fun FinancialSituationStep(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        OutlinedTextField(
+        SparelyTextField(
             value = occupation,
             onValueChange = onOccupationChange,
             label = { Text("Occupation (optional)") },
@@ -1461,7 +1545,7 @@ private fun FinancialSituationStep(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            FilterChip(
+            SparelyChip(
                 selected = !hasDebts,
                 onClick = { onDebtsChange(false) },
                 label = { Text("No") },
@@ -1470,7 +1554,7 @@ private fun FinancialSituationStep(
                     { MaterialSymbolIcon(icon = MaterialSymbols.CHECK, contentDescription = null) }
                 } else null
             )
-            FilterChip(
+            SparelyChip(
                 selected = hasDebts,
                 onClick = { onDebtsChange(true) },
                 label = { Text("Yes") },
@@ -1497,7 +1581,7 @@ private fun FinancialSituationStep(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { onEmergencyFundChange("250") }) {
+                        FilledTonalButton(onClick = { onEmergencyFundChange("250") }) {
                             Text("Apply $250 suggestion")
                         }
                         TextButton(onClick = { /* user can still input their own value */ }) {
@@ -1509,7 +1593,7 @@ private fun FinancialSituationStep(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        OutlinedTextField(
+        SparelyTextField(
             value = emergencyFund,
             onValueChange = onEmergencyFundChange,
             label = { Text("Current Emergency Fund") },
@@ -1543,7 +1627,7 @@ private fun FinancialSituationStep(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        OutlinedTextField(
+        SparelyTextField(
             value = mainAccountBalance,
             onValueChange = onMainAccountBalanceChange,
             label = { Text("Main account balance") },
@@ -1558,7 +1642,7 @@ private fun FinancialSituationStep(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        OutlinedTextField(
+        SparelyTextField(
             value = savingsAccountBalance,
             onValueChange = onSavingsAccountBalanceChange,
             label = { Text("Savings account balance") },
@@ -1573,7 +1657,7 @@ private fun FinancialSituationStep(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        OutlinedTextField(
+        SparelyTextField(
             value = vaultsBalance,
             onValueChange = onVaultsBalanceChange,
             label = { Text("Existing vault or sinking funds") },
@@ -1612,7 +1696,7 @@ private fun FinancialSituationStep(
                 modifier = Modifier.fillMaxWidth()
             )
         } else {
-            subscriptions.forEachIndexed { index, draft ->
+            for ((index, draft) in subscriptions.withIndex()) {
                 ExpressiveCard(modifier = Modifier.fillMaxWidth(), tonalElevation = 4.dp, contentPadding = 16.dp) {
                     Column {
                         Row(
@@ -1632,7 +1716,7 @@ private fun FinancialSituationStep(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        OutlinedTextField(
+                        SparelyTextField(
                             value = draft.name,
                             onValueChange = { onSubscriptionNameChange(draft.id, it) },
                             label = { Text("Name") },
@@ -1643,7 +1727,7 @@ private fun FinancialSituationStep(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        OutlinedTextField(
+                        SparelyTextField(
                             value = draft.amount,
                             onValueChange = { onSubscriptionAmountChange(draft.id, it) },
                             label = { Text("Monthly amount") },
@@ -1662,7 +1746,7 @@ private fun FinancialSituationStep(
             }
         }
 
-        OutlinedButton(onClick = onAddSubscription, modifier = Modifier.fillMaxWidth()) {
+        FilledTonalButton(onClick = onAddSubscription, modifier = Modifier.fillMaxWidth()) {
             MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text("Add subscription")
@@ -1723,7 +1807,7 @@ fun GoalStep(
         
         Spacer(modifier = Modifier.height(48.dp))
         
-        OutlinedTextField(
+        SparelyTextField(
             value = goal,
             onValueChange = onGoalChange,
             label = { Text("Primary Savings Goal (optional)") },
@@ -1838,26 +1922,24 @@ private fun CountrySelectionStep(
         Spacer(modifier = Modifier.height(32.dp))
         
         // Country selection cards
-        CountryProfiles.ALL_COUNTRIES.forEach { country ->
-            Card(
-                onClick = {
-                    onCountrySelected(country)
-                },
+        for (country in CountryProfiles.ALL_COUNTRIES) {
+            val isSelected = selectedCountry?.countryCode == country.countryCode
+            ExpressiveCard(
+                onClick = { onCountrySelected(country) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 6.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (selectedCountry?.countryCode == country.countryCode) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant
-                    }
-                )
+                containerColor = if (isSelected) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                },
+                tonalElevation = if (isSelected) 4.dp else 0.dp,
+                shadowElevation = if (isSelected) 1.dp else 0.dp,
+                contentPadding = 16.dp
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -1869,13 +1951,13 @@ private fun CountrySelectionStep(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "${country.languageName} • ${CurrencyPresets.getByCode(country.defaultCurrency)?.symbol ?: country.defaultCurrency}",
+                            text = "${country.languageName} • ${MaterialTheme.colorScheme.onSurfaceVariant.let { if (isSelected) "Selected" else CurrencyPresets.getByCode(country.defaultCurrency)?.symbol ?: country.defaultCurrency }}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     
-                    if (selectedCountry?.countryCode == country.countryCode) {
+                    if (isSelected) {
                         MaterialSymbolIcon(icon = MaterialSymbols.CHECK_CIRCLE,
                             contentDescription = "Selected",
                             tint = MaterialTheme.colorScheme.primary

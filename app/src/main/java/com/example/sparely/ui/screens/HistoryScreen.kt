@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,7 +19,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.window.Dialog
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import com.example.sparely.ui.components.SparelyButton
+import com.example.sparely.ui.components.SparelyTextButton
 import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import androidx.compose.material3.AlertDialog
@@ -29,7 +38,7 @@ import androidx.compose.material3.Divider
 import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.ElevatedCard
 import com.example.sparely.ui.components.ExpressiveCard
-import androidx.compose.material3.FilterChip
+import com.example.sparely.ui.components.SparelyChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -53,6 +62,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.sparely.domain.model.AnalyticsSnapshot
 import com.example.sparely.domain.model.DateRangeFilter
 import com.example.sparely.domain.model.Expense
@@ -60,6 +70,11 @@ import com.example.sparely.domain.model.ExpenseCategory
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import com.example.sparely.R
+import com.example.sparely.ui.components.SparelyTextButton
+import com.example.sparely.ui.components.SingleLineText
+import com.example.sparely.ui.theme.getCategoryColor
+import com.example.sparely.ui.theme.getCategoryIcon
+
 
 @Composable
 fun HistoryScreen(
@@ -78,6 +93,10 @@ fun HistoryScreen(
         }
     }
 
+    val groupedExpenses = remember(filteredExpenses) {
+        filteredExpenses.groupBy { it.date }.toSortedMap(compareByDescending { it })
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -86,13 +105,11 @@ fun HistoryScreen(
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        item {
-            Text(
-                text = "Expense History",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
-        }
+        // Header removed to avoid duplication if scaffold header exists, or just keep one. 
+        // User said there are 2 headers. 
+        // If this is the main screen content inside a Scaffold which already has a top bar 'Expense History', then this is duplicate.
+        // Assuming the scaffold top bar is the other one.
+
         item {
             FilterRow(
                 dateFilter = dateFilter,
@@ -102,17 +119,24 @@ fun HistoryScreen(
             )
         }
         item {
-            ModernSummaryCard(analytics = analytics, filteredExpenses = filteredExpenses)
+            ModernSummaryCard(analytics = analytics, filteredExpenses = filteredExpenses, dateFilter = dateFilter)
         }
-        items(filteredExpenses) { expense ->
-            ModernExpenseCard(expense = expense, onDelete = { expenseToDelete = expense })
+        
+        groupedExpenses.forEach { (date, dailyExpenses) ->
+            stickyHeader {
+                DateHeader(date = date, total = dailyExpenses.sumOf { it.amount })
+            }
+            items(dailyExpenses) { expense ->
+                ModernExpenseCard(expense = expense, onDelete = { expenseToDelete = expense })
+            }
         }
+
         if (filteredExpenses.isEmpty()) {
             item {
                 EmptyHistoryNotice()
             }
         }
-        item { Spacer(modifier = Modifier.height(32.dp)) }
+        item { Spacer(modifier = Modifier.height(80.dp)) } // Extra padding for FAB/BottomBar
     }
     
     // Confirmation dialog
@@ -141,11 +165,20 @@ private fun FilterRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            DateRangeFilter.entries.forEach { filter ->
-                FilterChip(
+            for (filter in DateRangeFilter.entries) {
+                SparelyChip(
                     selected = filter == dateFilter,
                     onClick = { onDateSelected(filter) },
-                    label = { Text(filter.name.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }) }
+                    label = { 
+                        Text(
+                            when(filter) {
+                                DateRangeFilter.YEAR_TO_DATE -> "This Year"
+                                else -> filter.name.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }
+                            },
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        ) 
+                    }
                 )
             }
         }
@@ -154,7 +187,8 @@ private fun FilterRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            AssistChip(
+            SparelyChip(
+                selected = categoryFilter == null,
                 onClick = { onCategorySelected(null) },
                 label = { Text(stringResource(R.string.history_all_categories)) },
                 leadingIcon = {
@@ -165,8 +199,8 @@ private fun FilterRow(
                     }
                 }
             )
-            ExpenseCategory.entries.forEach { category ->
-                FilterChip(
+            for (category in ExpenseCategory.entries) {
+                SparelyChip(
                     selected = categoryFilter == category,
                     onClick = {
                         onCategorySelected(if (categoryFilter == category) null else category)
@@ -181,7 +215,8 @@ private fun FilterRow(
 @Composable
 private fun ModernSummaryCard(
     analytics: AnalyticsSnapshot,
-    filteredExpenses: List<Expense>
+    filteredExpenses: List<Expense>,
+    dateFilter: DateRangeFilter
 ) {
     val totalFilteredSpent = filteredExpenses.sumOf { it.amount }
     val totalFilteredReserve = filteredExpenses.sumOf { it.allocation.totalSetAside }
@@ -193,103 +228,57 @@ private fun ModernSummaryCard(
         label = "savingsRate"
     )
     
-    ExpressiveCard(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        // Use a single tonal container for clarity instead of a gradient
-        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-        shape = RoundedCornerShape(20.dp),
-        tonalElevation = 6.dp,
-        contentPadding = 20.dp
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(24.dp)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+                
+                // Graph Section (Spending Trend)
+                if (filteredExpenses.isNotEmpty()) {
+                    SpendingGraph(expenses = filteredExpenses, dateFilter = dateFilter)
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            MaterialSymbolIcon(icon = MaterialSymbols.RECEIPT,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
-                        Column {
-                            Text(
-                                text = "Overview",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "${filteredExpenses.size} transaction${if (filteredExpenses.size != 1) "s" else ""}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                    Column {
+                        Text(
+                            text = "Total Spent",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = formatCurrency(totalFilteredSpent),
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = "Savings",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                         Text(
+                            text = formatCurrency(totalFilteredReserve),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
                 
-                // Stats Grid
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Surface(
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = "Total Spent",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = formatCurrency(totalFilteredSpent),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
-                    
-                    Surface(
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = "Set Aside",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = formatCurrency(totalFilteredReserve),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
                 
                 // Savings Rate with progress
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -331,208 +320,250 @@ private fun ModernSummaryCard(
                         strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
                     )
                 }
-                
-                // Lifetime Stats
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Lifetime saved",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = formatCurrency(analytics.totalReserved),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
             }
         }
     }
 
+@Composable
+fun SpendingGraph(expenses: List<Expense>, dateFilter: DateRangeFilter) {
+    // Determine aggregation (Daily for < 90 days, Monthly otherwise)
+    val isMonthly = dateFilter == DateRangeFilter.YEAR_TO_DATE || dateFilter == DateRangeFilter.ALL_TIME || dateFilter == DateRangeFilter.LAST_90_DAYS
+    
+    val dataPoints = remember(expenses, isMonthly) {
+        if (isMonthly) {
+            expenses.groupBy { java.time.YearMonth.from(it.date) }
+                .mapValues { it.value.sumOf { e -> e.amount } }
+                .entries.sortedBy { it.key }
+                .takeLast(6) // Last 6 months
+                .map { it.key.month.name.take(3) to it.value }
+        } else {
+            // Daily - take last 7 days with data or just fill dates
+            val last7Days = (0..6).map { LocalDate.now().minusDays(it.toLong()) }.reversed()
+            val expenseMap = expenses.groupBy { it.date }
+            
+            last7Days.map { date ->
+                val amount = expenseMap[date]?.sumOf { it.amount } ?: 0.0
+                date.format(DateTimeFormatter.ofPattern("EEE")) to amount
+            }
+        }
+    }
+    
+    val maxAmount = dataPoints.maxOfOrNull { it.second }?.takeIf { it > 0 } ?: 1.0
+    
+    Column(
+        modifier = Modifier.fillMaxWidth().height(150.dp), // Increased height slightly
+        verticalArrangement = Arrangement.Bottom
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            dataPoints.forEach { (label, amount) ->
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    verticalArrangement = Arrangement.Bottom 
+                ) {
+                    // Bar Container (Takes flexible space)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentAlignment = Alignment.BottomCenter
+                    ) {
+                        val heightFraction = (amount / maxAmount).toFloat().coerceIn(0.02f, 1f)
+                        // Only show bar if amount > 0 or for visual placeholder? 
+                        // If amount is 0, fraction is 0.02f (tiny bar). 
+                        // If we want to hide 0 bars, we can check amount > 0. 
+                        // Let's keep a tiny blip for 0 to show the slot exists, or just 0 height.
+                        // User said "hides the text", so primary fix is layout.
+                        
+                        val displayedFraction = if (amount > 0) heightFraction else 0.005f
+                        
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(0.6f)
+                                .fillMaxHeight(displayedFraction)
+                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                .background(
+                                    if (amount > 0) MaterialTheme.colorScheme.primary 
+                                    else MaterialTheme.colorScheme.surfaceVariant
+                                )
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        fontSize = 10.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DateHeader(date: LocalDate, total: Double) {
+    val dateText = date.format(DateTimeFormatter.ofPattern("EEEE, MMM d"))
+    val isToday = date == LocalDate.now()
+    val isYesterday = date == LocalDate.now().minusDays(1)
+    
+    val displayDate = when {
+        isToday -> "Today"
+        isYesterday -> "Yesterday"
+        else -> dateText
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.background, // Match items background so it covers scrolling content
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = displayDate,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                 color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = formatCurrency(total),
+                style = MaterialTheme.typography.titleMedium,
+                 fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
 
 @Composable
 private fun ModernExpenseCard(expense: Expense, onDelete: () -> Unit) {
-    val formatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
-    val savingsRate = expense.allocation.totalSetAside / expense.amount
+    val formatter = remember { DateTimeFormatter.ofPattern("MMM d") }
+    val savingsRate = if (expense.amount > 0) expense.allocation.totalSetAside / expense.amount else 0.0
     
-    ExpressiveCard(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        tonalElevation = 2.dp,
-        contentPadding = 18.dp
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
-        Column {
-            // Header Row
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Main Info Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Icon
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = getCategoryColor(expense.category).copy(alpha = 0.15f),
+                    modifier = Modifier.size(48.dp)
+                ) {
+                     Box(contentAlignment = Alignment.Center) {
+                         MaterialSymbolIcon(
+                             icon = getCategoryIcon(expense.category),
+                             contentDescription = null,
+                             tint = getCategoryColor(expense.category),
+                             size = 24.dp
+                         )
+                     }
+                }
+                
+                Spacer(modifier = Modifier.width(16.dp))
+
+                // Title & Category
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = expense.description,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
-                        ) {
-                            Text(
-                                text = expense.category.name.lowercase().replaceFirstChar { it.uppercase() },
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        Text(
-                            text = expense.date.format(formatter),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                     Text(
+                        text = expense.category.name.lowercase().replaceFirstChar { it.uppercase() },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                IconButton(onClick = onDelete) {
-                    MaterialSymbolIcon(icon = MaterialSymbols.DELETE,
-                        contentDescription = "Delete",
-                        tint = MaterialTheme.colorScheme.error
+                
+                // Amount & Date
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = formatCurrency(expense.amount),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                       color = MaterialTheme.colorScheme.onSurface
+                    )
+                     Text(
+                        text = expense.date.format(formatter),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
             
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            // Amount Section
+            // Footer: Allocations & Actions
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column {
-                    Text(
-                        text = "Amount",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = formatCurrency(expense.amount),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                 // Savings Badge
+                 Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         MaterialSymbolIcon(icon = MaterialSymbols.TRENDING_UP,
                             contentDescription = null,
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(14.dp),
                             tint = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "${String.format("%.1f", savingsRate * 100)}% saved",
-                            style = MaterialTheme.typography.labelMedium,
+                            text = "${String.format("%.0f", savingsRate * 100)}% Saved",
+                            style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider()
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            // Allocation Breakdown
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "Savings Allocation",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
                 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    AllocationChip(
-                        label = "Emergency",
-                        amount = expense.allocation.emergencyAmount,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.weight(1f)
-                    )
-                    AllocationChip(
-                        label = "Invest",
-                        amount = expense.allocation.investmentAmount,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.weight(1f)
-                    )
-                    AllocationChip(
-                        label = "Fun",
-                        amount = expense.allocation.funAmount,
-                        color = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                
-                // Investment Split
+                // Subtle Delete Button
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clickable(onClick = onDelete)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text(
-                                text = "Safe",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = formatCurrency(expense.allocation.safeInvestmentAmount),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(
-                                text = "High-risk",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = formatCurrency(expense.allocation.highRiskInvestmentAmount),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+                    Box(contentAlignment = Alignment.Center) {
+                        MaterialSymbolIcon(
+                            icon = MaterialSymbols.DELETE,
+                            contentDescription = "Delete",
+                            tint = MaterialTheme.colorScheme.error,
+                            size = 18.dp
+                        )
                     }
                 }
             }
@@ -598,36 +629,103 @@ private fun DeleteExpenseConfirmationDialog(
 ) {
     val formatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
     
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.history_delete_expense_title)) },
-        text = {
-            Column {
-                Text(stringResource(R.string.history_delete_expense_message))
-                Spacer(modifier = Modifier.height(12.dp))
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                 // Warning Icon
+                 Surface(
+                     shape = CircleShape,
+                     color = MaterialTheme.colorScheme.errorContainer,
+                     modifier = Modifier.size(72.dp)
+                 ) {
+                     Box(contentAlignment = Alignment.Center) {
+                         MaterialSymbolIcon(
+                             icon = MaterialSymbols.DELETE,
+                             contentDescription = null,
+                             modifier = Modifier.size(32.dp),
+                             tint = MaterialTheme.colorScheme.error
+                         )
+                     }
+                 }
+
                 Text(
-                    text = expense.description,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
+                    text = "Delete Expense?",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-                Text(
-                    text = "${formatCurrency(expense.amount)} • ${expense.date.format(formatter)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                
+                 Text(
+                    text = "Are you sure you want to delete this expense? This action cannot be undone.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 22.sp,
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(stringResource(R.string.action_delete))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.action_cancel))
+
+                // Expense Preview
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                             Text(
+                                text = expense.description,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "${formatCurrency(expense.amount)} • ${expense.date.format(formatter)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SparelyButton(
+                        onClick = onConfirm,
+                        modifier = Modifier.fillMaxWidth(),
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    ) {
+                        Text("Delete")
+                    }
+                    
+                     SparelyTextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                         Text(
+                            text = "Cancel",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
         }
-    )
+    }
 }
 
 private fun matchesDate(date: LocalDate, filter: DateRangeFilter): Boolean {
@@ -642,3 +740,5 @@ private fun matchesDate(date: LocalDate, filter: DateRangeFilter): Boolean {
 }
 
 private fun formatCurrency(value: Double): String = "$" + String.format("%,.2f", value)
+
+// Category colors and icons are now sourced from com.example.sparely.ui.theme.CategoryUtils

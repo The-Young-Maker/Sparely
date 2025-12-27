@@ -20,4 +20,7 @@ interface AllocationHistoryDao {
 
     @Query("DELETE FROM allocation_history WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM allocation_history")
+    suspend fun deleteAll()
 }

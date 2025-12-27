@@ -3,6 +3,7 @@ package com.example.sparely
 import android.content.Context
 import com.example.sparely.data.local.SparelyDatabase
 import com.example.sparely.data.preferences.UserPreferencesRepository
+import com.example.sparely.data.repository.DataRepository
 import com.example.sparely.data.repository.SavingsRepository
 import com.example.sparely.domain.logic.RecommendationEngine
 import com.example.sparely.notifications.NotificationScheduler
@@ -11,6 +12,7 @@ import com.example.sparely.workers.MonthlyAllocationScheduler
 
 interface AppContainer {
     val savingsRepository: SavingsRepository
+    val dataRepository: DataRepository
     val preferencesRepository: UserPreferencesRepository
     val recommendationEngine: RecommendationEngine
     val notificationScheduler: NotificationScheduler
@@ -35,8 +37,14 @@ class DefaultAppContainer(context: Context) : AppContainer {
             savingsAccountDao = database.savingsAccountDao(),
             smartVaultDao = database.smartVaultDao(),
             mainAccountDao = database.mainAccountDao(),
-            frozenFundDao = database.frozenFundDao()
+            frozenFundDao = database.frozenFundDao(),
+            allocationHistoryDao = database.allocationHistoryDao(),
+            preferencesRepository = preferencesRepository
         )
+    }
+
+    override val dataRepository: DataRepository by lazy {
+        DataRepository(savingsRepository, preferencesRepository)
     }
 
     override val preferencesRepository: UserPreferencesRepository by lazy {

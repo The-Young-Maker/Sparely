@@ -7,6 +7,7 @@ import com.example.sparely.AppContainer
 import com.example.sparely.data.local.ExpenseEntity
 import com.example.sparely.data.local.SavingsTransferEntity
 import com.example.sparely.data.local.toDomain
+import com.example.sparely.data.repository.DataRepository
 import com.example.sparely.data.repository.SavingsRepository
 import com.example.sparely.domain.logic.AlertsGenerator
 import com.example.sparely.domain.logic.AnalyticsEngine
@@ -40,6 +41,7 @@ import com.example.sparely.domain.model.ExpenseCategory
 import com.example.sparely.domain.model.ExpenseInput
 import com.example.sparely.domain.model.RecurringExpense
 import com.example.sparely.domain.model.RecurringExpenseInput
+import com.example.sparely.domain.model.RecurringFrequency
 import com.example.sparely.domain.model.RiskLevel
 import com.example.sparely.domain.model.SavingsCategory
 import com.example.sparely.domain.model.SavingsChallenge
@@ -74,8 +76,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.temporal.ChronoUnit
@@ -86,6 +91,7 @@ import kotlin.math.roundToInt
 
 class SparelyViewModel(
     private val savingsRepository: SavingsRepository,
+    private val dataRepository: DataRepository,
     private val preferencesRepository: UserPreferencesRepository,
     private val recommendationEngine: RecommendationEngine,
     private val notificationScheduler: NotificationScheduler,
@@ -187,7 +193,7 @@ class SparelyViewModel(
                         errorMessage = throwable.message
                     )
                 }
-                .collect { (feed, onboardingCompleted, autoDepositCheckHour, mainAccountTransactions) ->
+                .map { (feed, onboardingCompleted, autoDepositCheckHour, mainAccountTransactions) ->
                     val domainExpenses = feed.expenses.map { it.toDomain() }
                     val domainTransfers = feed.transfers.map { it.toDomain() }
                     val analytics = AnalyticsEngine.build(domainExpenses, domainTransfers)
@@ -346,7 +352,22 @@ class SparelyViewModel(
                         else -> feed.settings.savingTaxRate.coerceIn(0.0, 1.0)
                     }
 
-                    _uiState.value = SparelyUiState(
+                    // Sort vaults by urgency using the engine logic
+                    val sortedVaults = feed.vaults.sortedWith(
+                        compareByDescending<SmartVault> { vault ->
+                            if (vault.archived) -1.0 else {
+                                val desired = com.example.sparely.domain.allocation.SmartAllocationEngine.computeDesiredMonthly(
+                                    vault, LocalDate.now(), 3, 0.0, feed.settings.monthlyIncome
+                                )
+                                com.example.sparely.domain.allocation.SmartAllocationEngine.computeUrgency(
+                                    vault, LocalDate.now(), feed.settings.monthlyIncome, desired
+                                )
+                            }
+                        }.thenByDescending { it.priorityWeight }
+                         .thenBy { if (it.targetAmount > 0) it.currentBalance / it.targetAmount else 0.0 }
+                    )
+
+                    SparelyUiState(
                         settings = feed.settings,
                         expenses = domainExpenses,
                         analytics = analytics,
@@ -355,7 +376,7 @@ class SparelyViewModel(
                         savingsPlan = plan,
                         smartSavingSummary = smartSavingSummary,
                         alerts = combinedAlerts,
-                        smartVaults = feed.vaults,
+                        smartVaults = sortedVaults,
                         totalVaultBalance = totalVaultBalance,
                         vaultAdjustments = _uiState.value.vaultAdjustments,
                         emergencyFundGoal = emergencyGoal,
@@ -381,6 +402,10 @@ class SparelyViewModel(
                         isLoading = false,
                         errorMessage = null
                     )
+                }
+                .flowOn(Dispatchers.Default)
+                .collect { newState ->
+                    _uiState.value = newState
                 }
         }
     }
@@ -502,13 +527,14 @@ class SparelyViewModel(
             return recurring
                 .filter { it.isActive }
                 .mapNotNull { expense ->
-                    val frequencyDays = expense.frequency.daysInterval.toLong().coerceAtLeast(1)
-                    var nextDue = expense.lastProcessedDate?.plusDays(frequencyDays) ?: expense.startDate
-                    if (nextDue.isBefore(today)) {
-                        val daysDiff = ChronoUnit.DAYS.between(nextDue, today)
-                        val increments = (daysDiff / frequencyDays) + 1
-                        nextDue = nextDue.plusDays(increments * frequencyDays)
+                    val baseDate = expense.lastProcessedDate ?: expense.startDate.minusDays(1)
+                    var nextDue = addFrequencyInterval(baseDate, expense.frequency)
+                    
+                    // Advance until we reach a future date
+                    while (nextDue.isBefore(today) || nextDue.isEqual(baseDate)) {
+                        nextDue = addFrequencyInterval(nextDue, expense.frequency)
                     }
+                    
                     expense.endDate?.let { end ->
                         if (nextDue.isAfter(end)) return@mapNotNull null
                     }
@@ -517,6 +543,21 @@ class SparelyViewModel(
                     UpcomingRecurringExpense(expense, nextDue, daysUntilDue)
                 }
                 .sortedBy { it.dueDate }
+        }
+        
+        /**
+         * Add one frequency interval to a date.
+         * For monthly/quarterly/yearly, this preserves the day of month.
+         */
+        private fun addFrequencyInterval(date: LocalDate, frequency: RecurringFrequency): LocalDate {
+            return when (frequency) {
+                RecurringFrequency.DAILY -> date.plusDays(1)
+                RecurringFrequency.WEEKLY -> date.plusWeeks(1)
+                RecurringFrequency.BIWEEKLY -> date.plusWeeks(2)
+                RecurringFrequency.MONTHLY -> date.plusMonths(1)
+                RecurringFrequency.QUARTERLY -> date.plusMonths(3)
+                RecurringFrequency.YEARLY -> date.plusYears(1)
+            }
         }
 
     private fun buildSmartSavingSummary(
@@ -777,6 +818,43 @@ class SparelyViewModel(
             preferencesRepository.updateMonthlyIncome(income)
         }
     }
+
+    fun exportData(uri: android.net.Uri, context: android.content.Context) {
+        viewModelScope.launch(dispatcher) {
+            try {
+                val json = dataRepository.exportData()
+                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    outputStream.write(json.toByteArray())
+                }
+                _uiState.update { it.copy(errorMessage = "Backup exported successfully") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = "Export failed: ${e.message}") }
+            }
+        }
+    }
+
+    fun importData(uri: android.net.Uri, context: android.content.Context, onSuccess: () -> Unit) {
+        viewModelScope.launch(dispatcher) {
+            try {
+                val json = context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                    inputStream.bufferedReader().use { it.readText() }
+                }
+                if (json != null) {
+                    dataRepository.restoreData(json)
+                    withContext(Dispatchers.Main) {
+                        onSuccess()
+                    }
+                    // Reset UI State loading/error
+                     _uiState.update { it.copy(errorMessage = "Restore successful", isLoading = false) }
+                } else {
+                     _uiState.update { it.copy(errorMessage = "Failed to read file") }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = "Import failed: ${e.message}") }
+            }
+        }
+    }
+
 
     fun updateMainAccountBalance(balance: Double) {
         viewModelScope.launch(dispatcher) {
@@ -1056,18 +1134,18 @@ class SparelyViewModel(
         }
     }
     
-    fun depositToVault(vaultId: Long, amount: Double, reason: String?) {
+    fun depositToVault(vaultId: Long, amount: Double, reason: String?, adjustMainAccount: Boolean) {
         if (vaultId == 0L || amount <= 0.0) return
         viewModelScope.launch(dispatcher) {
-            savingsRepository.depositToVault(vaultId, amount, reason)
+            savingsRepository.depositToVault(vaultId, amount, reason, adjustMainAccount)
             refreshVaultAdjustments(vaultId)
         }
     }
     
-    fun deductFromVault(vaultId: Long, amount: Double, reason: String?) {
+    fun deductFromVault(vaultId: Long, amount: Double, reason: String?, creditMainAccount: Boolean) {
         if (vaultId == 0L || amount <= 0.0) return
         viewModelScope.launch(dispatcher) {
-            savingsRepository.deductFromVault(vaultId, amount, reason)
+            savingsRepository.deductFromVault(vaultId, amount, reason, creditMainAccount)
             refreshVaultAdjustments(vaultId)
         }
     }
@@ -1237,7 +1315,7 @@ class SparelyViewModel(
         if (result == null || result.allocations.isEmpty()) {
             val weights = DynamicAllocationEngine.calculateWeights(
                 vaults = vaults,
-                globalMode = state.settings.vaultAllocationMode,
+                settings = state.settings,
                 today = payday
             )
             if (weights.isEmpty()) return emptyList()
@@ -1532,6 +1610,7 @@ class SparelyViewModelFactory(
         if (modelClass.isAssignableFrom(SparelyViewModel::class.java)) {
             return SparelyViewModel(
                 savingsRepository = container.savingsRepository,
+                dataRepository = container.dataRepository,
                 preferencesRepository = container.preferencesRepository,
                 recommendationEngine = container.recommendationEngine,
                 notificationScheduler = container.notificationScheduler,
