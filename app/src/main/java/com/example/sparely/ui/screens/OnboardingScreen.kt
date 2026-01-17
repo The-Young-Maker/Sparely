@@ -15,6 +15,8 @@ import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.components.*
 import com.example.sparely.ui.utils.toSafeDatePickerMillis
+import com.example.sparely.ui.utils.filterCurrencyInput
+import com.example.sparely.ui.utils.toSafeDouble
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.LinearProgressIndicator
@@ -24,12 +26,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.example.sparely.domain.logic.SavingsAdvisor
 import com.example.sparely.domain.model.*
+import com.sparely.app.R
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -81,8 +85,8 @@ fun OnboardingScreen(
     val vaultsStepIndex = 6  // Shifted from 5 to 6
     val derivedAge = birthday?.let { ChronoUnit.YEARS.between(it, LocalDate.now()).coerceAtLeast(0L).toInt() }
     val ageValue = derivedAge ?: age.toIntOrNull() ?: 30
-    val monthlyIncomeValue = monthlyIncome.toDoubleOrNull() ?: 0.0
-    val emergencyFundValue = currentEmergencyFund.toDoubleOrNull() ?: 0.0
+    val monthlyIncomeValue = monthlyIncome.toSafeDouble() ?: 0.0
+    val emergencyFundValue = currentEmergencyFund.toSafeDouble() ?: 0.0
 
     fun allocateDraftId(): Long {
         val id = nextDraftId
@@ -295,12 +299,12 @@ fun OnboardingScreen(
                                     hourOfDay = reminderHour
                                 )
                                 val sanitizedOccupation = occupation.trim().ifBlank { null }
-                                val mainBalance = mainAccountBalance.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
-                                val savingsBalance = savingsAccountBalance.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
-                                val vaultsBalance = vaultsBalanceInput.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+                                val mainBalance = mainAccountBalance.toSafeDouble()?.coerceAtLeast(0.0) ?: 0.0
+                                val savingsBalance = savingsAccountBalance.toSafeDouble()?.coerceAtLeast(0.0) ?: 0.0
+                                val vaultsBalance = vaultsBalanceInput.toSafeDouble()?.coerceAtLeast(0.0) ?: 0.0
                                 val subscriptions = subscriptionDrafts.mapNotNull { draft ->
                                     val name = draft.name.trim()
-                                    val amount = draft.amount.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+                                    val amount = draft.amount.toSafeDouble()?.coerceAtLeast(0.0) ?: 0.0
                                     if (name.isEmpty() || amount <= 0.0) {
                                         null
                                     } else {
@@ -310,10 +314,10 @@ fun OnboardingScreen(
                                 val profile = UserProfileSetup(
                                     name = userName.ifBlank { null },
                                     age = age.toIntOrNull() ?: 30,
-                                    monthlyIncome = monthlyIncome.toDoubleOrNull() ?: 4500.0,
+                                    monthlyIncome = monthlyIncome.toSafeDouble() ?: 4500.0,
                                     riskLevel = selectedRiskLevel,
                                     hasDebts = hasDebts,
-                                    currentEmergencyFund = currentEmergencyFund.toDoubleOrNull() ?: 0.0,
+                                    currentEmergencyFund = currentEmergencyFund.toSafeDouble() ?: 0.0,
                                     primaryGoal = primaryGoal.ifBlank { null },
                                     smartVaults = vaults,
                                     transferReminder = reminderPreference,
@@ -354,10 +358,10 @@ fun OnboardingProgressBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                MaterialSymbolIcon(icon = MaterialSymbols.ARROW_BACK, contentDescription = "Back")
+                MaterialSymbolIcon(icon = MaterialSymbols.ARROW_BACK, contentDescription = stringResource(R.string.common_back))
             }
             Text(
-                text = "Step $currentStep of $totalSteps",
+                text = stringResource(R.string.onboarding_step_text, currentStep, totalSteps),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -400,7 +404,7 @@ fun WelcomeStep(
         Spacer(modifier = Modifier.height(32.dp))
         
         Text(
-            text = "Welcome to Sparely",
+            text = stringResource(R.string.onboarding_welcome_title),
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
@@ -409,7 +413,7 @@ fun WelcomeStep(
         Spacer(modifier = Modifier.height(16.dp))
         
         Text(
-            text = "Your intelligent savings companion that helps you automatically set aside money from every purchase",
+            text = stringResource(R.string.onboarding_welcome_desc),
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -423,26 +427,26 @@ fun WelcomeStep(
         ) {
             FeatureHighlight(
                 icon = "🎯",
-                title = "Smart Allocation",
-                description = "Automatically split expenses into Emergency, Investment, and Fun funds"
+                title = stringResource(R.string.onboarding_feature_allocation_title),
+                description = stringResource(R.string.onboarding_feature_allocation_desc)
             )
             
             FeatureHighlight(
                 icon = "📊",
-                title = "Financial Health Score",
-                description = "Track your financial wellness with personalized insights"
+                title = stringResource(R.string.onboarding_feature_health_title),
+                description = stringResource(R.string.onboarding_feature_health_desc)
             )
             
             FeatureHighlight(
                 icon = "🏆",
-                title = "Savings Challenges",
-                description = "Gamify your savings with fun challenges and achievements"
+                title = stringResource(R.string.onboarding_feature_challenges_title),
+                description = stringResource(R.string.onboarding_feature_challenges_desc)
             )
             
             FeatureHighlight(
                 icon = "💡",
-                title = "Smart Budgeting",
-                description = "Set budgets and get alerts before overspending"
+                title = stringResource(R.string.onboarding_feature_budgeting_title),
+                description = stringResource(R.string.onboarding_feature_budgeting_desc)
             )
         }
         
@@ -453,7 +457,7 @@ fun WelcomeStep(
             modifier = Modifier
                 .fillMaxWidth()
         ) {
-            Text("Get Started", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.onboarding_get_started), style = MaterialTheme.typography.titleMedium)
         }
         
         Spacer(modifier = Modifier.height(12.dp))
@@ -462,13 +466,13 @@ fun WelcomeStep(
             onClick = onImport,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Import Backup")
+            Text(stringResource(R.string.onboarding_import_backup))
         }
         
         Spacer(modifier = Modifier.height(12.dp))
         
         SparelyTextButton(onClick = onSkip) {
-            Text("Skip Setup")
+            Text(stringResource(R.string.onboarding_skip_setup))
         }
     }
 }
@@ -523,14 +527,14 @@ private fun TransferReminderStep(
         verticalArrangement = Arrangement.Top
     ) {
         Text(
-            text = "Stay on top of your vault funding",
+            text = stringResource(R.string.onboarding_reminder_title),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(modifier = Modifier.height(12.dp))
         Text(
-            text = "Sparely can nudge you to actually move the cash into the vault destinations you just mapped. Contributions only count after you confirm they happened.",
+            text = stringResource(R.string.onboarding_reminder_desc),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -540,13 +544,13 @@ private fun TransferReminderStep(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Switch(checked = reminderEnabled, onCheckedChange = onReminderEnabledChange)
             Spacer(modifier = Modifier.width(12.dp))
-            Text("Enable transfer reminders")
+            Text(stringResource(R.string.onboarding_reminder_enable))
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = "How often should we remind you?",
+            text = stringResource(R.string.onboarding_reminder_frequency_label),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -557,7 +561,7 @@ private fun TransferReminderStep(
                     selected = reminderFrequency == option,
                     onClick = { onReminderFrequencyChange(option) },
                     enabled = reminderEnabled,
-                    label = { Text("Every $option days") }
+                    label = { Text(stringResource(R.string.onboarding_reminder_frequency_option, option)) }
                 )
             }
         }
@@ -565,7 +569,7 @@ private fun TransferReminderStep(
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = "Preferred reminder time",
+            text = stringResource(R.string.onboarding_reminder_time_label),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -578,14 +582,14 @@ private fun TransferReminderStep(
             enabled = reminderEnabled
         )
         Text(
-            text = "Remind me around ${reminderHour.toString().padStart(2, '0')}:00",
+            text = stringResource(R.string.onboarding_reminder_time_display, reminderHour.toString().padStart(2, '0')),
             style = MaterialTheme.typography.bodyMedium
         )
 
         if (pendingVaults.isNotEmpty()) {
             Spacer(modifier = Modifier.height(24.dp))
             Text(
-                text = "We will match reminders to: ${pendingVaults.joinToString { it.name.ifBlank { "Vault" } }}",
+                text = stringResource(R.string.onboarding_reminder_target_vaults, pendingVaults.joinToString { it.name.ifBlank { "Vault" } }),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -598,7 +602,7 @@ private fun TransferReminderStep(
             modifier = Modifier
                 .fillMaxWidth()
         ) {
-            Text("Continue", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.onboarding_continue), style = MaterialTheme.typography.titleMedium)
         }
     }
 }
@@ -612,7 +616,7 @@ private fun SmartVaultsStep(
         onNext: () -> Unit
     ) {
         val canProceed = drafts.isNotEmpty() && drafts.all { draft ->
-            draft.name.isNotBlank() && draft.targetAmount.toDoubleOrNull()?.let { it > 0.0 } == true
+            draft.name.isNotBlank() && draft.targetAmount.toSafeDouble()?.let { it > 0.0 } == true
         }
         Column(
             modifier = Modifier
@@ -622,14 +626,14 @@ private fun SmartVaultsStep(
             verticalArrangement = Arrangement.Top
         ) {
             Text(
-                text = "Design your smart vaults",
+                text = stringResource(R.string.onboarding_vaults_title),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "Vaults are the destinations Sparely funds automatically. We use them to calculate priorities, savings tax boosts, and auto deposits.",
+                text = stringResource(R.string.onboarding_vaults_desc),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -647,7 +651,7 @@ private fun SmartVaultsStep(
             }
 
             SparelyTonalButton(onClick = onAddVault) {
-                Text("Add another vault")
+                Text(stringResource(R.string.onboarding_add_vault))
             }
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -674,7 +678,7 @@ private fun SmartVaultsStep(
         ExpressiveCard(modifier = Modifier.fillMaxWidth(), tonalElevation = 6.dp, contentPadding = 20.dp) {
             Column {
                 if (draft.recommended) {
-                    AssistChip(onClick = {}, enabled = false, label = { Text("Recommended") })
+                    AssistChip(onClick = {}, enabled = false, label = { Text(stringResource(R.string.onboarding_vault_recommended)) })
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
@@ -692,7 +696,7 @@ private fun SmartVaultsStep(
                 )
 
                 Text(
-                    text = "Vault icon",
+                    text = stringResource(R.string.onboarding_vault_icon_label),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -727,7 +731,7 @@ private fun SmartVaultsStep(
                 SparelyTextField(
                     value = draft.name,
                     onValueChange = { onDraftChange(draft.copy(name = it)) },
-                    label = { Text("Vault name") },
+                    label = { Text(stringResource(R.string.onboarding_vault_name_label)) },
                     leadingIcon = { 
                         val displayIcon = MaterialSymbols.getIconByName(draft.iconName) ?: MaterialSymbols.ACCOUNT_BALANCE_WALLET
                         MaterialSymbolIcon(icon = displayIcon, contentDescription = null) 
@@ -740,15 +744,15 @@ private fun SmartVaultsStep(
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     SparelyTextField(
                         value = draft.targetAmount,
-                        onValueChange = { onDraftChange(draft.copy(targetAmount = it)) },
-                        label = { Text("Target amount") },
+                        onValueChange = { onDraftChange(draft.copy(targetAmount = it.filterCurrencyInput())) },
+                        label = { Text(stringResource(R.string.onboarding_vault_target_label)) },
                         modifier = Modifier.weight(1f),
                         leadingIcon = { MaterialSymbolIcon(icon = MaterialSymbols.FLAG, contentDescription = null) }
                     )
                     SparelyTextField(
                         value = draft.currentBalance,
-                        onValueChange = { onDraftChange(draft.copy(currentBalance = it)) },
-                        label = { Text("Current balance") },
+                        onValueChange = { onDraftChange(draft.copy(currentBalance = it.filterCurrencyInput())) },
+                        label = { Text(stringResource(R.string.onboarding_vault_balance_label)) },
                         modifier = Modifier.weight(1f),
                         leadingIcon = { MaterialSymbolIcon(icon = MaterialSymbols.ATTACH_MONEY, contentDescription = null) }
                     )
@@ -757,7 +761,7 @@ private fun SmartVaultsStep(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "Priority",
+                    text = stringResource(R.string.onboarding_vault_priority_label),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -775,7 +779,7 @@ private fun SmartVaultsStep(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "Vault focus",
+                    text = stringResource(R.string.onboarding_vault_focus_label),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -795,7 +799,7 @@ private fun SmartVaultsStep(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "Allocation mode",
+                    text = stringResource(R.string.onboarding_vault_allocation_label),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -806,14 +810,14 @@ private fun SmartVaultsStep(
                         onClick = {
                             onDraftChange(draft.copy(allocationMode = VaultAllocationMode.DYNAMIC_AUTO, manualPercent = ""))
                         },
-                        label = { Text("Dynamic") }
+                        label = { Text(stringResource(R.string.onboarding_vault_allocation_dynamic)) }
                     )
                     SparelyChip(
                         selected = draft.allocationMode == VaultAllocationMode.MANUAL,
                         onClick = {
                             onDraftChange(draft.copy(allocationMode = VaultAllocationMode.MANUAL))
                         },
-                        label = { Text("Manual") }
+                        label = { Text(stringResource(R.string.onboarding_vault_allocation_manual)) }
                     )
                 }
 
@@ -822,8 +826,8 @@ private fun SmartVaultsStep(
                     SparelyTextField(
                         value = draft.manualPercent,
                         onValueChange = { onDraftChange(draft.copy(manualPercent = it)) },
-                        label = { Text("Manual allocation %") },
-                        placeholder = { Text("e.g. 25") },
+                        label = { Text(stringResource(R.string.onboarding_vault_manual_percent_label)) },
+                        placeholder = { Text(stringResource(R.string.onboarding_vault_manual_percent_placeholder)) },
                         trailingIcon = { Text("%") },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -834,8 +838,8 @@ private fun SmartVaultsStep(
                 SparelyTextField(
                     value = draft.savingTaxRate,
                     onValueChange = { onDraftChange(draft.copy(savingTaxRate = it)) },
-                    label = { Text("Saving tax boost % (optional)") },
-                    placeholder = { Text("e.g. 5") },
+                    label = { Text(stringResource(R.string.onboarding_vault_tax_boost_label)) },
+                    placeholder = { Text(stringResource(R.string.onboarding_vault_tax_boost_placeholder)) },
                     trailingIcon = { Text("%") },
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -843,7 +847,7 @@ private fun SmartVaultsStep(
                 if (showRemove) {
                     Spacer(modifier = Modifier.height(12.dp))
                     TextButton(onClick = onRemove) {
-                        Text("Remove vault")
+                        Text(stringResource(R.string.onboarding_remove_vault))
                     }
                 }
             }
@@ -882,9 +886,9 @@ private fun SmartVaultsStep(
         fun toSetup(): SmartVaultSetup? {
             val trimmedName = name.trim()
             if (trimmedName.isEmpty()) return null
-            val target = targetAmount.toDoubleOrNull()?.coerceAtLeast(0.0) ?: return null
+            val target = targetAmount.toSafeDouble()?.coerceAtLeast(0.0) ?: return null
             if (target <= 0.0) return null
-            val balance = currentBalance.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+            val balance = currentBalance.toSafeDouble()?.coerceAtLeast(0.0) ?: 0.0
             val manualShare = if (allocationMode == VaultAllocationMode.MANUAL) {
                 manualPercent.toDoubleOrNull()?.div(100.0)?.coerceIn(0.0, 1.0)
             } else {
@@ -944,44 +948,34 @@ private fun SmartVaultsStep(
         iconName = iconName
     )
 
+@Composable
 private fun EducationStatus.displayName(): String = when (this) {
-    EducationStatus.HIGH_SCHOOL -> "High School"
-    EducationStatus.UNIVERSITY -> "University/College"
-    EducationStatus.GRADUATED -> "Graduated"
-    EducationStatus.OTHER -> "Other"
+    EducationStatus.HIGH_SCHOOL -> stringResource(R.string.edu_high_school)
+    EducationStatus.UNIVERSITY -> stringResource(R.string.edu_university)
+    EducationStatus.GRADUATED -> stringResource(R.string.edu_graduated)
+    EducationStatus.OTHER -> stringResource(R.string.edu_other)
 }
 
+@Composable
 private fun EmploymentStatus.displayName(): String = when (this) {
-    EmploymentStatus.STUDENT -> "Student"
-    EmploymentStatus.PART_TIME -> "Part-time"
-    EmploymentStatus.FULL_TIME, EmploymentStatus.EMPLOYED -> "Full-time"
-    EmploymentStatus.SELF_EMPLOYED -> "Self-employed"
-    EmploymentStatus.UNEMPLOYED -> "Unemployed"
-    EmploymentStatus.RETIRED -> "Retired"
+    EmploymentStatus.STUDENT -> stringResource(R.string.emp_student)
+    EmploymentStatus.PART_TIME -> stringResource(R.string.emp_part_time)
+    EmploymentStatus.FULL_TIME, EmploymentStatus.EMPLOYED -> stringResource(R.string.emp_employed)
+    EmploymentStatus.SELF_EMPLOYED -> stringResource(R.string.emp_self_employed)
+    EmploymentStatus.UNEMPLOYED -> stringResource(R.string.emp_unemployed)
+    EmploymentStatus.RETIRED -> stringResource(R.string.emp_retired)
 }
 
+@Composable
 private fun LivingSituation.displayName(): String = when (this) {
-    LivingSituation.WITH_PARENTS -> "Living with parents"
-    LivingSituation.RENTING -> "Renting"
-    LivingSituation.HOMEOWNER -> "Homeowner"
-    LivingSituation.OTHER -> "Other"
+    LivingSituation.WITH_PARENTS -> stringResource(R.string.living_with_parents)
+    LivingSituation.RENTING -> stringResource(R.string.living_renting)
+    LivingSituation.HOMEOWNER -> stringResource(R.string.living_homeowner)
+    LivingSituation.OTHER -> stringResource(R.string.living_other)
 }
 
-private fun VaultPriority.displayName(): String = when (this) {
-    VaultPriority.LOW -> "Low"
-    VaultPriority.MEDIUM -> "Medium"
-    VaultPriority.HIGH -> "High"
-    VaultPriority.CRITICAL -> "Critical"
-}
 
-private fun VaultType.displayName(): String = when (this) {
-    VaultType.SHORT_TERM -> "Short-term"
-    VaultType.LONG_TERM -> "Long-term"
-    VaultType.PASSIVE_INVESTMENT -> "Passive"
-    VaultType.GOAL -> "Goal"
-    VaultType.EMERGENCY -> "Emergency"
-    VaultType.INVESTMENT -> "Investment"
-}
+
 
 private fun Double.toInputText(defaultWhenZero: String = ""): String {
     if (this <= 0.0) return defaultWhenZero
@@ -1024,7 +1018,7 @@ fun NameStep(
         Spacer(modifier = Modifier.height(24.dp))
         
         Text(
-            text = "What should we call you?",
+            text = stringResource(R.string.onboarding_name_title),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
@@ -1034,7 +1028,7 @@ fun NameStep(
         Spacer(modifier = Modifier.height(12.dp))
         
         Text(
-            text = "This helps us personalize your experience",
+            text = stringResource(R.string.onboarding_name_desc),
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1045,8 +1039,8 @@ fun NameStep(
         SparelyTextField(
             value = name,
             onValueChange = onNameChange,
-            label = { Text("Your name (optional)") },
-            placeholder = { Text("e.g., Alex") },
+            label = { Text(stringResource(R.string.onboarding_name_label)) },
+            placeholder = { Text(stringResource(R.string.onboarding_name_placeholder)) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             leadingIcon = {
@@ -1062,7 +1056,7 @@ fun NameStep(
                 .fillMaxWidth()
                 .height(56.dp)
         ) {
-            Text("Continue", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.onboarding_continue), style = MaterialTheme.typography.titleMedium)
         }
     }
 }
@@ -1083,7 +1077,7 @@ fun IncomeStep(
         birthday?.let { ChronoUnit.YEARS.between(it, LocalDate.now()).coerceAtLeast(0L).toInt() }
     }
     var showBirthdayPicker by remember { mutableStateOf(false) }
-    val birthdayLabel = birthday?.format(dateFormatter) ?: "Add your birthday (optional)"
+    val birthdayLabel = birthday?.format(dateFormatter) ?: stringResource(R.string.onboarding_income_birthday_label)
     val isAgeValid = (birthday != null && computedAge != null) || age.toIntOrNull() != null
 
     Column(
@@ -1104,7 +1098,7 @@ fun IncomeStep(
         Spacer(modifier = Modifier.height(24.dp))
         
         Text(
-            text = "Let's understand your finances",
+            text = stringResource(R.string.onboarding_income_title),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
@@ -1124,9 +1118,9 @@ fun IncomeStep(
         
         SparelyTextField(
             value = income,
-            onValueChange = onIncomeChange,
-            label = { Text("Monthly Income") },
-            placeholder = { Text("4500") },
+            onValueChange = { onIncomeChange(it.filterCurrencyInput()) },
+            label = { Text(stringResource(R.string.onboarding_income_label)) },
+            placeholder = { Text(stringResource(R.string.onboarding_income_placeholder)) },
             prefix = { Text("$") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
@@ -1149,7 +1143,7 @@ fun IncomeStep(
         if (birthday != null && computedAge != null) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "We'll keep track that you're $computedAge and tailor milestones accordingly.",
+                text = stringResource(R.string.onboarding_income_age_milestone_desc, computedAge ?: 0),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Start,
@@ -1159,23 +1153,23 @@ fun IncomeStep(
                 onClick = { onBirthdayChange(null) },
                 modifier = Modifier.align(Alignment.End)
             ) {
-                Text("Clear birthday")
+                Text(stringResource(R.string.onboarding_income_clear_birthday))
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
         val ageHelper = if (birthday != null) {
-            "Calculated automatically from your birthday."
+            stringResource(R.string.onboarding_income_age_helper_auto)
         } else {
-            "You can adjust this later in settings."
+            stringResource(R.string.onboarding_income_age_helper_manual)
         }
 
         SparelyTextField(
             value = age,
             onValueChange = onAgeChange,
-            label = { Text("Your Age") },
-            placeholder = { Text("30") },
+            label = { Text(stringResource(R.string.onboarding_income_age_label)) },
+            placeholder = { Text(stringResource(R.string.onboarding_income_age_placeholder)) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             enabled = birthday == null,
@@ -1204,7 +1198,7 @@ fun IncomeStep(
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "Your data stays private on your device",
+                    text = stringResource(R.string.onboarding_income_privacy_notice),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
@@ -1218,9 +1212,9 @@ fun IncomeStep(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
-            enabled = income.toDoubleOrNull() != null && isAgeValid
+            enabled = income.toSafeDouble() != null && isAgeValid
         ) {
-            Text("Continue", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.onboarding_continue), style = MaterialTheme.typography.titleMedium)
         }
     }
 
@@ -1241,12 +1235,12 @@ fun IncomeStep(
                     onBirthdayChange(selectedDate)
                     showBirthdayPicker = false
                 }) {
-                    Text("Save")
+                    Text(stringResource(R.string.common_save))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showBirthdayPicker = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             }
         ) {
@@ -1279,7 +1273,7 @@ fun RiskLevelStep(
         Spacer(modifier = Modifier.height(24.dp))
         
         Text(
-            text = "What's your investment style?",
+            text = stringResource(R.string.onboarding_risk_title),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
@@ -1289,7 +1283,7 @@ fun RiskLevelStep(
         Spacer(modifier = Modifier.height(12.dp))
         
         Text(
-            text = "This affects how we split your investment allocations",
+            text = stringResource(R.string.onboarding_risk_desc),
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1299,8 +1293,8 @@ fun RiskLevelStep(
         
         RiskLevelOption(
             icon = "🛡️",
-            title = "Conservative",
-            description = "Focus on safety with 80%+ in stable investments (bonds, ETFs)",
+            title = stringResource(R.string.onboarding_risk_conservative_title),
+            description = stringResource(R.string.onboarding_risk_conservative_desc),
             isSelected = selectedRisk == RiskLevel.CONSERVATIVE,
             onClick = { onRiskSelected(RiskLevel.CONSERVATIVE) }
         )
@@ -1309,8 +1303,8 @@ fun RiskLevelStep(
         
         RiskLevelOption(
             icon = "⚖️",
-            title = "Balanced",
-            description = "Mix of safety and growth with ~65% in stable investments",
+            title = stringResource(R.string.onboarding_risk_balanced_title),
+            description = stringResource(R.string.onboarding_risk_balanced_desc),
             isSelected = selectedRisk == RiskLevel.BALANCED,
             onClick = { onRiskSelected(RiskLevel.BALANCED) }
         )
@@ -1319,8 +1313,8 @@ fun RiskLevelStep(
         
         RiskLevelOption(
             icon = "🚀",
-            title = "Aggressive",
-            description = "Growth focused with ~50% in higher-risk investments",
+            title = stringResource(R.string.onboarding_risk_aggressive_title),
+            description = stringResource(R.string.onboarding_risk_aggressive_desc),
             isSelected = selectedRisk == RiskLevel.AGGRESSIVE,
             onClick = { onRiskSelected(RiskLevel.AGGRESSIVE) }
         )
@@ -1440,7 +1434,7 @@ private fun FinancialSituationStep(
         Spacer(modifier = Modifier.height(24.dp))
         
         Text(
-            text = "Your current situation",
+            text = stringResource(R.string.onboarding_financial_title),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
@@ -1450,7 +1444,7 @@ private fun FinancialSituationStep(
         Spacer(modifier = Modifier.height(12.dp))
         
         Text(
-            text = "Help us recommend the right savings accounts for you",
+            text = stringResource(R.string.onboarding_financial_desc),
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1461,7 +1455,7 @@ private fun FinancialSituationStep(
         // Education Status (only show if age < 30)
         if (age < 30) {
             Text(
-                text = "Education Status",
+                text = stringResource(R.string.onboarding_financial_education_label),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1481,7 +1475,7 @@ private fun FinancialSituationStep(
 
         // Employment Status
         Text(
-            text = "Employment Status",
+            text = stringResource(R.string.onboarding_financial_employment_label),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -1500,7 +1494,7 @@ private fun FinancialSituationStep(
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = "Living situation",
+            text = stringResource(R.string.onboarding_living_situation_label),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -1521,8 +1515,8 @@ private fun FinancialSituationStep(
         SparelyTextField(
             value = occupation,
             onValueChange = onOccupationChange,
-            label = { Text("Occupation (optional)") },
-            placeholder = { Text("e.g. Product designer") },
+            label = { Text(stringResource(R.string.onboarding_occupation_label)) },
+            placeholder = { Text(stringResource(R.string.onboarding_occupation_placeholder)) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             leadingIcon = {
@@ -1533,7 +1527,7 @@ private fun FinancialSituationStep(
         Spacer(modifier = Modifier.height(24.dp))
         
         Text(
-            text = "Do you have any debts?",
+            text = stringResource(R.string.onboarding_financial_debts_label),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Medium,
             modifier = Modifier.fillMaxWidth()
@@ -1548,7 +1542,7 @@ private fun FinancialSituationStep(
             SparelyChip(
                 selected = !hasDebts,
                 onClick = { onDebtsChange(false) },
-                label = { Text("No") },
+                label = { Text(stringResource(R.string.common_no)) },
                 modifier = Modifier.weight(1f),
                 leadingIcon = if (!hasDebts) {
                     { MaterialSymbolIcon(icon = MaterialSymbols.CHECK, contentDescription = null) }
@@ -1557,7 +1551,7 @@ private fun FinancialSituationStep(
             SparelyChip(
                 selected = hasDebts,
                 onClick = { onDebtsChange(true) },
-                label = { Text("Yes") },
+                label = { Text(stringResource(R.string.common_yes)) },
                 modifier = Modifier.weight(1f),
                 leadingIcon = if (hasDebts) {
                     { MaterialSymbolIcon(icon = MaterialSymbols.CHECK, contentDescription = null) }
@@ -1575,17 +1569,17 @@ private fun FinancialSituationStep(
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
-                        text = "Based on your age and that you still live with your parents and work part-time, we recommend a small emergency fund of $200–$300 to cover minor unexpected expenses.",
+                        text = stringResource(R.string.onboarding_small_fund_suggestion),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilledTonalButton(onClick = { onEmergencyFundChange("250") }) {
-                            Text("Apply $250 suggestion")
+                            Text(stringResource(R.string.onboarding_apply_suggestion, "250"))
                         }
                         TextButton(onClick = { /* user can still input their own value */ }) {
-                            Text("Keep my value")
+                            Text(stringResource(R.string.onboarding_keep_value))
                         }
                     }
                 }
@@ -1595,31 +1589,31 @@ private fun FinancialSituationStep(
 
         SparelyTextField(
             value = emergencyFund,
-            onValueChange = onEmergencyFundChange,
-            label = { Text("Current Emergency Fund") },
+            onValueChange = { onEmergencyFundChange(it.filterCurrencyInput()) },
+            label = { Text(stringResource(R.string.onboarding_emergency_fund_label)) },
             placeholder = { Text("0") },
-            prefix = { Text("$") },
+            prefix = { Text(stringResource(R.string.currency_symbol)) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             leadingIcon = {
                 MaterialSymbolIcon(icon = MaterialSymbols.ACCOUNT_BALANCE_WALLET, contentDescription = null)
             },
             supportingText = {
-                Text("How much do you already have saved for emergencies?")
+                Text(stringResource(R.string.onboarding_emergency_fund_helper))
             }
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = "Account balances",
+            text = stringResource(R.string.onboarding_balances_title),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Medium,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Share your current cash cushions so we can account for them in your emergency fund target.",
+            text = stringResource(R.string.onboarding_balances_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.fillMaxWidth()
@@ -1629,10 +1623,10 @@ private fun FinancialSituationStep(
 
         SparelyTextField(
             value = mainAccountBalance,
-            onValueChange = onMainAccountBalanceChange,
-            label = { Text("Main account balance") },
+            onValueChange = { onMainAccountBalanceChange(it.filterCurrencyInput()) },
+            label = { Text(stringResource(R.string.onboarding_main_balance_label)) },
             placeholder = { Text("0") },
-            prefix = { Text("$") },
+            prefix = { Text(stringResource(R.string.currency_symbol)) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             leadingIcon = {
@@ -1644,10 +1638,10 @@ private fun FinancialSituationStep(
 
         SparelyTextField(
             value = savingsAccountBalance,
-            onValueChange = onSavingsAccountBalanceChange,
-            label = { Text("Savings account balance") },
+            onValueChange = { onSavingsAccountBalanceChange(it.filterCurrencyInput()) },
+            label = { Text(stringResource(R.string.onboarding_savings_balance_label)) },
             placeholder = { Text("0") },
-            prefix = { Text("$") },
+            prefix = { Text(stringResource(R.string.currency_symbol)) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             leadingIcon = {
@@ -1659,10 +1653,10 @@ private fun FinancialSituationStep(
 
         SparelyTextField(
             value = vaultsBalance,
-            onValueChange = onVaultsBalanceChange,
-            label = { Text("Existing vault or sinking funds") },
+            onValueChange = { onVaultsBalanceChange(it.filterCurrencyInput()) },
+            label = { Text(stringResource(R.string.onboarding_vaults_balance_label)) },
             placeholder = { Text("0") },
-            prefix = { Text("$") },
+            prefix = { Text(stringResource(R.string.currency_symbol)) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             leadingIcon = {
@@ -1673,14 +1667,14 @@ private fun FinancialSituationStep(
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = "Monthly subscriptions (optional)",
+            text = stringResource(R.string.onboarding_subscriptions_title),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Medium,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "List recurring bills so Sparely can bake them into your runway calculations.",
+            text = stringResource(R.string.onboarding_subscriptions_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.fillMaxWidth()
@@ -1690,7 +1684,7 @@ private fun FinancialSituationStep(
 
         if (subscriptions.isEmpty()) {
             Text(
-                text = "No subscriptions yet. Add streaming services, rent, insurance, anything that hits monthly.",
+                text = stringResource(R.string.onboarding_no_subscriptions),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth()
@@ -1705,12 +1699,12 @@ private fun FinancialSituationStep(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Subscription ${index + 1}",
+                                text = stringResource(R.string.onboarding_subscription_item_title, index + 1),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Medium
                             )
                             IconButton(onClick = { onRemoveSubscription(draft.id) }) {
-                                MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = "Remove subscription")
+                                MaterialSymbolIcon(icon = MaterialSymbols.DELETE, contentDescription = stringResource(R.string.onboarding_remove_subscription))
                             }
                         }
 
@@ -1719,8 +1713,8 @@ private fun FinancialSituationStep(
                         SparelyTextField(
                             value = draft.name,
                             onValueChange = { onSubscriptionNameChange(draft.id, it) },
-                            label = { Text("Name") },
-                            placeholder = { Text("e.g. Rent or Spotify") },
+                            label = { Text(stringResource(R.string.common_name)) },
+                            placeholder = { Text(stringResource(R.string.onboarding_subscription_placeholder)) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
@@ -1729,10 +1723,10 @@ private fun FinancialSituationStep(
 
                         SparelyTextField(
                             value = draft.amount,
-                            onValueChange = { onSubscriptionAmountChange(draft.id, it) },
-                            label = { Text("Monthly amount") },
+                            onValueChange = { onSubscriptionAmountChange(draft.id, it.filterCurrencyInput()) },
+                            label = { Text(stringResource(R.string.onboarding_subscription_amount_label)) },
                             placeholder = { Text("0") },
-                            prefix = { Text("$") },
+                            prefix = { Text(stringResource(R.string.currency_symbol)) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             leadingIcon = {
@@ -1749,7 +1743,7 @@ private fun FinancialSituationStep(
         FilledTonalButton(onClick = onAddSubscription, modifier = Modifier.fillMaxWidth()) {
             MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Add subscription")
+            Text(stringResource(R.string.onboarding_add_subscription))
         }
         
         Spacer(modifier = Modifier.weight(1f))
@@ -1760,7 +1754,7 @@ private fun FinancialSituationStep(
                 .fillMaxWidth()
                 .height(56.dp)
         ) {
-            Text("Continue", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.onboarding_continue), style = MaterialTheme.typography.titleMedium)
         }
     }
 }
@@ -1789,7 +1783,7 @@ fun GoalStep(
         Spacer(modifier = Modifier.height(24.dp))
         
         Text(
-            text = "What's your main goal?",
+            text = stringResource(R.string.onboarding_goal_title),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
@@ -1799,7 +1793,7 @@ fun GoalStep(
         Spacer(modifier = Modifier.height(12.dp))
         
         Text(
-            text = "Let's focus on what matters most to you",
+            text = stringResource(R.string.onboarding_goal_desc),
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1810,15 +1804,15 @@ fun GoalStep(
         SparelyTextField(
             value = goal,
             onValueChange = onGoalChange,
-            label = { Text("Primary Savings Goal (optional)") },
-            placeholder = { Text("e.g., Buy a house, Emergency fund, Vacation") },
+            label = { Text(stringResource(R.string.onboarding_goal_label)) },
+            placeholder = { Text(stringResource(R.string.onboarding_goal_placeholder)) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             leadingIcon = {
                 MaterialSymbolIcon(icon = MaterialSymbols.FLAG, contentDescription = null)
             },
             supportingText = {
-                Text("You can add more detailed goals later")
+                Text(stringResource(R.string.onboarding_goal_helper))
             }
         )
         
@@ -1846,7 +1840,7 @@ fun GoalStep(
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = "You're all set!",
+                        text = stringResource(R.string.onboarding_all_set_title),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = accentColor
@@ -1854,7 +1848,7 @@ fun GoalStep(
                 }
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "Sparely will now help you automatically save from every purchase, track your progress, and achieve your financial goals.",
+                    text = stringResource(R.string.onboarding_all_set_desc),
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
@@ -1874,7 +1868,7 @@ fun GoalStep(
         ) {
             MaterialSymbolIcon(icon = MaterialSymbols.ROCKET_LAUNCH, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Start Saving!", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.onboarding_start_saving), style = MaterialTheme.typography.titleMedium)
         }
     }
 }
@@ -1903,7 +1897,7 @@ private fun CountrySelectionStep(
         Spacer(modifier = Modifier.height(24.dp))
         
         Text(
-            text = "Choose your country",
+            text = stringResource(R.string.onboarding_country_title),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
@@ -1913,7 +1907,7 @@ private fun CountrySelectionStep(
         Spacer(modifier = Modifier.height(12.dp))
         
         Text(
-            text = "We'll customize the app for your region with local currency, tax rates, and financial recommendations",
+            text = stringResource(R.string.onboarding_country_desc),
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1951,7 +1945,7 @@ private fun CountrySelectionStep(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "${country.languageName} • ${MaterialTheme.colorScheme.onSurfaceVariant.let { if (isSelected) "Selected" else CurrencyPresets.getByCode(country.defaultCurrency)?.symbol ?: country.defaultCurrency }}",
+                            text = "${country.languageName} • ${MaterialTheme.colorScheme.onSurfaceVariant.let { if (isSelected) stringResource(R.string.common_selected) else CurrencyPresets.getByCode(country.defaultCurrency)?.symbol ?: country.defaultCurrency }}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1959,7 +1953,7 @@ private fun CountrySelectionStep(
                     
                     if (isSelected) {
                         MaterialSymbolIcon(icon = MaterialSymbols.CHECK_CIRCLE,
-                            contentDescription = "Selected",
+                            contentDescription = stringResource(R.string.common_selected),
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -1976,7 +1970,7 @@ private fun CountrySelectionStep(
                 .height(56.dp),
             enabled = selectedCountry != null
         ) {
-            Text("Continue", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.onboarding_continue), style = MaterialTheme.typography.titleMedium)
         }
     }
 }
@@ -2003,7 +1997,7 @@ private fun WelcomeStep(
         Spacer(modifier = Modifier.height(32.dp))
         
         Text(
-            text = "Welcome to Sparely",
+            text = stringResource(R.string.onboarding_welcome_title),
             style = MaterialTheme.typography.displaySmall,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
@@ -2014,9 +2008,10 @@ private fun WelcomeStep(
         
         Text(
             text = buildString {
-                append("Smart savings made simple")
+                append(stringResource(R.string.onboarding_welcome_simple))
                 countryConfig?.let {
-                    append(" for ${it.countryName}")
+                    append(" ")
+                    append(stringResource(R.string.onboarding_welcome_for_country, it.countryName))
                 }
             },
             style = MaterialTheme.typography.titleMedium,
@@ -2039,21 +2034,21 @@ private fun WelcomeStep(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "Customized for you",
+                        text = stringResource(R.string.onboarding_country_customized_note),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "• Currency: ${CurrencyPresets.getByCode(config.defaultCurrency)?.name ?: config.defaultCurrency}",
+                        text = stringResource(R.string.onboarding_country_currency_stat, CurrencyPresets.getByCode(config.defaultCurrency)?.name ?: config.defaultCurrency),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
-                        text = "• Tax insights: ~${(config.taxConfig.incomeTaxRate * 100).toInt()}% income tax",
+                        text = stringResource(R.string.onboarding_country_tax_stat, (config.taxConfig.incomeTaxRate * 100).toInt()),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
-                        text = "• Savings goal: ${config.savingsNorms.recommendedEmergencyMonths} months emergency fund",
+                        text = stringResource(R.string.onboarding_country_savings_stat, config.savingsNorms.recommendedEmergencyMonths),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -2068,13 +2063,13 @@ private fun WelcomeStep(
                 .fillMaxWidth()
                 .height(56.dp)
         ) {
-            Text("Get Started", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.onboarding_get_started), style = MaterialTheme.typography.titleMedium)
         }
         
         Spacer(modifier = Modifier.height(16.dp))
         
         TextButton(onClick = onSkip) {
-            Text("Skip setup")
+            Text(stringResource(R.string.onboarding_skip_setup))
         }
     }
 }

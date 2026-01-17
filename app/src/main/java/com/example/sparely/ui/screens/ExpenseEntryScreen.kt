@@ -36,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.setValue
@@ -55,12 +56,26 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
+import com.example.sparely.domain.model.Store
+import com.example.sparely.ui.components.SearchableStoreSelector
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.rememberDatePickerState
+import com.example.sparely.domain.model.StoreInput
 import com.example.sparely.ui.utils.toSafeDatePickerMillis
+import com.example.sparely.ui.utils.filterCurrencyInput
+import com.example.sparely.ui.utils.toSafeDouble
+import com.example.sparely.ui.utils.toSafeDoubleOrZero
 import java.time.Instant
 import java.time.ZoneOffset
 import com.example.sparely.ui.components.SparelyTextButton
+import kotlinx.coroutines.launch
+import com.example.sparely.domain.model.PaymentMethod
+import androidx.compose.ui.res.stringResource
+import com.example.sparely.domain.model.displayName
+import com.sparely.app.R
+// import com.example.sparely.ui.screens.displayName // Not needed if in same package
+import com.example.sparely.ui.components.PaymentMethodSelector
+import androidx.compose.ui.draw.scale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,23 +83,69 @@ fun ExpenseEntryScreen(
     settings: SparelySettings,
     recommendation: RecommendationResult?,
     vaults: List<SmartVault> = emptyList(),
+    stores: List<Store> = emptyList(),
     onSave: (ExpenseInput) -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    onCreateStore: suspend (StoreInput) -> Store? = { null },
+    onEditStore: (Store) -> Unit = {},
+    onDeleteStore: (Store) -> Unit = {},
+    brandfetchClientId: String? = null,
+    paymentMethods: List<PaymentMethod> = emptyList(),
+    onManagePaymentMethods: () -> Unit = {},
+    brandSearchResults: List<com.example.sparely.data.remote.BrandfetchBrand> = emptyList(),
+    onBrandSearch: (String) -> Unit = {},
+    prefillExpense: com.example.sparely.domain.model.Expense? = null
 ) {
     val context = LocalContext.current
-    var description by remember { mutableStateOf("") }
-    var amountText by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf(ExpenseCategory.OTHER) }
-    var includeTax by remember { mutableStateOf(settings.includeTaxByDefault) }
+    val scope = rememberCoroutineScope()
+    
+    // Initialize form fields from prefillExpense if provided
+    var description by remember { mutableStateOf(prefillExpense?.description ?: "") }
+    var amountText by remember { mutableStateOf(prefillExpense?.amount?.let { String.format("%.2f", it) } ?: "") }
+    var category by remember { mutableStateOf(prefillExpense?.category ?: ExpenseCategory.OTHER) }
+    var includeTax by remember { mutableStateOf(prefillExpense?.includesTax ?: settings.includeTaxByDefault) }
     var deductFromMainAccount by remember { mutableStateOf(false) }
-    var deductFromVaultId by remember { mutableStateOf<Long?>(null) }
-    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    var deductFromVaultId by remember { mutableStateOf(prefillExpense?.deductedFromVaultId) }
+    var selectedDate by remember { mutableStateOf(LocalDate.now()) } // Always today for new expense
     var manualMode by remember { mutableStateOf(!settings.autoRecommendationsEnabled) }
     var emergencyPercent by remember { mutableFloatStateOf(settings.defaultPercentages.emergency.toFloat()) }
     var investPercent by remember { mutableFloatStateOf(settings.defaultPercentages.invest.toFloat()) }
     var funPercent by remember { mutableFloatStateOf(settings.defaultPercentages.`fun`.toFloat()) }
     var errorText by remember { mutableStateOf<String?>(null) }
     var vaultDropdownExpanded by remember { mutableStateOf(false) }
+    var selectedStore by remember { mutableStateOf<Store?>(null) }
+
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedPaymentMethod by remember { mutableStateOf<PaymentMethod?>(null) }
+    var notes by remember { mutableStateOf(prefillExpense?.notes ?: "") }
+    var orderNumber by remember { mutableStateOf("") } // Don't repeat order number
+    
+    // Line Items State
+    val expenseItems = remember { androidx.compose.runtime.mutableStateListOf<com.example.sparely.domain.model.ExpenseItem>() }
+    
+    // Auto-sum logic: Update total amount when items change, if manual amount hasn't been touched or is consistent
+    androidx.compose.runtime.LaunchedEffect(expenseItems.toList()) {
+        val itemsTotal = expenseItems.sumOf { it.totalPrice }
+        if (itemsTotal > 0) {
+            // Only auto-update if the current amount matches the previous item total (indicating it's driven by items)
+            // or if amount is 0/empty
+            val currentAmount = amountText.toSafeDoubleOrZero()
+            // Simplified logic: If items exist, summing them overrides the manual amount?
+            // Or maybe just suggest it? Let's just update it for convenience as requested.
+             amountText = String.format("%.2f", itemsTotal)
+        }
+    }
+    
+    // Set initial payment method if any default exists
+    androidx.compose.runtime.LaunchedEffect(paymentMethods) {
+        if (selectedPaymentMethod == null) {
+            val default = paymentMethods.find { it.isDefault }
+            if (default != null) {
+                selectedPaymentMethod = default
+                deductFromMainAccount = default.defaultDeductFromMainAccount
+            }
+        }
+    }
     
     // Date Picker State
     var showDatePicker by remember { mutableStateOf(false) }
@@ -103,14 +164,14 @@ fun ExpenseEntryScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "Log purchase",
+            text = stringResource(R.string.expense_entry_title),
             style = MaterialTheme.typography.headlineSmall
         )
         Text(
             text = if (manualMode) {
-                "You are manually controlling percentages."
+                stringResource(R.string.expense_entry_manual_desc)
             } else {
-                "Auto mode applies the latest recommendation for you."
+                stringResource(R.string.expense_entry_auto_desc)
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -118,31 +179,93 @@ fun ExpenseEntryScreen(
         SparelyTextField(
             value = description,
             onValueChange = { description = it },
-            label = { Text("Description") },
+            label = { Text(stringResource(R.string.expense_entry_description_label)) },
             modifier = Modifier.fillMaxWidth()
         )
         SparelyTextField(
             value = amountText,
-            onValueChange = { amountText = it.filter { ch -> ch.isDigit() || ch == '.' } },
-            label = { Text("Amount") },
+            onValueChange = { amountText = it.filterCurrencyInput() },
+            label = { Text(stringResource(R.string.expense_entry_amount_label)) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             modifier = Modifier.fillMaxWidth()
         )
         CategorySelector(selected = category, onSelect = { category = it })
+        
+        // Store/Website selector
+        SearchableStoreSelector(
+            stores = stores,
+            selectedStore = selectedStore,
+            onStoreSelected = { selectedStore = it },
+            onCreateStore = onCreateStore,
+            onEditStore = onEditStore,
+            onDeleteStore = onDeleteStore,
+            searchQuery = searchQuery,
+            onSearchQueryChange = { searchQuery = it },
+            brandfetchClientId = brandfetchClientId,
+            brandSearchResults = brandSearchResults,
+            onBrandSearch = onBrandSearch
+        )
+        
+        PaymentMethodSelector(
+            paymentMethods = paymentMethods,
+            selectedMethod = selectedPaymentMethod,
+            onMethodSelected = { method ->
+                selectedPaymentMethod = method
+                method?.let { 
+                    // Smart default: If credit card, default to NOT deducting from main account (it adds to debt)
+                    // Otherwise (Debit/Cash), default to deducting.
+                    deductFromMainAccount = !it.isCreditCard
+                }
+            },
+            onManageMethods = onManagePaymentMethods,
+            expenseAmount = amountText.toSafeDoubleOrZero()
+        )
+        
+        // Notes field
+        SparelyTextField(
+            value = notes,
+            onValueChange = { notes = it },
+            label = { Text(stringResource(R.string.expense_notes_label)) },
+            placeholder = { Text(stringResource(R.string.expense_notes_placeholder)) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = false,
+            minLines = 2,
+            maxLines = 4
+        )
+        
+        // Order Number field
+        SparelyTextField(
+            value = orderNumber,
+            onValueChange = { orderNumber = it },
+            label = { Text(stringResource(R.string.expense_order_number_label)) },
+            placeholder = { Text(stringResource(R.string.expense_order_number_placeholder)) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+        
+        // Line Items Section
+        com.example.sparely.ui.components.ExpenseItemsList(
+            items = expenseItems,
+            onItemsChanged = { newItems ->
+                expenseItems.clear()
+                expenseItems.addAll(newItems)
+            }
+        )
+        
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
         ) {
             Column {
-                Text("Purchase date")
+                Text(stringResource(R.string.expense_entry_date_label))
                 Text(selectedDate.format(dateFormatter), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             SparelyTonalButton(
                 onClick = { showDatePicker = true },
                 modifier = Modifier
             ) {
-                Text("Change")
+                Text(stringResource(R.string.expense_entry_change_date_button))
             }
         }
         
@@ -156,12 +279,12 @@ fun ExpenseEntryScreen(
                         }
                         showDatePicker = false
                     }) {
-                        Text("OK")
+                        Text(stringResource(R.string.ok))
                     }
                 },
                 dismissButton = {
                     SparelyTextButton(onClick = { showDatePicker = false }) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.cancel))
                     }
                 }
             ) {
@@ -174,9 +297,9 @@ fun ExpenseEntryScreen(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
-                Text("Auto allocation")
+                Text(stringResource(R.string.expense_entry_auto_allocation_title))
                 Text(
-                    text = "Let Sparely pick percentages",
+                    text = stringResource(R.string.expense_entry_auto_allocation_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -192,13 +315,13 @@ fun ExpenseEntryScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Applied suggestion", 
+                            text = stringResource(R.string.expense_entry_applied_suggestion), 
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Emergency ${formatPercent(it.recommendedPercentages.emergency)}  •  Invest ${formatPercent(it.recommendedPercentages.invest)}  •  Fun ${formatPercent(it.recommendedPercentages.`fun`)}",
+                            text = stringResource(R.string.expense_entry_suggestion_detail, formatPercent(it.recommendedPercentages.emergency), formatPercent(it.recommendedPercentages.invest), formatPercent(it.recommendedPercentages.`fun`)),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -219,37 +342,66 @@ fun ExpenseEntryScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Amount includes tax?", style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.expense_entry_include_tax_label), style = MaterialTheme.typography.bodyMedium)
             Checkbox(checked = includeTax, onCheckedChange = { includeTax = it })
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+        // Deduct from Main Account Toggle with Enhanced Explanation
+        Surface(
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Deduct from main account", style = MaterialTheme.typography.bodyMedium)
+            Column(modifier = Modifier.padding(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.recurring_deduct_main_title),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                    )
+                    Switch(
+                        checked = deductFromMainAccount,
+                        onCheckedChange = { deductFromMainAccount = it },
+                        modifier = Modifier.scale(0.8f)
+                    )
+                }
+                
+                val helperText = when {
+                    deductFromMainAccount && selectedPaymentMethod?.isCreditCard == true -> 
+                        stringResource(R.string.recurring_deduct_main_desc_credit_on_warning)
+                    deductFromMainAccount -> 
+                        stringResource(R.string.recurring_deduct_main_desc_debit)
+                    !deductFromMainAccount && selectedPaymentMethod?.isCreditCard == true -> 
+                        stringResource(R.string.recurring_deduct_main_desc_credit_off)
+                    else -> stringResource(R.string.recurring_deduct_main_desc_debit)
+                }
+                
+                val textColor = if (deductFromMainAccount && selectedPaymentMethod?.isCreditCard == true) 
+                    MaterialTheme.colorScheme.error 
+                else 
+                    MaterialTheme.colorScheme.onSurfaceVariant
+
                 Text(
-                    text = "Reduce your main account balance by this expense",
+                    text = helperText,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = textColor
                 )
             }
-            Checkbox(
-                checked = deductFromMainAccount,
-                onCheckedChange = { deductFromMainAccount = it }
-            )
         }
         
         // Vault selection dropdown
         Column(modifier = Modifier.fillMaxWidth()) {
-            Text("Deduct from vault (optional)", style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.expense_entry_deduct_vault_title), style = MaterialTheme.typography.titleSmall)
             Text(
                 text = if (activeVaults.isEmpty()) {
-                    "No active vaults available. Create a vault in the Vaults screen."
+                    stringResource(R.string.expense_entry_no_vaults)
                 } else if (deductFromVaultId != null && deductFromMainAccount) {
-                    "If expense exceeds vault balance, overflow will be deducted from main account"
+                    stringResource(R.string.expense_entry_vault_overflow)
                 } else {
-                    "Choose a vault to deduct this expense from"
+                    stringResource(R.string.expense_entry_choose_vault_desc)
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = if (deductFromVaultId != null && deductFromMainAccount) {
@@ -266,15 +418,15 @@ fun ExpenseEntryScreen(
                 ) {
                     SparelyTextField(
                         value = deductFromVaultId?.let { id -> 
-                            activeVaults.find { it.id == id }?.name ?: "None"
-                        } ?: "None",
+                            activeVaults.find { it.id == id }?.name ?: stringResource(R.string.expense_entry_none)
+                        } ?: stringResource(R.string.expense_entry_none),
                         onValueChange = {},
                         readOnly = true,
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = vaultDropdownExpanded) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                        label = { Text("Select vault") }
+                        label = { Text(stringResource(R.string.recurring_choose_vault)) }
                     )
                     ExposedDropdownMenu(
                         expanded = vaultDropdownExpanded,
@@ -283,9 +435,9 @@ fun ExpenseEntryScreen(
                         DropdownMenuItem(
                             text = { 
                                 Column {
-                                    Text("None")
+                                    Text(stringResource(R.string.expense_entry_none))
                                     Text(
-                                        text = "Don't deduct from any vault",
+                                        text = stringResource(R.string.expense_entry_none_desc),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -325,39 +477,61 @@ fun ExpenseEntryScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             SparelyButton(onClick = {
-                val amount = amountText.toDoubleOrNull()
+                val amount = amountText.toSafeDouble()
                 if (amount == null || amount <= 0.0) {
-                    errorText = "Enter a valid amount"
+                    errorText = context.getString(R.string.expense_entry_error_amount)
                     return@SparelyButton
                 }
-                val manualPercentages = if (manualMode) {
-                    SavingsPercentages(
-                        emergency = emergencyPercent.toDouble(),
-                        invest = investPercent.toDouble(),
-                        `fun` = funPercent.toDouble(),
-                        safeInvestmentSplit = settings.defaultPercentages.safeInvestmentSplit
-                    ).adjustWithinBudget()
-                } else {
-                    null
-                }
-                errorText = null
-                onSave(
-                    ExpenseInput(
-                        description = description,
-                        amount = amount,
-                        category = category,
-                        date = selectedDate,
-                        includesTax = includeTax,
-                        manualPercentages = manualPercentages,
-                        deductFromMainAccount = deductFromMainAccount,
-                        deductFromVaultId = deductFromVaultId
+                
+                scope.launch {
+                    var finalStoreId = selectedStore?.id
+                    
+                    // Auto-resolve store if name typed but not selected
+                    if (finalStoreId == null && searchQuery.isNotBlank()) {
+                         val existing = stores.find { it.name.equals(searchQuery.trim(), ignoreCase = true) }
+                         if (existing != null) {
+                             finalStoreId = existing.id
+                         } else {
+                             // Create new store
+                             val newStore = onCreateStore(StoreInput(name = searchQuery.trim()))
+                             finalStoreId = newStore?.id
+                         }
+                    }
+                    
+                    val manualPercentages = if (manualMode) {
+                        SavingsPercentages(
+                            emergency = emergencyPercent.toDouble(),
+                            invest = investPercent.toDouble(),
+                            `fun` = funPercent.toDouble(),
+                            safeInvestmentSplit = settings.defaultPercentages.safeInvestmentSplit
+                        ).adjustWithinBudget()
+                    } else {
+                        null
+                    }
+                    errorText = null
+                    onSave(
+                        ExpenseInput(
+                            description = description,
+                            amount = amount,
+                            category = category,
+                            date = selectedDate,
+                            includesTax = includeTax,
+                            manualPercentages = manualPercentages,
+                            deductFromMainAccount = deductFromMainAccount,
+                            deductFromVaultId = deductFromVaultId,
+                            storeId = finalStoreId,
+                            paymentMethodId = selectedPaymentMethod?.id,
+                            notes = notes.takeIf { it.isNotBlank() },
+                            orderNumber = orderNumber.takeIf { it.isNotBlank() },
+                            items = expenseItems.toList()
+                        )
                     )
-                )
+                }
             }, modifier = Modifier.weight(1f)) {
-                Text("Save")
+                Text(stringResource(R.string.save))
             }
             SparelyTonalButton(onClick = onCancel, modifier = Modifier.weight(1f)) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel))
             }
         }
         Spacer(modifier = Modifier.height(32.dp))
@@ -373,7 +547,7 @@ private fun CategorySelector(
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text("Category", style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(R.string.expense_entry_category_title), style = MaterialTheme.typography.titleSmall)
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -382,7 +556,7 @@ private fun CategorySelector(
                 SparelyChip(
                     selected = selected == category,
                     onClick = { onSelect(category) },
-                    label = { Text(category.name.lowercase().replaceFirstChar { it.uppercase() }) }
+                    label = { Text(category.displayName()) }
                 )
             }
         }
@@ -399,12 +573,12 @@ private fun PercentSliders(
     onFunChange: (Float) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Manual allocation", style = MaterialTheme.typography.titleSmall)
-        AllocationSlider(label = "Emergency", value = emergency, onValueChange = onEmergencyChange)
-        AllocationSlider(label = "Invest", value = invest, onValueChange = onInvestChange)
-        AllocationSlider(label = "Fun", value = funValue, onValueChange = onFunChange)
+        Text(stringResource(R.string.expense_entry_manual_allocation_title), style = MaterialTheme.typography.titleSmall)
+        AllocationSlider(label = stringResource(R.string.onboarding_financial_emergency_title), value = emergency, onValueChange = onEmergencyChange)
+        AllocationSlider(label = stringResource(R.string.onboarding_financial_invest_title), value = invest, onValueChange = onInvestChange)
+        AllocationSlider(label = stringResource(R.string.onboarding_financial_fun_title), value = funValue, onValueChange = onFunChange)
         val total = emergency + invest + funValue
-        Text("Total ${formatPercent(total.toDouble())}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(R.string.expense_entry_total_allocation, formatPercent(total.toDouble())), color = MaterialTheme.colorScheme.onSurfaceVariant)
         HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
     }
 }

@@ -6,7 +6,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.unit.sp
-import com.example.sparely.R
+import com.sparely.app.R
 
 // Poppins - Geometric sans-serif for headers (similar feel to Google Sans)
 // Friendly, modern, and expressive - perfect for financial UI headers

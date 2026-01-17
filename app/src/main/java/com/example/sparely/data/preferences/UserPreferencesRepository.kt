@@ -25,6 +25,7 @@ import com.example.sparely.domain.model.SavingsPercentages
 import com.example.sparely.domain.model.VaultAllocationMode
 import com.example.sparely.setAppLocale
 import com.example.sparely.domain.model.CountryProfiles
+import com.example.sparely.domain.model.ExpenseHistoryRetention
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -317,6 +318,56 @@ class UserPreferencesRepository(private val context: Context) {
     context.setAppLocale(languageCode, countryCode)
     }
 
+    suspend fun updateBrandfetchClientId(clientId: String?) {
+        context.dataStore.edit { prefs ->
+            if (clientId.isNullOrBlank()) {
+                prefs.remove(PreferenceKeys.brandfetchClientId)
+            } else {
+                prefs[PreferenceKeys.brandfetchClientId] = clientId.trim()
+            }
+        }
+    }
+
+    suspend fun updateExpenseHistoryRetention(retention: ExpenseHistoryRetention) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferenceKeys.expenseHistoryRetention] = retention.name
+        }
+    }
+
+    suspend fun updateCreditCardReminderSettings(
+        enabled: Boolean,
+        daysBefore: Int,
+        hour: Int
+    ) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferenceKeys.creditCardReminderEnabled] = enabled
+            prefs[PreferenceKeys.creditCardReminderDaysBefore] = daysBefore.coerceIn(1, 14)
+            prefs[PreferenceKeys.creditCardReminderHour] = hour.coerceIn(0, 23)
+        }
+    }
+
+    suspend fun updatePromptPayOnCreditCardExpense(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferenceKeys.promptPayOnCreditCardExpense] = enabled
+        }
+    }
+
+    suspend fun updateCreditCardUtilizationAlert(
+        enabled: Boolean,
+        threshold: Int
+    ) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferenceKeys.creditCardUtilizationAlertEnabled] = enabled
+            prefs[PreferenceKeys.creditCardUtilizationThreshold] = threshold.coerceIn(1, 100)
+        }
+    }
+
+    suspend fun updateBiometricEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferenceKeys.biometricEnabled] = enabled
+        }
+    }
+
     suspend fun setOnboardingCompleted(completed: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[PreferenceKeys.onboardingCompleted] = completed
@@ -433,6 +484,15 @@ class UserPreferencesRepository(private val context: Context) {
         val languageCode = this[PreferenceKeys.languageCode] ?: defaults.regionalSettings.languageCode
         val currencyCode = this[PreferenceKeys.currencyCode] ?: defaults.regionalSettings.currencyCode
         val customIncomeTaxRate = this[PreferenceKeys.customIncomeTaxRate]
+        val brandfetchClientId = this[PreferenceKeys.brandfetchClientId]
+        val expenseHistoryRetention = this[PreferenceKeys.expenseHistoryRetention]?.let { runCatching { ExpenseHistoryRetention.valueOf(it) }.getOrNull() } ?: ExpenseHistoryRetention.INDEFINITELY
+        val creditCardReminderEnabled = this[PreferenceKeys.creditCardReminderEnabled] ?: defaults.creditCardReminderEnabled
+        val creditCardReminderDaysBefore = this[PreferenceKeys.creditCardReminderDaysBefore] ?: defaults.creditCardReminderDaysBefore
+        val creditCardReminderHour = this[PreferenceKeys.creditCardReminderHour] ?: defaults.creditCardReminderHour
+        val promptPayOnCreditCardExpense = this[PreferenceKeys.promptPayOnCreditCardExpense] ?: defaults.promptPayOnCreditCardExpense
+        val creditCardUtilizationAlertEnabled = this[PreferenceKeys.creditCardUtilizationAlertEnabled] ?: defaults.creditCardUtilizationAlertEnabled
+        val creditCardUtilizationThreshold = this[PreferenceKeys.creditCardUtilizationThreshold] ?: defaults.creditCardUtilizationThreshold
+        val biometricEnabled = this[PreferenceKeys.biometricEnabled] ?: defaults.biometricEnabled
 
         return SparelySettings(
             defaultPercentages = SavingsPercentages(
@@ -498,7 +558,16 @@ class UserPreferencesRepository(private val context: Context) {
                 // read persisted locale or fallback to defaults
                 locale = this[PreferenceKeys.locale] ?: defaults.regionalSettings.locale,
                 customIncomeTaxRate = customIncomeTaxRate
-            )
+            ),
+            brandfetchClientId = brandfetchClientId,
+            expenseHistoryRetention = expenseHistoryRetention,
+            creditCardReminderEnabled = creditCardReminderEnabled,
+            creditCardReminderDaysBefore = creditCardReminderDaysBefore,
+            creditCardReminderHour = creditCardReminderHour,
+            promptPayOnCreditCardExpense = promptPayOnCreditCardExpense,
+            creditCardUtilizationAlertEnabled = creditCardUtilizationAlertEnabled,
+            creditCardUtilizationThreshold = creditCardUtilizationThreshold,
+            biometricEnabled = biometricEnabled
         )
     }
     private object PreferenceKeys {
@@ -572,6 +641,18 @@ class UserPreferencesRepository(private val context: Context) {
         val currencyCode = stringPreferencesKey("regional_currency")
     val locale = stringPreferencesKey("regional_locale")
         val customIncomeTaxRate = doublePreferencesKey("regional_custom_tax_rate")
+        
+        // Store logos
+        val brandfetchClientId = stringPreferencesKey("brandfetch_client_id")
+        val expenseHistoryRetention = stringPreferencesKey("expense_history_retention")
+        
+        val creditCardReminderEnabled = booleanPreferencesKey("credit_card_reminder_enabled")
+        val creditCardReminderDaysBefore = intPreferencesKey("credit_card_reminder_days_before")
+        val creditCardReminderHour = intPreferencesKey("credit_card_reminder_hour")
+        val promptPayOnCreditCardExpense = booleanPreferencesKey("prompt_pay_on_credit_card_expense")
+        val creditCardUtilizationAlertEnabled = booleanPreferencesKey("credit_card_utilization_alert_enabled")
+        val creditCardUtilizationThreshold = intPreferencesKey("credit_card_utilization_threshold")
+        val biometricEnabled = booleanPreferencesKey("biometric_enabled")
     }
 }
 

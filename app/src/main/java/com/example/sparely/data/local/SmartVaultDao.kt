@@ -39,6 +39,9 @@ interface SmartVaultDao {
     @Query("SELECT * FROM vault_contributions WHERE vaultId = :vaultId ORDER BY date DESC")
     suspend fun getContributionsForVault(vaultId: Long): List<VaultContributionEntity>
 
+    @Query("SELECT * FROM vault_contributions WHERE vaultId = :vaultId AND reconciled = 1 ORDER BY date DESC")
+    suspend fun getReconciledContributionsForVault(vaultId: Long): List<VaultContributionEntity>
+
     @Query("SELECT * FROM vault_balance_adjustments WHERE vaultId = :vaultId ORDER BY createdAt DESC")
     suspend fun getAdjustmentsForVault(vaultId: Long): List<VaultBalanceAdjustmentEntity>
 
@@ -47,6 +50,16 @@ interface SmartVaultDao {
     
     @Query("SELECT * FROM vault_contributions WHERE reconciled = 0 ORDER BY date DESC")
     suspend fun getPendingContributions(): List<VaultContributionEntity>
+
+    @Query("SELECT * FROM vault_contributions WHERE reconciled = 0 ORDER BY date DESC")
+    fun observePendingContributions(): Flow<List<VaultContributionEntity>>
+
+
+    @Query("SELECT * FROM vault_contributions WHERE relatedExpenseId = :expenseId")
+    suspend fun getContributionsForExpense(expenseId: Long): List<VaultContributionEntity>
+
+    @Query("DELETE FROM vault_contributions WHERE relatedExpenseId = :expenseId AND reconciled = 0")
+    suspend fun deletePendingContributionsForExpense(expenseId: Long)
     
     @Query("SELECT * FROM vault_contributions WHERE id = :id")
     suspend fun getContributionById(id: Long): VaultContributionEntity?

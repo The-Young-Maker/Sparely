@@ -93,8 +93,8 @@ class NotificationScheduler(context: Context) {
         NotificationHelper.dismissPaydayReminder(appContext)
     }
 
-    suspend fun showVaultTransferWorkflow(container: com.example.sparely.AppContainer) {
-        val pendingContributions = container.savingsRepository.getPendingVaultContributions()
+    suspend fun showVaultTransferWorkflow(savingsRepository: com.example.sparely.data.repository.SavingsRepository) {
+        val pendingContributions = savingsRepository.getPendingVaultContributions()
         if (pendingContributions.isEmpty()) {
             NotificationHelper.dismissVaultTransferNotification(appContext)
             return
@@ -112,7 +112,7 @@ class NotificationScheduler(context: Context) {
         val firstContributions = groupedByVault[firstVaultId]!!
         
         // Get vault name from flow
-        val allVaults = container.savingsRepository.observeSmartVaults().first()
+        val allVaults = savingsRepository.observeSmartVaults().first()
         val vault = allVaults.find { it.id == firstVaultId }
         
         NotificationHelper.showVaultTransferNotification(
@@ -127,6 +127,34 @@ class NotificationScheduler(context: Context) {
 
     fun dismissVaultTransferWorkflow() {
         NotificationHelper.dismissVaultTransferNotification(appContext)
+    }
+
+    fun scheduleCreditCardReminders(settings: SparelySettings) {
+        if (!settings.creditCardReminderEnabled) {
+            cancelCreditCardReminders()
+            return
+        }
+        NotificationHelper.ensureChannels(appContext)
+        
+        val initialDelay = computeInitialDelay(settings.creditCardReminderHour)
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
+            .build()
+            
+        val request = PeriodicWorkRequestBuilder<CreditCardReminderWorker>(1, TimeUnit.DAYS)
+            .setInitialDelay(initialDelay, TimeUnit.MILLISECONDS)
+            .setConstraints(constraints)
+            .build()
+            
+        workManager.enqueueUniquePeriodicWork(
+            CREDIT_CARD_WORK_NAME,
+            ExistingPeriodicWorkPolicy.UPDATE,
+            request
+        )
+    }
+
+    fun cancelCreditCardReminders() {
+        workManager.cancelUniqueWork(CREDIT_CARD_WORK_NAME)
     }
 
     private fun computeInitialDelay(targetHour: Int): Long {
@@ -148,5 +176,6 @@ class NotificationScheduler(context: Context) {
     companion object {
         private const val WORK_NAME = "sparely-daily-reminder"
         private const val PAYDAY_WORK_NAME = "sparely-payday-reminder"
+        private const val CREDIT_CARD_WORK_NAME = "sparely-credit-card-reminder"
     }
 }

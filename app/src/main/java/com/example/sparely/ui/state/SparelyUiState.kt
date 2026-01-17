@@ -1,5 +1,8 @@
 package com.example.sparely.ui.state
 
+import com.example.sparely.domain.logic.CashflowEngine
+import com.example.sparely.domain.logic.SmartInsightEngine
+import com.example.sparely.domain.logic.SpendingPatternEngine
 import com.example.sparely.domain.model.*
 
 data class SparelyUiState(
@@ -13,7 +16,7 @@ data class SparelyUiState(
     val alerts: List<AlertMessage> = emptyList(),
     val smartVaults: List<SmartVault> = emptyList(),
     val totalVaultBalance: Double = 0.0,
-    val vaultAdjustments: Map<Long, List<VaultBalanceAdjustment>> = emptyMap(),
+
     val emergencyFundGoal: EmergencyFundGoal? = null,
     val onboardingCompleted: Boolean = false,
     val activeSaveRate: Double = 0.0,
@@ -33,11 +36,29 @@ data class SparelyUiState(
     val detectedRecurringTransactions: List<DetectedRecurringTransaction> = emptyList(),
     val vaultProjections: List<VaultProjection> = emptyList(),
     val upcomingVaultDeposits: List<VaultContribution> = emptyList(),
-    val pendingVaultContributions: List<VaultContribution> = emptyList(),
+
     val autoDepositCheckHour: Int = 9,
     val mainAccountTransactions: List<MainAccountTransaction> = emptyList(),
+    val stores: List<Store> = emptyList(),
+    val paymentMethods: List<PaymentMethod> = emptyList(),
+    val creditCardPayments: Map<Long, List<CreditCardPayment>> = emptyMap(),
     val vaultArchivePrompt: VaultArchivePrompt? = null,
+    val lastDeletedExpense: Expense? = null,
+    
+    // Cashflow and spending insights
+    val cashflowForecast: CashflowEngine.CashflowForecast? = null,
+    val spendingPatterns: SpendingPatternEngine.SpendingPatternResult? = null,
+    
+    // Smart Insight Engine data
+    val recurringPatterns: List<SmartInsightEngine.RecurringPatternInsight> = emptyList(),
+    val seasonalInsights: List<SmartInsightEngine.SeasonalInsight> = emptyList(),
+    val idleMoneyInsight: SmartInsightEngine.IdleMoneyInsight? = null,
+    val uniqueExpenses: List<SmartInsightEngine.UniqueExpenseInsight> = emptyList(),
+    
+    // For repeat last expense feature
+    val prefillExpense: Expense? = null,
     
     val isLoading: Boolean = true,
     val errorMessage: String? = null
 )
+

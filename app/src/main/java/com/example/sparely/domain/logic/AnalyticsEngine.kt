@@ -5,11 +5,18 @@ import com.example.sparely.domain.model.Expense
 import com.example.sparely.domain.model.ExpenseCategory
 import com.example.sparely.domain.model.SavingsCategory
 import com.example.sparely.domain.model.SavingsTransfer
+import com.example.sparely.domain.model.SpendingTrendType
 import com.example.sparely.domain.model.TrendPoint
+import java.time.LocalDate
 import java.time.YearMonth
 
 object AnalyticsEngine {
-    fun build(expenses: List<Expense>, transfers: List<SavingsTransfer> = emptyList()): AnalyticsSnapshot {
+    fun build(
+        expenses: List<Expense>,
+        transfers: List<SavingsTransfer> = emptyList(),
+        mainAccountBalance: Double = 0.0,
+        categoryBudgets: Map<ExpenseCategory, Double> = emptyMap()
+    ): AnalyticsSnapshot {
         if (expenses.isEmpty() && transfers.isEmpty()) return AnalyticsSnapshot()
 
         val emergencyTransfers = transfers.filter { it.category == SavingsCategory.EMERGENCY }.sumOf { it.amount }
@@ -29,6 +36,21 @@ object AnalyticsEngine {
         val categoryBreakdown = buildCategoryBreakdown(expenses)
         val (averageMonthlyReserve, projectedSix, projectedTwelve) = buildProjections(transfers)
 
+        // Run spending pattern analysis
+        val patternResult = SpendingPatternEngine.analyze(
+            expenses = expenses,
+            mainAccountBalance = mainAccountBalance,
+            categoryBudgets = categoryBudgets,
+            today = LocalDate.now()
+        )
+
+        // Map SpendingPatternEngine trend to domain model
+        val spendingTrend = when (patternResult.trend) {
+            SpendingPatternEngine.SpendingTrend.INCREASING -> SpendingTrendType.INCREASING
+            SpendingPatternEngine.SpendingTrend.DECREASING -> SpendingTrendType.DECREASING
+            SpendingPatternEngine.SpendingTrend.STABLE -> SpendingTrendType.STABLE
+        }
+
         return AnalyticsSnapshot(
             totalEmergency = totalEmergency,
             totalInvested = totalInvested,
@@ -41,7 +63,14 @@ object AnalyticsEngine {
             averageMonthlyReserve = averageMonthlyReserve,
             averageMonthlyExpense = monthlyExpenseAverage,
             projectedReserveSixMonths = projectedSix,
-            projectedReserveTwelveMonths = projectedTwelve
+            projectedReserveTwelveMonths = projectedTwelve,
+            // New spending pattern fields
+            spendingTrend = spendingTrend,
+            weeklyAverageExpense = patternResult.weeklyAverageExpense,
+            monthOverMonthChange = patternResult.trendPercentage,
+            topGrowingCategory = patternResult.topGrowingCategory,
+            predictedMonthEndSpending = patternResult.predictedMonthEndSpending,
+            runwayDays = patternResult.runwayDays
         )
     }
 

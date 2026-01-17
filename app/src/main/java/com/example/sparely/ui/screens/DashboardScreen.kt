@@ -54,6 +54,12 @@ import androidx.compose.material3.TextButton
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -65,7 +71,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.sparely.R
+import com.sparely.app.R
 import com.example.sparely.domain.model.*
 import com.example.sparely.ui.components.ExpressiveCard
 import com.example.sparely.ui.components.SavingsTrendCard
@@ -77,13 +83,17 @@ import com.example.sparely.ui.state.SparelyUiState
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.theme.spacing
+import com.example.sparely.domain.logic.CashflowEngine
+import com.example.sparely.domain.logic.SpendingPatternEngine
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     uiState: SparelyUiState,
+    pendingVaultContributions: List<VaultContribution> = emptyList(),
     onAddExpense: () -> Unit,
+    onRepeatLastExpense: (com.example.sparely.domain.model.Expense) -> Unit = {},
     onNavigateToHistory: () -> Unit,
     onNavigateToBudgets: () -> Unit = {},
     onNavigateToChallenges: () -> Unit = {},
@@ -92,6 +102,8 @@ fun DashboardScreen(
     onManageVaults: () -> Unit = {},
     onNavigateToVaultTransfers: () -> Unit = {},
     onNavigateToMainAccount: () -> Unit = {},
+    onNavigateToCreditCards: () -> Unit = {},
+    onNavigateToInsights: () -> Unit = {},
     // allow parent to hide dashboard's own FAB when a global FAB/menu is provided
     showFloatingFab: Boolean = true
 ) {
@@ -161,14 +173,64 @@ fun DashboardScreen(
                 }
             }
 
+            // Credit Card Summary Card
+            val creditCards = uiState.paymentMethods.filter { it.isCreditCard }
+            if (creditCards.isNotEmpty()) {
+                item {
+                    CreditCardSummaryCard(
+                        creditCards = creditCards,
+                        onClick = onNavigateToCreditCards
+                    )
+                }
+            }
+
+            // Safe to Spend Card - prominent display of available funds
+            uiState.cashflowForecast?.let { forecast ->
+                item {
+                    SafeToSpendCard(
+                        safeToSpend = forecast.safeToSpend,
+                        runwayDays = forecast.runwayDays,
+                        lowBalanceWarning = forecast.lowBalanceWarning,
+                        weeklyProjections = forecast.weeklyProjections
+                    )
+                }
+            }
+
+            // Spending Insights - trend and anomalies
+            uiState.spendingPatterns?.let { patterns ->
+                if (patterns.anomalies.isNotEmpty() || patterns.trend != SpendingPatternEngine.SpendingTrend.STABLE) {
+                    item {
+                        SpendingInsightsCard(
+                            trend = patterns.trend,
+                            trendPercentage = patterns.trendPercentage,
+                            anomalies = patterns.anomalies,
+                            predictedMonthEnd = patterns.predictedMonthEndSpending,
+                            topGrowingCategory = patterns.topGrowingCategory,
+                            topGrowingCategoryChange = patterns.topGrowingCategoryChange,
+                            onViewDetails = onNavigateToInsights
+                        )
+                    }
+                }
+            }
+
             item {
                 DashboardVaultsSection(
                     vaults = uiState.smartVaults,
                     totalBalance = uiState.totalVaultBalance,
-                    pendingCount = uiState.pendingVaultContributions.size,
+                    pendingCount = pendingVaultContributions.size,
                     onManageVaults = onManageVaults,
                     onNavigateToTransfers = onNavigateToVaultTransfers
                 )
+            }
+
+            // Repeat Last Expense quick action
+            uiState.expenses.firstOrNull()?.let { lastExpense ->
+                item {
+                    RepeatLastExpenseCard(
+                        lastExpense = lastExpense,
+                        onRepeat = { onRepeatLastExpense(lastExpense) }
+                    )
+                }
             }
 
             // Quick Links / Insights Grid
@@ -426,7 +488,7 @@ private fun DashboardVaultsSection(
                             )
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                "View All", 
+                                stringResource(R.string.action_view_all), 
                                 style = MaterialTheme.typography.labelLarge, 
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
@@ -641,7 +703,7 @@ private fun SmartSavingSnapshotCard(summary: SmartSavingSummary, monthlyIncome: 
             ) {
                 Column {
                     Text(
-                        text = "Savings Rate",
+                        text = stringResource(R.string.dashboard_savings_rate_label),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -654,7 +716,7 @@ private fun SmartSavingSnapshotCard(summary: SmartSavingSummary, monthlyIncome: 
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "Target: ${formatPercent(summary.targetSavingsRate)}",
+                        text = stringResource(R.string.dashboard_target_with_amount_label, formatPercent(summary.targetSavingsRate)),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -669,7 +731,7 @@ private fun SmartSavingSnapshotCard(summary: SmartSavingSummary, monthlyIncome: 
                             tint = statusColor
                         )
                         Text(
-                            text = if (isOnTrack) "On Track" else "Below Target",
+                            text = if (isOnTrack) stringResource(R.string.dashboard_on_track) else stringResource(R.string.dashboard_below_target),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = statusColor
@@ -990,7 +1052,7 @@ private fun EmergencyFundCard(goal: EmergencyFundGoal, settings: SparelySettings
                 // Shortfall or success message
                 if (shortfall > 0.0) {
                     Text(
-                        text = "${formatCurrency(shortfall)} to go",
+                        text = stringResource(R.string.dashboard_remaining_to_go_amount, formatCurrency(shortfall)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium
@@ -1075,7 +1137,7 @@ private fun MetricsRow(uiState: SparelyUiState) {
                 }
             }
             Text(
-                text = "Savings breakdown",
+                text = stringResource(R.string.dashboard_savings_breakdown_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
@@ -1087,14 +1149,14 @@ private fun MetricsRow(uiState: SparelyUiState) {
                 horizontalArrangement = Arrangement.spacedBy(spacing.md)
             ) {
                 ModernMetricCard(
-                    title = "Short-term",
+                    title = stringResource(R.string.dashboard_short_term),
                     value = shortTermTotal,
                     icon = MaterialSymbols.SAVINGS,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.weight(1f)
                 )
                 ModernMetricCard(
-                    title = "Long-term",
+                    title = stringResource(R.string.dashboard_long_term),
                     value = longTermTotal,
                     icon = MaterialSymbols.ACCOUNT_BALANCE,
                     color = MaterialTheme.colorScheme.tertiary,
@@ -1106,16 +1168,16 @@ private fun MetricsRow(uiState: SparelyUiState) {
                 horizontalArrangement = Arrangement.spacedBy(spacing.md)
             ) {
                 ModernMetricCard(
-                    title = "Passive growth",
+                    title = stringResource(R.string.dashboard_passive_growth),
                     value = passiveTotal,
                     icon = MaterialSymbols.TRENDING_UP,
                     color = MaterialTheme.colorScheme.secondary,
                     modifier = Modifier.weight(1f)
                 )
                 ModernMetricCard(
-                    title = "Monthly avg",
+                    title = stringResource(R.string.dashboard_monthly_avg),
                     value = uiState.analytics.averageMonthlyReserve,
-                    subtitle = "Projected in 6mo: ${formatCurrency(uiState.analytics.projectedReserveSixMonths)}",
+                    subtitle = stringResource(R.string.dashboard_projected_in_6_months, formatCurrency(uiState.analytics.projectedReserveSixMonths)),
                     icon = MaterialSymbols.TRENDING_UP,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.weight(1f)
@@ -1186,17 +1248,17 @@ private fun RecommendationCard(recommendation: RecommendationResult) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Suggested allocations",
+                text = stringResource(R.string.dashboard_suggested_allocations),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             Spacer(modifier = Modifier.height(8.dp))
-            AllocationRow(label = "Emergency", value = recommendation.recommendedPercentages.emergency)
-            AllocationRow(label = "Invest", value = recommendation.recommendedPercentages.invest)
-            AllocationRow(label = "Fun", value = recommendation.recommendedPercentages.`fun`)
+            AllocationRow(label = stringResource(R.string.settings_category_emergency), value = recommendation.recommendedPercentages.emergency)
+            AllocationRow(label = stringResource(R.string.settings_category_invest), value = recommendation.recommendedPercentages.invest)
+            AllocationRow(label = stringResource(R.string.settings_category_fun), value = recommendation.recommendedPercentages.`fun`)
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Investments: ${formatPercent(recommendation.safeInvestmentRatio)} safe / ${formatPercent(recommendation.highRiskInvestmentRatio)} high risk",
+                text = stringResource(R.string.dashboard_investments_split, formatPercent(recommendation.safeInvestmentRatio), formatPercent(recommendation.highRiskInvestmentRatio)),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
@@ -1225,7 +1287,7 @@ private fun AlertsSection(alerts: List<AlertMessage>) {
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = "Insights",
+            text = stringResource(R.string.dashboard_insights_title),
             style = MaterialTheme.typography.titleMedium
         )
         for (alert in alerts) {
@@ -1254,7 +1316,7 @@ private fun GoalsSnapshot(uiState: SparelyUiState) {
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = "Vaults progress",
+            text = stringResource(R.string.dashboard_vaults_progress_title),
             style = MaterialTheme.typography.titleMedium
         )
         val mainVaults = uiState.smartVaults.filter { !it.archived }.take(3)
@@ -1436,7 +1498,7 @@ private fun QuickBudgetCard(budgetSummary: BudgetSummary, onClick: () -> Unit) {
                     }
                 }
                 Text(
-                    text = "Budget",
+                    text = stringResource(R.string.dashboard_budget_label),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = statusColors.contentColor.copy(alpha = 0.8f)
@@ -1451,7 +1513,7 @@ private fun QuickBudgetCard(budgetSummary: BudgetSummary, onClick: () -> Unit) {
                     color = statusColors.indicatorColor
                 )
                 Text(
-                    text = "Used",
+                    text = stringResource(R.string.dashboard_used_label),
                     style = MaterialTheme.typography.labelSmall,
                     color = statusColors.contentColor.copy(alpha = 0.6f)
                 )
@@ -1631,7 +1693,7 @@ private fun MainAccountBalanceCard(balance: Double, onClick: () -> Unit = {}) {
         ) {
             Column {
                 Text(
-                    text = "Main Account",
+                    text = stringResource(R.string.dashboard_main_account_title),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
                     fontWeight = FontWeight.Bold
@@ -1668,12 +1730,659 @@ private fun formatCurrency(value: Double): String = "$" + String.format("%,.2f",
 private fun formatPercent(value: Double): String = String.format("%.1f%%", value.coerceIn(0.0, 1.0) * 100)
 
 @Composable
-private fun VaultType.displayName(): String = when (this) {
-    VaultType.SHORT_TERM -> stringResource(R.string.vault_type_short_term)
-    VaultType.LONG_TERM -> stringResource(R.string.vault_type_long_term)
-    VaultType.PASSIVE_INVESTMENT -> stringResource(R.string.vault_type_passive_investment)
-    VaultType.GOAL -> "Goal"
-    VaultType.EMERGENCY -> "Emergency"
-    VaultType.INVESTMENT -> "Investment"
+private fun SafeToSpendCard(
+    safeToSpend: Double,
+    runwayDays: Int,
+    lowBalanceWarning: CashflowEngine.LowBalanceWarning?,
+    weeklyProjections: List<CashflowEngine.WeeklyProjection> = emptyList()
+) {
+    val spacing = MaterialTheme.spacing
+    var isExpanded by remember { mutableStateOf(false) }
+    val hasWarning = lowBalanceWarning != null
+    val containerColor = if (hasWarning) {
+        MaterialTheme.colorScheme.errorContainer
+    } else {
+        MaterialTheme.colorScheme.tertiaryContainer
+    }
+    val contentColor = if (hasWarning) {
+        MaterialTheme.colorScheme.onErrorContainer
+    } else {
+        MaterialTheme.colorScheme.onTertiaryContainer
+    }
+    
+    ExpressiveCard(
+        onClick = { isExpanded = !isExpanded },
+        containerColor = containerColor,
+        contentPadding = 20.dp,
+        tonalElevation = 4.dp
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(spacing.sm)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(spacing.sm)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(contentColor.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        MaterialSymbolIcon(
+                            icon = if (hasWarning) MaterialSymbols.WARNING else MaterialSymbols.ACCOUNT_BALANCE_WALLET,
+                            contentDescription = null,
+                            tint = contentColor,
+                            size = 24.dp
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = stringResource(R.string.dashboard_safe_to_spend),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = contentColor
+                        )
+                        Text(
+                            text = stringResource(R.string.dashboard_safe_to_spend_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = contentColor.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+                
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = formatCurrency(safeToSpend),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = contentColor
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        if (runwayDays < Int.MAX_VALUE) {
+                            Text(
+                                text = stringResource(R.string.dashboard_runway_days, runwayDays),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = contentColor.copy(alpha = 0.7f)
+                            )
+                        }
+                        MaterialSymbolIcon(
+                            icon = if (isExpanded) MaterialSymbols.ARROW_DROP_UP else MaterialSymbols.ARROW_DROP_DOWN,
+                            contentDescription = if (isExpanded) "Collapse" else "Expand",
+                            tint = contentColor.copy(alpha = 0.7f),
+                            size = 18.dp
+                        )
+                    }
+                }
+            }
+            
+            if (hasWarning) {
+                HorizontalDivider(
+                    color = contentColor.copy(alpha = 0.2f),
+                    modifier = Modifier.padding(vertical = spacing.xs)
+                )
+                Text(
+                    text = lowBalanceWarning?.let { 
+                        "Balance may drop to ${formatCurrency(it.projectedLowBalance)} in ${it.daysUntilLowBalance} days" 
+                    } ?: stringResource(R.string.dashboard_low_balance_warning),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = contentColor,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            
+            // Expandable section with weekly projections
+            AnimatedVisibility(
+                visible = isExpanded,
+                enter = expandVertically(),
+                exit = shrinkVertically()
+            ) {
+                Column(
+                    modifier = Modifier.padding(top = spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(spacing.sm)
+                ) {
+                    HorizontalDivider(
+                        color = contentColor.copy(alpha = 0.2f)
+                    )
+                    Text(
+                        text = "4-Week Cashflow Forecast",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = contentColor,
+                        modifier = Modifier.padding(top = spacing.sm)
+                    )
+                    
+                    if (weeklyProjections.isNotEmpty()) {
+                        weeklyProjections.take(4).forEach { projection ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Week of ${projection.weekStartDate.format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = contentColor.copy(alpha = 0.8f)
+                                )
+                                Text(
+                                    text = formatCurrency(projection.projectedEndBalance),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (projection.projectedEndBalance < 0) MaterialTheme.colorScheme.error else contentColor
+                                )
+                            }
+                        }
+                    } else {
+                        Text(
+                            text = "Add income and recurring expenses for detailed projections",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = contentColor.copy(alpha = 0.6f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SpendingInsightsCard(
+    trend: SpendingPatternEngine.SpendingTrend,
+    trendPercentage: Double,
+    anomalies: List<SpendingPatternEngine.SpendingAnomaly>,
+    predictedMonthEnd: Double,
+    topGrowingCategory: com.example.sparely.domain.model.ExpenseCategory?,
+    topGrowingCategoryChange: Double,
+    onViewDetails: () -> Unit
+) {
+    val spacing = MaterialTheme.spacing
+    var isExpanded by remember { mutableStateOf(false) }
+    val anomalyCount = anomalies.size
+    
+    val trendColor = when (trend) {
+        SpendingPatternEngine.SpendingTrend.INCREASING -> MaterialTheme.colorScheme.error
+        SpendingPatternEngine.SpendingTrend.DECREASING -> Color(0xFF4CAF50)
+        SpendingPatternEngine.SpendingTrend.STABLE -> MaterialTheme.colorScheme.primary
+    }
+    
+    val trendIcon = when (trend) {
+        SpendingPatternEngine.SpendingTrend.INCREASING -> MaterialSymbols.TRENDING_UP
+        SpendingPatternEngine.SpendingTrend.DECREASING -> MaterialSymbols.TRENDING_DOWN
+        SpendingPatternEngine.SpendingTrend.STABLE -> MaterialSymbols.SWAP_HORIZ
+    }
+    
+    val trendText = when (trend) {
+        SpendingPatternEngine.SpendingTrend.INCREASING -> 
+            stringResource(R.string.dashboard_trend_increasing, kotlin.math.abs(trendPercentage))
+        SpendingPatternEngine.SpendingTrend.DECREASING -> 
+            stringResource(R.string.dashboard_trend_decreasing, kotlin.math.abs(trendPercentage))
+        SpendingPatternEngine.SpendingTrend.STABLE -> 
+            stringResource(R.string.dashboard_trend_stable)
+    }
+    
+    ExpressiveCard(
+        onClick = { isExpanded = !isExpanded },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentPadding = 20.dp,
+        tonalElevation = 2.dp
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(spacing.md)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(spacing.sm)
+                ) {
+                    Text(
+                        text = stringResource(R.string.dashboard_spending_insights),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    MaterialSymbolIcon(
+                        icon = if (isExpanded) MaterialSymbols.ARROW_DROP_UP else MaterialSymbols.ARROW_DROP_DOWN,
+                        contentDescription = if (isExpanded) "Collapse" else "Expand",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        size = 20.dp
+                    )
+                }
+                
+                // Trend Chip
+                Surface(
+                    shape = RoundedCornerShape(100),
+                    color = trendColor.copy(alpha = 0.15f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        MaterialSymbolIcon(
+                            icon = trendIcon,
+                            contentDescription = null,
+                            size = 16.dp,
+                            tint = trendColor
+                        )
+                        Text(
+                            text = trendText,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = trendColor
+                        )
+                    }
+                }
+            }
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = stringResource(R.string.dashboard_predicted_month_end, formatCurrency(predictedMonthEnd)),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                if (anomalyCount > 0) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.errorContainer
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            MaterialSymbolIcon(
+                                icon = MaterialSymbols.WARNING,
+                                contentDescription = null,
+                                size = 14.dp,
+                                tint = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Text(
+                                text = stringResource(R.string.dashboard_anomaly_detected, anomalyCount),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                }
+            }
+            
+            // Expandable section with anomaly details
+            AnimatedVisibility(
+                visible = isExpanded,
+                enter = expandVertically(),
+                exit = shrinkVertically()
+            ) {
+                Column(
+                    modifier = Modifier.padding(top = spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(spacing.md)
+                ) {
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                    
+                    // Top growing category
+                    topGrowingCategory?.let { category ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Top Growing Category",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer
+                            ) {
+                                Text(
+                                    text = "${category.name.lowercase().replaceFirstChar { it.uppercase() }} +${String.format("%.0f", topGrowingCategoryChange)}%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                    
+                    // Anomaly list
+                    if (anomalies.isNotEmpty()) {
+                        Text(
+                            text = "Unusual Transactions",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        
+                        anomalies.take(5).forEach { anomaly ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f))
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = anomaly.expense.description,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = anomaly.expense.category.name.lowercase().replaceFirstChar { it.uppercase() },
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(
+                                        text = formatCurrency(anomaly.expense.amount),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                    Text(
+                                        text = "${String.format("%.1f", anomaly.zScore)}x typical",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    TextButton(
+                        onClick = onViewDetails,
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Text("View Full Insights")
+                        Spacer(Modifier.width(8.dp))
+                        MaterialSymbolIcon(
+                            icon = MaterialSymbols.ARROW_FORWARD,
+                            contentDescription = null,
+                            size = 16.dp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+@Composable
+private fun RepeatLastExpenseCard(
+    lastExpense: com.example.sparely.domain.model.Expense,
+    onRepeat: () -> Unit
+) {
+    val spacing = MaterialTheme.spacing
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d") }
+    
+    ExpressiveCard(
+        onClick = onRepeat,
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        contentPadding = 16.dp,
+        tonalElevation = 2.dp
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(spacing.md)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.REFRESH,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        size = 24.dp
+                    )
+                }
+                Column {
+                    Text(
+                        text = stringResource(R.string.dashboard_repeat_last),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                    Text(
+                        text = "${lastExpense.description} • ${formatCurrency(lastExpense.amount)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.secondary
+            ) {
+                Text(
+                    text = lastExpense.date.format(dateFormatter),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSecondary,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun CreditCardSummaryCard(
+    creditCards: List<PaymentMethod>,
+    onClick: () -> Unit
+) {
+    val spacing = MaterialTheme.spacing
+    val totalBalance = creditCards.sumOf { it.currentBalance }
+    val totalLimit = creditCards.sumOf { it.creditLimit ?: 0.0 }
+    val overallUtilization = if (totalLimit > 0) totalBalance / totalLimit else 0.0
+    
+    val healthLevel = when {
+        overallUtilization < 0.3 -> HealthLevel.GOOD
+        overallUtilization < 0.5 -> HealthLevel.FAIR
+        else -> HealthLevel.CRITICAL
+    }
+    
+    val healthColor = when (healthLevel) {
+        HealthLevel.GOOD -> Color(0xFF4CAF50) // Green
+        HealthLevel.FAIR -> Color(0xFFFF9800) // Orange
+        else -> MaterialTheme.colorScheme.error
+    }
+
+    ExpressiveCard(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick,
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 6.dp,
+        shadowElevation = 2.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(spacing.md)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(spacing.sm)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.tertiaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        MaterialSymbolIcon(
+                            icon = MaterialSymbols.CREDIT_CARD,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = stringResource(R.string.dashboard_credit_cards_title),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (creditCards.size == 1) "1 Card" else "${creditCards.size} Cards",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // Main Balance
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "Total Balance",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = formatCurrency(totalBalance),
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            // Utilization Bar
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Credit Utilization",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = formatPercent(overallUtilization),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = healthColor
+                    )
+                }
+                LinearProgressIndicator(
+                    progress = { overallUtilization.toFloat().coerceIn(0f, 1f) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp)),
+                    color = healthColor,
+                    trackColor = healthColor.copy(alpha = 0.2f),
+                    strokeCap = ProgressIndicatorDefaults.LinearStrokeCap
+                )
+                if (healthLevel != HealthLevel.GOOD) {
+                    Text(
+                        text = stringResource(R.string.dashboard_utilization_warning),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = healthColor,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+            }
+
+            // Card Breakdown
+            if (creditCards.isNotEmpty()) {
+                HorizontalDivider(color = DividerDefaults.color.copy(alpha = 0.5f))
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    creditCards.take(3).forEach { card ->
+                        val cardUtil = if ((card.creditLimit ?: 0.0) > 0) card.currentBalance / card.creditLimit!! else 0.0
+                        val cardColor = when {
+                            cardUtil < 0.3 -> MaterialTheme.colorScheme.onSurface
+                            cardUtil < 0.5 -> Color(0xFFFF9800)
+                            else -> MaterialTheme.colorScheme.error
+                        }
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                com.example.sparely.ui.components.PaymentMethodIcon(
+                                    method = card,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Text(
+                                    text = card.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = formatCurrency(card.currentBalance),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = cardColor
+                                )
+                            }
+                        }
+                    }
+                    if (creditCards.size > 3) {
+                         Text(
+                            text = "+ ${creditCards.size - 3} more",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 

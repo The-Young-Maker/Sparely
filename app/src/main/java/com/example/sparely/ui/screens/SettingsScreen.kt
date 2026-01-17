@@ -20,11 +20,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.Card
@@ -40,9 +42,12 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.FilledTonalButton
@@ -52,7 +57,7 @@ import com.example.sparely.ui.components.SparelyChip
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
-import com.example.sparely.R
+import com.sparely.app.R
 import com.example.sparely.ui.components.ExpressiveCard
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -64,6 +69,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.model.AlertMessage
 import com.example.sparely.domain.model.EducationStatus
@@ -76,6 +82,8 @@ import com.example.sparely.domain.model.PayScheduleSettings
 import com.example.sparely.domain.model.IncomeTrackingMode
 import com.example.sparely.domain.model.PayInterval
 import com.example.sparely.domain.model.VaultAllocationMode
+import com.example.sparely.domain.model.ExpenseHistoryRetention
+import com.example.sparely.domain.model.Expense
 import com.example.sparely.ui.components.SparelyButton
 import com.example.sparely.ui.components.SparelyTextButton
 import com.example.sparely.ui.components.SparelyTonalButton
@@ -90,6 +98,8 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 import com.example.sparely.ui.utils.toSafeDatePickerMillis
+import com.example.sparely.ui.utils.filterCurrencyInput
+import com.example.sparely.ui.utils.toSafeDouble
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -129,8 +139,23 @@ fun SettingsScreen(
     autoDepositCheckHour: Int,
     onRegionalSettingsChange: (String, String, String, Double?) -> Unit, // countryCode, languageCode, currencyCode, customTaxRate
     onMainAccountBalanceChange: (Double) -> Unit,
-    onExportData: (android.net.Uri) -> Unit
+    onExportData: (android.net.Uri) -> Unit,
+    onImportData: (android.net.Uri) -> Unit,
+    onBrandfetchClientIdChange: (String?) -> Unit = {},
+    expenses: List<Expense> = emptyList(),
+    onExpenseHistoryRetentionChange: (ExpenseHistoryRetention) -> Unit = {},
+    paymentMethods: List<com.example.sparely.domain.model.PaymentMethod> = emptyList(),
+    onAddPaymentMethod: (com.example.sparely.domain.model.PaymentMethod) -> Unit = {},
+    onEditPaymentMethod: (com.example.sparely.domain.model.PaymentMethod) -> Unit = {},
+    onDeletePaymentMethod: (com.example.sparely.domain.model.PaymentMethod) -> Unit = {},
+    onCreditCardReminderChange: (Boolean, Int, Int) -> Unit = { _, _, _ -> },
+    onCreditCardUtilizationChange: (Boolean, Int) -> Unit = { _, _ -> },
+    onBiometricEnabledChange: (Boolean) -> Unit = {},
+    onAuthenticateUser: ((Boolean) -> Unit) -> Unit = {},
+    stores: List<com.example.sparely.domain.model.Store> = emptyList(),
+    onExportExpensesToCsv: (android.net.Uri, android.content.Context, List<Expense>, List<com.example.sparely.domain.model.Store>) -> Unit = { _, _, _, _ -> }
 ) {
+    var brandfetchClientId by remember(settings.brandfetchClientId) { mutableStateOf(settings.brandfetchClientId ?: "") }
     var emergency by remember(settings.defaultPercentages) { mutableStateOf(settings.defaultPercentages.emergency.toFloat()) }
     var invest by remember(settings.defaultPercentages) { mutableStateOf(settings.defaultPercentages.invest.toFloat()) }
     var funPercent by remember(settings.defaultPercentages) { mutableStateOf(settings.defaultPercentages.`fun`.toFloat()) }
@@ -175,411 +200,284 @@ fun SettingsScreen(
         uri?.let(onExportData)
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh
-        ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Smart vault automation", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SparelyChip(
-                            selected = selectedAllocationMode == VaultAllocationMode.DYNAMIC_AUTO,
-                            onClick = {
-                                selectedAllocationMode = VaultAllocationMode.DYNAMIC_AUTO
-                                onVaultAllocationModeChange(VaultAllocationMode.DYNAMIC_AUTO)
-                            },
-                            label = { Text("Dynamic") }
-                        )
-                        SparelyChip(
-                            selected = selectedAllocationMode == VaultAllocationMode.MANUAL,
-                            onClick = {
-                                selectedAllocationMode = VaultAllocationMode.MANUAL
-                                onVaultAllocationModeChange(VaultAllocationMode.MANUAL)
-                            },
-                            label = { Text("Manual weights") }
-                        )
-                    }
-                    Text(
-                        text = when (selectedAllocationMode) {
-                            VaultAllocationMode.DYNAMIC_AUTO -> "Sparely prioritizes vaults using urgency, priority, and progress."
-                            VaultAllocationMode.MANUAL -> "You control each vault's share in its settings."
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Automate saving tax rate", style = MaterialTheme.typography.bodyMedium)
-                        Switch(
-                            checked = settings.dynamicSavingTaxEnabled,
-                            onCheckedChange = onDynamicSavingTaxToggle
-                        )
-                    }
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let(onImportData)
+    }
 
-                    val displayedSavingTaxRate = if (settings.dynamicSavingTaxEnabled) {
-                        activeSavingTaxRate
-                    } else {
-                        (savingTaxRatePercent / 100f).toDouble()
-                    }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val csvExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        uri?.let { onExportExpensesToCsv(it, context, expenses, stores) }
+    }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = if (settings.dynamicSavingTaxEnabled) {
-                                "Saving tax rate (auto): ${formatPercent(displayedSavingTaxRate)}"
-                            } else {
-                                "Saving tax rate: ${formatPercent(displayedSavingTaxRate)}"
+    var selectedTab by remember { mutableStateOf(SettingsTab.General) }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        TabRow(selectedTabIndex = selectedTab.ordinal) {
+            SettingsTab.entries.forEach { tab ->
+                Tab(
+                    selected = selectedTab == tab,
+                    onClick = { selectedTab = tab },
+                    text = { Text(stringResource(tab.titleRes)) },
+                    icon = { Icon(painter = androidx.compose.ui.res.painterResource(id = tab.icon), contentDescription = null, modifier = Modifier.size(24.dp)) }
+                )
+            }
+        }
+
+        Box(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                when (selectedTab) {
+                    SettingsTab.General -> {
+                        ProfileCard(
+                            displayName = displayName,
+                            onDisplayNameChange = {
+                                displayName = it
+                                onDisplayNameChange(it.trim().takeIf { trimmed -> trimmed.isNotEmpty() })
                             },
-                            style = MaterialTheme.typography.bodyMedium
+                            hasDebts = hasDebts,
+                            onHasDebtsChange = {
+                                hasDebts = it
+                                onHasDebtsChange(it)
+                            },
+                            emergencyFundText = emergencyFundText,
+                            onEmergencyFundChange = { valueText ->
+                                emergencyFundText = valueText
+                                valueText.toSafeDouble()?.let(onEmergencyFundChange)
+                            },
+                            primaryGoal = primaryGoal,
+                            onPrimaryGoalChange = {
+                                primaryGoal = it
+                                onPrimaryGoalChange(it.trim().takeIf { trimmed -> trimmed.isNotEmpty() })
+                            },
+                            birthday = settings.birthday,
+                            effectiveAge = age,
+                            onEditBirthday = { showBirthdayPicker = true },
+                            onClearBirthday = {
+                                onBirthdayChange(null)
+                                showBirthdayPicker = false
+                            }
                         )
-                            SparelyTextButton(
-                                onClick = {
-                                    val baseline = SparelySettings().savingTaxRate
-                                    savingTaxRatePercent = (baseline * 100).toFloat()
-                                    onSavingTaxRateChange(baseline)
+
+                        if (showBirthdayPicker) {
+                            val initialMillis = settings.birthday.toSafeDatePickerMillis()
+                            val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+                            LaunchedEffect(initialMillis) {
+                                if (initialMillis != null && datePickerState.selectedDateMillis != initialMillis) {
+                                    datePickerState.selectedDateMillis = initialMillis
+                                }
+                            }
+                            DatePickerDialog(
+                                onDismissRequest = { showBirthdayPicker = false },
+                                confirmButton = {
+                                    SparelyTextButton(onClick = {
+                                        val selectedMillis = datePickerState.selectedDateMillis
+                                        val selectedDate = selectedMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
+                                        onBirthdayChange(selectedDate)
+                                        showBirthdayPicker = false
+                                    }) {
+                                        Text(stringResource(R.string.action_save))
+                                    }
                                 },
-                                enabled = !settings.dynamicSavingTaxEnabled
+                                dismissButton = {
+                                    SparelyTextButton(onClick = { showBirthdayPicker = false }) {
+                                        Text(stringResource(R.string.action_cancel))
+                                    }
+                                }
                             ) {
-                                Text(stringResource(R.string.action_reset))
-                            }
-                    }
-                    Slider(
-                        value = savingTaxRatePercent,
-                        onValueChange = { updated ->
-                            if (!settings.dynamicSavingTaxEnabled) {
-                                savingTaxRatePercent = updated.coerceIn(0f, 25f)
-                            }
-                        },
-                        valueRange = 0f..25f,
-                        enabled = !settings.dynamicSavingTaxEnabled,
-                        onValueChangeFinished = {
-                            if (!settings.dynamicSavingTaxEnabled) {
-                                onSavingTaxRateChange((savingTaxRatePercent / 100f).toDouble())
+                                DatePicker(state = datePickerState)
                             }
                         }
-                    )
-                    Text(
-                        text = "We skim this percentage from each expense and distribute it across your vaults.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (settings.dynamicSavingTaxEnabled) {
-                        Text(
-                            text = "Automation keeps the rate aligned with your latest paychecks and spending trends.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+
+                        EducationEmploymentCard(
+                            selectedEducation = selectedEducation,
+                            onEducationSelected = {
+                                selectedEducation = it
+                                onEducationStatusChange(it)
+                            },
+                            educationExpanded = educationExpanded,
+                            onEducationExpandedChange = { educationExpanded = it },
+                            selectedEmployment = selectedEmployment,
+                            onEmploymentSelected = {
+                                selectedEmployment = it
+                                onEmploymentStatusChange(it)
+                            },
+                            employmentExpanded = employmentExpanded,
+                            onEmploymentExpandedChange = { employmentExpanded = it }
+                        )
+
+                        RiskLevelCard(current = settings.riskLevel, onRiskChange = onRiskChange)
+
+                        LifeStageCard(age = age, onAgeChange = { updated ->
+                            age = updated
+                            onAgeChange(updated)
+                        })
+
+                        RegionalSettingsCard(
+                            settings = settings,
+                            onRegionalSettingsChange = onRegionalSettingsChange
+                        )
+
+                        SettingsSecurityCard(
+                            biometricEnabled = settings.biometricEnabled,
+                            onBiometricEnabledChange = onBiometricEnabledChange,
+                            onAuthenticateUser = onAuthenticateUser
+                        )
+                    }
+
+                    SettingsTab.Finances -> {
+                        IncomeSettingsCard(
+                            schedule = settings.paySchedule,
+                            activeSaveRate = activeSaveRate,
+                            automationNotes = automationNotes,
+                            onScheduleSave = onPayScheduleChange,
+                        )
+
+                        SettingsMainAccountCard(
+                            monthlyIncomeText = monthlyIncomeText,
+                            onMonthlyIncomeTextChange = { monthlyIncomeText = it },
+                            onUpdateIncome = { monthlyIncomeText.toSafeDouble()?.let(onMonthlyIncomeChange) },
+                            mainAccountBalanceText = mainAccountBalanceText,
+                            onMainAccountBalanceTextChange = { mainAccountBalanceText = it },
+                            onUpdateBalance = { mainAccountBalanceText.toSafeDouble()?.let(onMainAccountBalanceChange) },
+                            includeTax = settings.includeTaxByDefault,
+                            onIncludeTaxToggle = onIncludeTaxToggle
+                        )
+
+                        SettingsSmartSavingsCard(
+                            settings = settings,
+                            selectedAllocationMode = selectedAllocationMode,
+                            onAllocationModeChange = {
+                                selectedAllocationMode = it
+                                onVaultAllocationModeChange(it)
+                            },
+                            savingTaxRatePercent = savingTaxRatePercent,
+                            onSavingTaxRatePercentChange = { savingTaxRatePercent = it },
+                            onSavingTaxRateCommit = onSavingTaxRateChange,
+                            activeSavingTaxRate = activeSavingTaxRate,
+                            onDynamicSavingTaxToggle = onDynamicSavingTaxToggle
+                        )
+
+                        AutomationOverviewCard(
+                            settings = settings,
+                            activeSaveRate = activeSaveRate,
+                            activeSavingTaxRate = activeSavingTaxRate,
+                            automationNotes = automationNotes
+                        )
+
+                        AutoDepositsCard(
+                            enabled = autoDepositsEnabled,
+                            checkHour = autoDepositCheckHour,
+                            onEnabledChange = onAutoDepositsEnabledChange,
+                            onCheckHourChange = onAutoDepositCheckHourChange,
+                            onManualTrigger = onManualAutoDepositTrigger
+                        )
+
+                        SettingsBudgetCard(
+                            autoModeEnabled = autoModeEnabled,
+                            onAutoToggle = onAutoToggle,
+                            recommendation = recommendation,
+                            emergency = emergency,
+                            invest = invest,
+                            funPercent = funPercent,
+                            onEmergencyChange = { emergency = it },
+                            onInvestChange = { invest = it },
+                            onFunChange = { funPercent = it }
+                        )
+
+                        LaunchedEffect(emergency, invest, funPercent, autoModeEnabled) {
+                            if (!autoModeEnabled) {
+                                onPercentagesChange(
+                                    SavingsPercentages(
+                                        emergency = emergency.toDouble(),
+                                        invest = invest.toDouble(),
+                                        `fun` = funPercent.toDouble(),
+                                        safeInvestmentSplit = settings.defaultPercentages.safeInvestmentSplit
+                                    )
+                                )
+                            }
+                        }
+
+                        PaymentMethodsSettingsCard(
+                            paymentMethods = paymentMethods,
+                            onAdd = onAddPaymentMethod,
+                            onEdit = onEditPaymentMethod,
+                            onDelete = onDeletePaymentMethod
+                        )
+                    }
+
+                    SettingsTab.System -> {
+                        ReminderCard(
+                            remindersEnabled = remindersEnabled,
+                            reminderHour = reminderHour,
+                            reminderFrequency = reminderFrequency,
+                            onReminderChange = { enabled, hour, days ->
+                                remindersEnabled = enabled
+                                reminderHour = hour
+                                reminderFrequency = days
+                                onReminderChange(enabled, hour, days)
+                            }
+                        )
+
+                        CreditCardReminderCard(
+                            enabled = settings.creditCardReminderEnabled,
+                            daysBefore = settings.creditCardReminderDaysBefore,
+                            hour = settings.creditCardReminderHour,
+                            utilizationAlertEnabled = settings.creditCardUtilizationAlertEnabled,
+                            utilizationThreshold = settings.creditCardUtilizationThreshold,
+                            onReminderChange = onCreditCardReminderChange,
+                            onUtilizationChange = onCreditCardUtilizationChange
+                        )
+
+                        if (alerts.isNotEmpty()) {
+                            ExpressiveCard(containerColor = MaterialTheme.colorScheme.secondaryContainer) {
+                                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(stringResource(R.string.settings_insights_title), style = MaterialTheme.typography.titleMedium)
+                                    for (alert in alerts) {
+                                        Text(alert.title, style = MaterialTheme.typography.titleSmall)
+                                        Text(alert.description, style = MaterialTheme.typography.bodySmall)
+                                        HorizontalDivider()
+                                    }
+                                }
+                            }
+                        }
+
+                        SettingsDataCard(
+                            settings = settings,
+                            expensesSize = expenses.size,
+                            onResetHistory = onResetHistory,
+                            onExpenseHistoryRetentionChange = onExpenseHistoryRetentionChange,
+                            brandfetchClientId = brandfetchClientId,
+                            onBrandfetchClientIdChange = onBrandfetchClientIdChange,
+                            onExportBackupClick = {
+                                val timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"))
+                                exportLauncher.launch("SparelyBackup_$timestamp.json")
+                            },
+                            onImportBackupClick = {
+                                importLauncher.launch(arrayOf("application/json"))
+                            },
+                            onExportCsvClick = {
+                                val timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"))
+                                csvExportLauncher.launch("SparelyExpenses_$timestamp.csv")
+                            }
                         )
                     }
                 }
-            }
-
-        AutomationOverviewCard(
-            settings = settings,
-            activeSaveRate = activeSaveRate,
-            activeSavingTaxRate = activeSavingTaxRate,
-            automationNotes = automationNotes
-        )
-
-        // Auto-Deposits Card
-        AutoDepositsCard(
-            enabled = autoDepositsEnabled,
-            checkHour = autoDepositCheckHour,
-            onEnabledChange = onAutoDepositsEnabledChange,
-            onCheckHourChange = onAutoDepositCheckHourChange,
-            onManualTrigger = onManualAutoDepositTrigger
-        )
-
-        IncomeSettingsCard(
-            schedule = settings.paySchedule,
-            activeSaveRate = activeSaveRate,
-            automationNotes = automationNotes,
-            onScheduleSave = onPayScheduleChange,
-            onRecordPaycheck = onRecordPaycheck
-        )
-
-        LaunchedEffect(emergency, invest, funPercent, autoModeEnabled) {
-            if (!autoModeEnabled) {
-                onPercentagesChange(
-                    SavingsPercentages(
-                        emergency = emergency.toDouble(),
-                        invest = invest.toDouble(),
-                        `fun` = funPercent.toDouble(),
-                        safeInvestmentSplit = settings.defaultPercentages.safeInvestmentSplit
-                    )
-                )
-            }
-        }
-
-        ProfileCard(
-            displayName = displayName,
-            onDisplayNameChange = {
-                displayName = it
-                onDisplayNameChange(it.trim().takeIf { trimmed -> trimmed.isNotEmpty() })
-            },
-            hasDebts = hasDebts,
-            onHasDebtsChange = {
-                hasDebts = it
-                onHasDebtsChange(it)
-            },
-            emergencyFundText = emergencyFundText,
-            onEmergencyFundChange = { valueText ->
-                emergencyFundText = valueText
-                valueText.toDoubleOrNull()?.let(onEmergencyFundChange)
-            },
-            primaryGoal = primaryGoal,
-            onPrimaryGoalChange = {
-                primaryGoal = it
-                onPrimaryGoalChange(it.trim().takeIf { trimmed -> trimmed.isNotEmpty() })
-            },
-            birthday = settings.birthday,
-            effectiveAge = age,
-            onEditBirthday = { showBirthdayPicker = true },
-            onClearBirthday = {
-                onBirthdayChange(null)
-                showBirthdayPicker = false
-            }
-        )
-
-        if (showBirthdayPicker) {
-            val initialMillis = settings.birthday.toSafeDatePickerMillis()
-            val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
-            LaunchedEffect(initialMillis) {
-                if (initialMillis != null && datePickerState.selectedDateMillis != initialMillis) {
-                    datePickerState.selectedDateMillis = initialMillis
-                }
-            }
-            DatePickerDialog(
-                onDismissRequest = { showBirthdayPicker = false },
-                confirmButton = {
-                    SparelyTextButton(onClick = {
-                        val selectedMillis = datePickerState.selectedDateMillis
-                        val selectedDate = selectedMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
-                        onBirthdayChange(selectedDate)
-                        showBirthdayPicker = false
-                    }) {
-                        Text(stringResource(R.string.action_save))
-                    }
-                },
-                dismissButton = {
-                    SparelyTextButton(onClick = { showBirthdayPicker = false }) {
-                        Text(stringResource(R.string.action_cancel))
-                    }
-                }
-            ) {
-                DatePicker(state = datePickerState)
-            }
-        }
-
-        EducationEmploymentCard(
-            selectedEducation = selectedEducation,
-            onEducationSelected = {
-                selectedEducation = it
-                onEducationStatusChange(it)
-            },
-            educationExpanded = educationExpanded,
-            onEducationExpandedChange = { educationExpanded = it },
-            selectedEmployment = selectedEmployment,
-            onEmploymentSelected = {
-                selectedEmployment = it
-                onEmploymentStatusChange(it)
-            },
-            employmentExpanded = employmentExpanded,
-            onEmploymentExpandedChange = { employmentExpanded = it }
-        )
-
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh
-        ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text("Auto recommendations", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        Text(
-                            text = "Let Sparely tune percentages",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(checked = autoModeEnabled, onCheckedChange = onAutoToggle)
-                }
-                recommendation?.let {
-                    Text(
-                        text = "Latest suggestion: ${formatPercent(it.recommendedPercentages.emergency)} emergency / ${formatPercent(it.recommendedPercentages.invest)} invest",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-                if (!autoModeEnabled) {
-                    Text("Manual percentages", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    SettingsSlider(label = "Emergency", value = emergency, onValueChange = { emergency = it })
-                    SettingsSlider(label = "Invest", value = invest, onValueChange = { invest = it })
-                    SettingsSlider(label = "Fun", value = funPercent, onValueChange = { funPercent = it })
-                    Text(
-                        text = "Total ${formatPercent((emergency + invest + funPercent).toDouble())}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-
-        RiskLevelCard(current = settings.riskLevel, onRiskChange = onRiskChange)
-
-        LifeStageCard(age = age, onAgeChange = { updated ->
-            age = updated
-            onAgeChange(updated)
-        })
-
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh
-        ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Income & tax", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                SparelyTextField(
-                    value = monthlyIncomeText,
-                    onValueChange = { monthlyIncomeText = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                    label = { Text("Monthly income") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                SparelyTonalButton(onClick = { monthlyIncomeText.toDoubleOrNull()?.let(onMonthlyIncomeChange) }) {
-                    Text("Update income")
-                }
                 
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Text(
-                    text = "Main Account",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Configure your primary account for tracking balance and transactions.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                
-                SparelyTextField(
-                    value = mainAccountBalanceText,
-                    onValueChange = { text ->
-                        mainAccountBalanceText = text.filter { ch -> ch.isDigit() || ch == '.' }
-                    },
-                    label = { Text("Current balance") },
-                    prefix = { Text("$") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                
-                SparelyTonalButton(
-                    onClick = { 
-                        mainAccountBalanceText.toDoubleOrNull()?.let(onMainAccountBalanceChange)
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Update balance")
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Amounts include tax by default")
-                    Switch(checked = settings.includeTaxByDefault, onCheckedChange = onIncludeTaxToggle)
-                }
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
-
-        RegionalSettingsCard(
-            settings = settings,
-            onRegionalSettingsChange = onRegionalSettingsChange
-        )
-
-        ReminderCard(
-            remindersEnabled = remindersEnabled,
-            reminderHour = reminderHour,
-            reminderFrequency = reminderFrequency,
-            onReminderChange = { enabled, hour, days ->
-                remindersEnabled = enabled
-                reminderHour = hour
-                reminderFrequency = days
-                onReminderChange(enabled, hour, days)
-            }
-        )
-
-        if (alerts.isNotEmpty()) {
-            ExpressiveCard(containerColor = MaterialTheme.colorScheme.secondaryContainer) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Insights", style = MaterialTheme.typography.titleMedium)
-                    for (alert in alerts) {
-                        Text(alert.title, style = MaterialTheme.typography.titleSmall)
-                        Text(alert.description, style = MaterialTheme.typography.bodySmall)
-                        HorizontalDivider()
-                    }
-                }
-            }
-        }
-        SparelyButton(onClick = { onResetHistory(false) }, modifier = Modifier.fillMaxWidth()) {
-            Text("Reset expense history")
-        }
-        SparelyButton(onClick = { onResetHistory(false) }, modifier = Modifier.fillMaxWidth()) {
-            Text("Reset expense history")
-        }
-        
-        // Data & Privacy Card
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh
-        ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Data & Privacy", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Text(
-                    text = "Your financial data stays on this device. Create a backup to keep it safe or transfer to a new phone.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                SparelyTonalButton(
-                    onClick = { 
-                        val timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"))
-                        exportLauncher.launch("SparelyBackup_$timestamp.json")
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(painter = androidx.compose.ui.res.painterResource(id = com.example.sparely.ui.theme.MaterialSymbols.UPLOAD_FILE), contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Export Backup")
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
     }
 }
+
 
 @Composable
 private fun ProfileCard(
@@ -607,30 +505,27 @@ private fun ProfileCard(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Profile basics", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.settings_profile_basics_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             SparelyTextField(
                 value = displayName,
                 onValueChange = onDisplayNameChange,
-                label = { Text("Display name (optional)") },
+                label = { Text(stringResource(R.string.settings_display_name_label)) },
                 modifier = Modifier.fillMaxWidth()
             )
             Column {
                 val formatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
                 Text(
-                    text = buildString {
-                        append("Birthday: ")
-                        append(birthday?.format(formatter) ?: "Add your birthday")
-                    },
+                    text = if (birthday == null) stringResource(R.string.settings_birthday_not_set) else stringResource(R.string.settings_birthday_label, birthday.format(formatter)),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SparelyTextButton(onClick = onEditBirthday) { Text(if (birthday == null) "Set birthday" else "Change birthday") }
+                    SparelyTextButton(onClick = onEditBirthday) { Text(if (birthday == null) stringResource(R.string.settings_set_birthday) else stringResource(R.string.settings_change_birthday)) }
                     if (birthday != null) {
-                        SparelyTextButton(onClick = onClearBirthday) { Text("Clear") }
+                        SparelyTextButton(onClick = onClearBirthday) { Text(stringResource(R.string.action_clear)) }
                     }
                 }
                 Text(
-                    text = "Current age: $effectiveAge",
+                    text = stringResource(R.string.settings_current_age, effectiveAge),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -641,9 +536,9 @@ private fun ProfileCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("Active debts", style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.settings_active_debts), style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        text = "We adjust recommendations if debts are in play.",
+                        text = stringResource(R.string.settings_debts_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -653,10 +548,10 @@ private fun ProfileCard(
             SparelyTextField(
                 value = emergencyFundText,
                 onValueChange = { text ->
-                    val filtered = text.filter { it.isDigit() || it == '.' }
+                    val filtered = text.filterCurrencyInput()
                     onEmergencyFundChange(filtered)
                 },
-                label = { Text("Emergency fund saved") },
+                label = { Text(stringResource(R.string.settings_emergency_fund_label)) },
                 prefix = { Text("$") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth()
@@ -664,7 +559,7 @@ private fun ProfileCard(
             SparelyTextField(
                 value = primaryGoal,
                 onValueChange = onPrimaryGoalChange,
-                label = { Text("Primary savings goal") },
+                label = { Text(stringResource(R.string.settings_primary_goal_label)) },
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -694,7 +589,7 @@ private fun EducationEmploymentCard(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Life context", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.settings_life_context_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             ExposedDropdownMenuBox(
                 expanded = educationExpanded,
                 onExpandedChange = onEducationExpandedChange
@@ -706,7 +601,7 @@ private fun EducationEmploymentCard(
                     value = selectedEducation.displayLabel(),
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text("Education status") },
+                    label = { Text(stringResource(R.string.settings_education_status_label)) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = educationExpanded) }
                 )
                 ExposedDropdownMenu(
@@ -735,7 +630,7 @@ private fun EducationEmploymentCard(
                     value = selectedEmployment.displayLabel(),
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text("Employment status") },
+                    label = { Text(stringResource(R.string.settings_employment_status_label)) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = employmentExpanded) }
                 )
                 ExposedDropdownMenu(
@@ -754,7 +649,7 @@ private fun EducationEmploymentCard(
                 }
             }
             Text(
-                text = "Tweaking these helps Sparely tailor suggestions to your life stage.",
+                text = stringResource(R.string.settings_life_context_description),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -762,27 +657,7 @@ private fun EducationEmploymentCard(
     }
 }
 
-@Composable
-private fun SettingsSlider(
-    label: String,
-    value: Float,
-    onValueChange: (Float) -> Unit
-) {
-    Column {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(label)
-            Text(formatPercent(value.toDouble()))
-        }
-        Slider(
-            value = value,
-            onValueChange = { onValueChange(it.coerceIn(0f, 0.5f)) },
-            valueRange = 0f..0.5f
-        )
-    }
-}
+
 
 @Composable
 private fun LifeStageCard(
@@ -795,9 +670,9 @@ private fun LifeStageCard(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Profile", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.settings_profile_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             Text(
-                text = "Age $age",
+                text = stringResource(R.string.settings_age_label, age),
                 style = MaterialTheme.typography.bodyMedium
             )
             Slider(
@@ -812,7 +687,7 @@ private fun LifeStageCard(
                 steps = 66
             )
             Text(
-                text = "Under 18? Sparely reduces emergency savings suggestions and shifts focus toward study goals.",
+                text = stringResource(R.string.settings_minor_user_note),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -832,7 +707,7 @@ private fun RiskLevelCard(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Risk profile", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.settings_risk_profile_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -841,15 +716,19 @@ private fun RiskLevelCard(
                     SparelyChip(
                         selected = level == current,
                         onClick = { onRiskChange(level) },
-                        label = { Text(level.name.lowercase().replaceFirstChar { it.uppercase() }) }
+                        label = { Text(when(level) {
+                            RiskLevel.CONSERVATIVE -> stringResource(R.string.risk_conservative)
+                            RiskLevel.BALANCED -> stringResource(R.string.risk_balanced)
+                            RiskLevel.AGGRESSIVE -> stringResource(R.string.risk_aggressive)
+                        }) }
                     )
                 }
             }
             Text(
                 text = when (current) {
-                    RiskLevel.CONSERVATIVE -> "Prioritises safety with higher emergency savings and safer investments."
-                    RiskLevel.BALANCED -> "Balances growth and safety with diversified allocations."
-                    RiskLevel.AGGRESSIVE -> "Focuses on growth with higher investing share and more risk tolerance."
+                    RiskLevel.CONSERVATIVE -> stringResource(R.string.risk_conservative_desc)
+                    RiskLevel.BALANCED -> stringResource(R.string.risk_balanced_desc)
+                    RiskLevel.AGGRESSIVE -> stringResource(R.string.risk_aggressive_desc)
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -878,7 +757,7 @@ private fun ReminderCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Daily reminders", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.settings_reminders_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 Switch(checked = remindersEnabled, onCheckedChange = { enabled ->
                     onReminderChange(enabled, hour, frequency)
                 })
@@ -889,7 +768,7 @@ private fun ReminderCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Hour (${hour}:00)")
+                    Text(stringResource(R.string.settings_reminders_hour, hour))
                     Slider(
                         value = hour.toFloat(),
                         onValueChange = {
@@ -905,7 +784,7 @@ private fun ReminderCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Frequency ${frequency} day(s)")
+                    Text(stringResource(R.string.settings_reminders_frequency, frequency))
                     Slider(
                         value = frequency.toFloat(),
                         onValueChange = {
@@ -914,6 +793,140 @@ private fun ReminderCard(
                         },
                         valueRange = 1f..7f,
                         steps = 5
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CreditCardReminderCard(
+    enabled: Boolean,
+    daysBefore: Int,
+    hour: Int,
+    utilizationAlertEnabled: Boolean,
+    utilizationThreshold: Int,
+    onReminderChange: (Boolean, Int, Int) -> Unit,
+    onUtilizationChange: (Boolean, Int) -> Unit
+) {
+    var isEnabled by remember(enabled) { mutableStateOf(enabled) }
+    var days by remember(daysBefore) { mutableStateOf(daysBefore) }
+    var reminderHour by remember(hour) { mutableStateOf(hour) }
+    var isUtilizationEnabled by remember(utilizationAlertEnabled) { mutableStateOf(utilizationAlertEnabled) }
+    var threshold by remember(utilizationThreshold) { mutableStateOf(utilizationThreshold) }
+    
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            // Due date reminders section
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_credit_card_reminders_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = stringResource(R.string.settings_credit_card_reminders_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = isEnabled, onCheckedChange = { newEnabled ->
+                    isEnabled = newEnabled
+                    onReminderChange(newEnabled, days, reminderHour)
+                })
+            }
+            if (isEnabled) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.settings_credit_card_days_before, days), style = MaterialTheme.typography.bodySmall)
+                    Slider(
+                        value = days.toFloat(),
+                        onValueChange = {
+                            days = it.toInt().coerceIn(1, 14)
+                            onReminderChange(true, days, reminderHour)
+                        },
+                        valueRange = 1f..14f,
+                        steps = 12,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(stringResource(R.string.settings_credit_card_hour, reminderHour), style = MaterialTheme.typography.bodySmall)
+                    Slider(
+                        value = reminderHour.toFloat(),
+                        onValueChange = {
+                            reminderHour = it.toInt().coerceIn(0, 23)
+                            onReminderChange(true, days, reminderHour)
+                        },
+                        valueRange = 0f..23f,
+                        steps = 22,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+            
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            
+            // Utilization alert section
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_credit_card_utilization_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = stringResource(R.string.settings_credit_card_utilization_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = isUtilizationEnabled, onCheckedChange = { newEnabled ->
+                    isUtilizationEnabled = newEnabled
+                    onUtilizationChange(newEnabled, threshold)
+                })
+            }
+            if (isUtilizationEnabled) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = stringResource(R.string.settings_credit_card_utilization_threshold, threshold),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Slider(
+                        value = threshold.toFloat(),
+                        onValueChange = {
+                            threshold = it.toInt().coerceIn(1, 100)
+                            onUtilizationChange(true, threshold)
+                        },
+                        valueRange = 1f..100f,
+                        steps = 98,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    // Recommended thresholds
+                    Text(
+                        text = stringResource(R.string.settings_credit_card_recommended_thresholds),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(10 to "10%", 30 to "30%", 50 to "50%").forEach { (value, label) ->
+                            FilterChip(
+                                selected = threshold == value,
+                                onClick = {
+                                    threshold = value
+                                    onUtilizationChange(true, value)
+                                },
+                                label = { Text(label) }
+                            )
+                        }
+                    }
+                    Text(
+                        text = stringResource(R.string.settings_credit_card_utilization_tip),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -942,27 +955,27 @@ private fun AutomationOverviewCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Automation at a glance", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.settings_automation_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
 
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 AssistChip(
                     onClick = {},
                     enabled = false,
-                    label = { Text(if (schedule.dynamicSaveRateEnabled) "Save rate: Automatic" else "Save rate: Manual") },
+                    label = { Text(if (schedule.dynamicSaveRateEnabled) stringResource(R.string.settings_save_rate_automatic) else stringResource(R.string.settings_save_rate_manual)) },
                     colors = AssistChipDefaults.assistChipColors(disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
                     border = null
                 )
                 AssistChip(
                     onClick = {},
                     enabled = false,
-                    label = { Text(if (settings.dynamicSavingTaxEnabled) "Saving tax: Automatic" else "Saving tax: Manual") },
+                    label = { Text(if (settings.dynamicSavingTaxEnabled) stringResource(R.string.settings_saving_tax_automatic) else stringResource(R.string.settings_saving_tax_manual_label)) },
                     colors = AssistChipDefaults.assistChipColors(disabledContainerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f)),
                     border = null
                 )
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Paycheck save rate", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.settings_paycheck_save_rate_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                 Text(
                     text = formatPercent(activeSaveRate.coerceIn(0.0, 1.0)),
                     style = MaterialTheme.typography.titleLarge,
@@ -970,14 +983,14 @@ private fun AutomationOverviewCard(
                 )
                 if (estimatedPerPay != null) {
                     Text(
-                        text = "≈ ${formatCurrency(estimatedPerPay)} moved each paycheck",
+                        text = stringResource(R.string.settings_estimated_per_pay, formatCurrency(estimatedPerPay)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 if (estimatedMonthly != null) {
                     Text(
-                        text = "≈ ${formatCurrency(estimatedMonthly)} per month at this pace",
+                        text = stringResource(R.string.settings_estimated_monthly, formatCurrency(estimatedMonthly)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -985,14 +998,14 @@ private fun AutomationOverviewCard(
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Saving tax skim", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.settings_saving_tax_skim_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                 Text(
                     text = formatPercent(activeSavingTaxRate.coerceIn(0.0, 1.0)),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Taken from each purchase before vault allocation.",
+                    text = stringResource(R.string.settings_saving_tax_skim_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1001,7 +1014,7 @@ private fun AutomationOverviewCard(
             val notesToShow = automationNotes.take(4)
             if (notesToShow.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Why these numbers", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.settings_why_these_numbers), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                     for (note in notesToShow) {
                         Text(
                             text = "• ${note}",
@@ -1011,7 +1024,7 @@ private fun AutomationOverviewCard(
                     }
                     if (automationNotes.size > notesToShow.size) {
                         Text(
-                            text = "Automation insights trimmed — view full history from recent paychecks.",
+                            text = stringResource(R.string.settings_automation_insights_trimmed),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
                         )
@@ -1050,12 +1063,12 @@ private fun AutoDepositsCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Auto-Deposit Checks",
+                        text = stringResource(R.string.settings_auto_deposit_header),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = if (enabled) "Active" else "Disabled",
+                        text = if (enabled) stringResource(R.string.settings_auto_deposit_active) else stringResource(R.string.settings_auto_deposit_disabled),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1078,7 +1091,7 @@ private fun AutoDepositsCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Daily check time",
+                        text = stringResource(R.string.settings_daily_check_time),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
@@ -1098,17 +1111,17 @@ private fun AutoDepositsCard(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Check Now")
+                    Text(stringResource(R.string.settings_auto_deposit_check_now))
                 }
 
                 Text(
-                    text = "Sparely checks daily for scheduled auto-deposits and creates pending contributions you can transfer manually.",
+                    text = stringResource(R.string.settings_auto_deposit_info),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
                 Text(
-                    text = "Enable to automatically track scheduled vault deposits.",
+                    text = stringResource(R.string.settings_auto_deposit_enable_info),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1119,10 +1132,10 @@ private fun AutoDepositsCard(
     if (showHourPicker) {
         AlertDialog(
             onDismissRequest = { showHourPicker = false },
-            title = { Text("Select check time") },
+            title = { Text(stringResource(R.string.dialog_select_check_time_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Choose the hour of day (0-23) to check for due auto-deposits:")
+                    Text(stringResource(R.string.dialog_select_check_time_desc))
                     Slider(
                         value = selectedHour.toFloat(),
                         onValueChange = { selectedHour = it.toInt() },
@@ -1144,12 +1157,12 @@ private fun AutoDepositsCard(
                         onCheckHourChange(selectedHour)
                     }
                 ) {
-                    Text("Done")
+                    Text(stringResource(R.string.action_done))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showHourPicker = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.action_cancel))
                 }
             }
         )
@@ -1162,8 +1175,7 @@ private fun IncomeSettingsCard(
     schedule: PayScheduleSettings,
     activeSaveRate: Double,
     automationNotes: List<String>,
-    onScheduleSave: (PayScheduleSettings) -> Unit,
-    onRecordPaycheck: (Double, LocalDate, Boolean, Boolean) -> Unit
+    onScheduleSave: (PayScheduleSettings) -> Unit
 ) {
         var trackingMode by remember(schedule) { mutableStateOf(schedule.trackingMode) }
         var interval by remember(schedule) { mutableStateOf(schedule.interval) }
@@ -1192,17 +1204,10 @@ private fun IncomeSettingsCard(
         var monthlyDay by remember(schedule) { mutableStateOf(schedule.monthlyDay) }
         var customDays by remember(schedule) { mutableStateOf(schedule.customDaysBetween ?: 14) }
         var nextPayDate by remember(schedule) { mutableStateOf(schedule.nextPayDate) }
-        var manualPayDate by remember(schedule) { mutableStateOf(schedule.nextPayDate ?: LocalDate.now()) }
+        var showNextDatePicker by remember { mutableStateOf(false) }
+        var intervalExpanded by remember { mutableStateOf(false) }
         var autoDistribute by remember(schedule) { mutableStateOf(schedule.autoDistributeToVaults) }
         var autoPending by remember(schedule) { mutableStateOf(schedule.autoCreatePendingTransfers) }
-        var manualAmountText by remember(schedule) {
-            mutableStateOf(if (schedule.defaultNetPay > 0.0) String.format("%.2f", schedule.defaultNetPay) else "")
-        }
-        var manualDistribute by remember(schedule) { mutableStateOf(schedule.autoDistributeToVaults) }
-        var manualPending by remember(schedule) { mutableStateOf(schedule.autoCreatePendingTransfers) }
-        var showNextDatePicker by remember { mutableStateOf(false) }
-        var showManualDatePicker by remember { mutableStateOf(false) }
-        var intervalExpanded by remember { mutableStateOf(false) }
 
         fun buildSchedule(nextDateOverride: LocalDate? = nextPayDate): PayScheduleSettings {
             val defaultPayAmount = defaultPayText.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
@@ -1233,13 +1238,13 @@ private fun IncomeSettingsCard(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("Income & paydays", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.settings_income_paydays_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
 
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val modes = listOf(
-                        IncomeTrackingMode.MANUAL_PER_PAYCHECK to "Manual each paycheck",
-                        IncomeTrackingMode.SCHEDULED to "Scheduled",
-                        IncomeTrackingMode.HYBRID to "Hybrid"
+                        IncomeTrackingMode.MANUAL_PER_PAYCHECK to stringResource(R.string.income_mode_manual),
+                        IncomeTrackingMode.SCHEDULED to stringResource(R.string.income_mode_scheduled),
+                        IncomeTrackingMode.HYBRID to stringResource(R.string.income_mode_hybrid)
                     )
                     for ((mode, label) in modes) {
                         SparelyChip(
@@ -1261,14 +1266,14 @@ private fun IncomeSettingsCard(
                 ) {
                     SparelyTextField(
                         value = when (interval) {
-                            PayInterval.WEEKLY -> "Weekly"
-                            PayInterval.BIWEEKLY -> "Bi-weekly"
-                            PayInterval.SEMI_MONTHLY -> "Semi-monthly"
-                            PayInterval.MONTHLY -> "Monthly"
-                            PayInterval.CUSTOM -> "Custom"
+                            PayInterval.WEEKLY -> stringResource(R.string.pay_interval_weekly)
+                            PayInterval.BIWEEKLY -> stringResource(R.string.pay_interval_biweekly)
+                            PayInterval.SEMI_MONTHLY -> stringResource(R.string.pay_interval_semi_monthly)
+                            PayInterval.MONTHLY -> stringResource(R.string.pay_interval_monthly)
+                            PayInterval.CUSTOM -> stringResource(R.string.pay_interval_custom)
                         },
                         onValueChange = {},
-                        label = { Text("Pay interval") },
+                        label = { Text(stringResource(R.string.settings_pay_interval_label)) },
                         readOnly = true,
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = intervalExpanded) },
                         modifier = Modifier
@@ -1284,11 +1289,11 @@ private fun IncomeSettingsCard(
                                 text = {
                                     Text(
                                         when (option) {
-                                            PayInterval.WEEKLY -> "Weekly"
-                                            PayInterval.BIWEEKLY -> "Bi-weekly"
-                                            PayInterval.SEMI_MONTHLY -> "Semi-monthly"
-                                            PayInterval.MONTHLY -> "Monthly"
-                                            PayInterval.CUSTOM -> "Custom"
+                                            PayInterval.WEEKLY -> stringResource(R.string.pay_interval_weekly)
+                                            PayInterval.BIWEEKLY -> stringResource(R.string.pay_interval_biweekly)
+                                            PayInterval.SEMI_MONTHLY -> stringResource(R.string.pay_interval_semi_monthly)
+                                            PayInterval.MONTHLY -> stringResource(R.string.pay_interval_monthly)
+                                            PayInterval.CUSTOM -> stringResource(R.string.pay_interval_custom)
                                         }
                                     )
                                 },
@@ -1306,7 +1311,7 @@ private fun IncomeSettingsCard(
                     onValueChange = { text ->
                         defaultPayText = text.filter { ch -> ch.isDigit() || ch == '.' }
                     },
-                    label = { Text("Typical net pay") },
+                    label = { Text(stringResource(R.string.settings_pay_amount_label)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1316,7 +1321,7 @@ private fun IncomeSettingsCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Automate savings rate", style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.settings_automate_savings_rate), style = MaterialTheme.typography.bodyMedium)
                     Switch(
                         checked = dynamicSave,
                         onCheckedChange = { enabled ->
@@ -1334,9 +1339,9 @@ private fun IncomeSettingsCard(
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         text = if (dynamicSave) {
-                            "Active savings rate ${formatPercent(activeSaveRate.coerceIn(0.0, 1.0))}"
+                            stringResource(R.string.settings_active_savings_rate_display, formatPercent(activeSaveRate.coerceIn(0.0, 1.0)))
                         } else {
-                            "Default savings rate ${formatPercent((saveRate / 100f).toDouble())}"
+                            stringResource(R.string.settings_default_savings_rate_display, formatPercent((saveRate / 100f).toDouble()))
                         },
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -1355,13 +1360,13 @@ private fun IncomeSettingsCard(
                     )
                     if (dynamicSave) {
                         Text(
-                            text = "Sparely recalculates this target for every paycheck you log.",
+                            text = stringResource(R.string.settings_savings_rate_auto_info),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     } else {
                         Text(
-                            text = "Adjust the slider, then tap \"Save pay defaults\" below to keep the change.",
+                            text = stringResource(R.string.settings_savings_rate_manual_info),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1370,7 +1375,7 @@ private fun IncomeSettingsCard(
 
                 if (dynamicSave && automationNotes.isNotEmpty()) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Automation insights", style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.settings_automation_insights_label), style = MaterialTheme.typography.titleSmall)
                         val limitedNotes = automationNotes.take(4)
                         for (note in limitedNotes) {
                             Text(
@@ -1403,7 +1408,7 @@ private fun IncomeSettingsCard(
                                 onValueChange = { value ->
                                     semiDay1 = value.toIntOrNull()?.coerceIn(1, 28) ?: semiDay1
                                 },
-                                label = { Text("First day") },
+                                label = { Text(stringResource(R.string.settings_semi_monthly_day1)) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.weight(1f)
                             )
@@ -1412,7 +1417,7 @@ private fun IncomeSettingsCard(
                                 onValueChange = { value ->
                                     semiDay2 = value.toIntOrNull()?.coerceIn(1, 28) ?: semiDay2
                                 },
-                                label = { Text("Second day") },
+                                label = { Text(stringResource(R.string.settings_semi_monthly_day2)) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.weight(1f)
                             )
@@ -1425,7 +1430,7 @@ private fun IncomeSettingsCard(
                             onValueChange = { value ->
                                 monthlyDay = value.toIntOrNull()?.coerceIn(1, 28) ?: monthlyDay
                             },
-                            label = { Text("Payday (day of month)") },
+                            label = { Text(stringResource(R.string.settings_monthly_day_label)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -1437,7 +1442,7 @@ private fun IncomeSettingsCard(
                             onValueChange = { value ->
                                 customDays = value.toIntOrNull()?.coerceAtLeast(1) ?: customDays
                             },
-                            label = { Text("Days between paychecks") },
+                            label = { Text(stringResource(R.string.settings_custom_days_label)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -1450,15 +1455,15 @@ private fun IncomeSettingsCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Next payday", style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.settings_next_payday_label), style = MaterialTheme.typography.bodyMedium)
                         Text(
-                            text = nextPayDate?.format(DateTimeFormatter.ofPattern("MMM d, yyyy")) ?: "Not set",
+                            text = nextPayDate?.format(DateTimeFormatter.ofPattern("MMM d, yyyy")) ?: stringResource(R.string.common_not_set),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     TextButton(onClick = { showNextDatePicker = true }) {
-                        Text("Pick date")
+                        Text(stringResource(R.string.action_pick_date))
                     }
                 }
 
@@ -1467,7 +1472,7 @@ private fun IncomeSettingsCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Auto distribute to vaults", style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.settings_auto_distribute_label), style = MaterialTheme.typography.bodyMedium)
                     Switch(checked = autoDistribute, onCheckedChange = { autoDistribute = it })
                 }
 
@@ -1476,82 +1481,19 @@ private fun IncomeSettingsCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Create pending transfers", style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.settings_auto_pending_label), style = MaterialTheme.typography.bodyMedium)
                     Switch(checked = autoPending, onCheckedChange = { autoPending = it })
                 }
 
                 Button(onClick = { onScheduleSave(buildSchedule()) }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Save pay defaults")
+                    Text(stringResource(R.string.settings_save_pay_defaults))
                 }
 
-                HorizontalDivider()
-
-                Text("Log a paycheck", style = MaterialTheme.typography.titleSmall)
-
-                SparelyTextField(
-                    value = manualAmountText,
-                    onValueChange = { text ->
-                        manualAmountText = text.filter { ch -> ch.isDigit() || ch == '.' }
-                    },
-                    label = { Text("Amount received") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Payday", style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            manualPayDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy")),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    TextButton(onClick = { showManualDatePicker = true }) {
-                        Text("Pick date")
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Distribute using vault plan", style = MaterialTheme.typography.bodyMedium)
-                    Switch(checked = manualDistribute, onCheckedChange = { manualDistribute = it })
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Keep contributions pending", style = MaterialTheme.typography.bodyMedium)
-                    Switch(checked = manualPending, onCheckedChange = { manualPending = it })
-                }
-
-                val manualAmount = manualAmountText.toDoubleOrNull()?.coerceAtLeast(0.0)
-                Button(
-                    onClick = {
-                        manualAmount?.let {
-                            onRecordPaycheck(it, manualPayDate, manualDistribute, manualPending)
-                            manualAmountText = ""
-                        }
-                    },
-                    enabled = manualAmount != null && manualAmount > 0.0,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Record paycheck")
-                }
-
-                schedule.lastPayDate?.let { lastDate ->
+                if (schedule.lastPayDate != null) {
+                    val lastDate = schedule.lastPayDate
                     val lastAmount = formatCurrency(schedule.lastPayAmount)
                     Text(
-                        text = "Last logged pay: ${lastAmount} on ${lastDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))}",
+                        text = stringResource(R.string.settings_last_logged_pay_info, lastAmount, lastDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1575,9 +1517,6 @@ private fun IncomeSettingsCard(
                             Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
                         }
                         nextPayDate = selected
-                        if (selected != null) {
-                            manualPayDate = selected
-                        }
                         if (trackingMode != IncomeTrackingMode.MANUAL_PER_PAYCHECK) {
                             onScheduleSave(buildSchedule(selected))
                         }
@@ -1596,33 +1535,6 @@ private fun IncomeSettingsCard(
             }
         }
 
-        if (showManualDatePicker) {
-            val initialMillis = manualPayDate.toSafeDatePickerMillis()
-            val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
-            DatePickerDialog(
-                onDismissRequest = { showManualDatePicker = false },
-                confirmButton = {
-                    TextButton(onClick = {
-                        val selected = datePickerState.selectedDateMillis?.let {
-                            Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
-                        }
-                        if (selected != null) {
-                            manualPayDate = selected
-                        }
-                        showManualDatePicker = false
-                    }) {
-                        Text(stringResource(R.string.action_save))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showManualDatePicker = false }) {
-                        Text(stringResource(R.string.action_cancel))
-                    }
-                }
-            ) {
-                DatePicker(state = datePickerState)
-            }
-        }
 }
 
 private val monthDayFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d")
@@ -1631,20 +1543,22 @@ private fun formatCurrency(amount: Double): String = NumberFormat.getCurrencyIns
 
 private fun formatPercent(value: Double): String = String.format("%.1f%%", value.coerceIn(0.0, 1.0) * 100)
 
+@Composable
 private fun EducationStatus.displayLabel(): String = when (this) {
-    EducationStatus.HIGH_SCHOOL -> "High school"
-    EducationStatus.UNIVERSITY -> "University/College"
-    EducationStatus.GRADUATED -> "Graduated"
-    EducationStatus.OTHER -> "Other"
+    EducationStatus.HIGH_SCHOOL -> stringResource(R.string.edu_high_school)
+    EducationStatus.UNIVERSITY -> stringResource(R.string.edu_university)
+    EducationStatus.GRADUATED -> stringResource(R.string.edu_graduated)
+    EducationStatus.OTHER -> stringResource(R.string.edu_other)
 }
 
+@Composable
 private fun EmploymentStatus.displayLabel(): String = when (this) {
-    EmploymentStatus.STUDENT -> "Student"
-    EmploymentStatus.PART_TIME -> "Part-time"
-    EmploymentStatus.FULL_TIME, EmploymentStatus.EMPLOYED -> "Full-time"
-    EmploymentStatus.SELF_EMPLOYED -> "Self-employed"
-    EmploymentStatus.UNEMPLOYED -> "Unemployed"
-    EmploymentStatus.RETIRED -> "Retired"
+    EmploymentStatus.STUDENT -> stringResource(R.string.emp_student)
+    EmploymentStatus.PART_TIME -> stringResource(R.string.emp_part_time)
+    EmploymentStatus.FULL_TIME, EmploymentStatus.EMPLOYED -> stringResource(R.string.emp_employed)
+    EmploymentStatus.SELF_EMPLOYED -> stringResource(R.string.emp_self_employed)
+    EmploymentStatus.UNEMPLOYED -> stringResource(R.string.emp_unemployed)
+    EmploymentStatus.RETIRED -> stringResource(R.string.emp_retired)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1707,7 +1621,7 @@ private fun RegionalSettingsCard(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = "Regional Settings",
+                text = stringResource(R.string.settings_regional_header),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -1720,7 +1634,7 @@ private fun RegionalSettingsCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Country",
+                        text = stringResource(R.string.settings_country_label),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )
@@ -1743,7 +1657,7 @@ private fun RegionalSettingsCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Language",
+                        text = stringResource(R.string.settings_language_label),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )
@@ -1768,7 +1682,7 @@ private fun RegionalSettingsCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Currency",
+                        text = stringResource(R.string.settings_currency_label),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )
@@ -1779,7 +1693,7 @@ private fun RegionalSettingsCard(
                     )
                 }
                 FilledTonalButton(onClick = { showCurrencyPicker = true }) {
-                    Text("Change")
+                    Text(stringResource(R.string.action_change))
                 }
             }
             
@@ -1788,7 +1702,7 @@ private fun RegionalSettingsCard(
             // Custom Tax Rate
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "Custom Income Tax Rate",
+                    text = stringResource(R.string.settings_custom_tax_rate_header),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium
                 )
@@ -1810,7 +1724,7 @@ private fun RegionalSettingsCard(
                                 customTaxRate = newValue
                             }
                         },
-                        label = { Text("Tax Rate (%)") },
+                        label = { Text(stringResource(R.string.settings_tax_rate_field_label)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f),
                         singleLine = true
@@ -1946,7 +1860,7 @@ private fun RegionalSettingsCard(
     if (showCurrencyPicker) {
         AlertDialog(
             onDismissRequest = { showCurrencyPicker = false },
-            title = { Text("Select Currency") },
+            title = { Text(stringResource(R.string.dialog_select_currency_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (currency in availableCurrencies) {
@@ -1978,7 +1892,7 @@ private fun RegionalSettingsCard(
             },
             confirmButton = {
                 TextButton(onClick = { showCurrencyPicker = false }) {
-                    Text("Close")
+                    Text(stringResource(R.string.action_close))
                 }
             }
         )
@@ -1994,3 +1908,328 @@ private fun getCurrencySymbol(currencyCode: String): String = when (currencyCode
     "BRL" -> "R$"
     else -> currencyCode
 }
+@Composable
+private fun PaymentMethodsSettingsCard(
+    paymentMethods: List<com.example.sparely.domain.model.PaymentMethod>,
+    onAdd: (com.example.sparely.domain.model.PaymentMethod) -> Unit,
+    onEdit: (com.example.sparely.domain.model.PaymentMethod) -> Unit,
+    onDelete: (com.example.sparely.domain.model.PaymentMethod) -> Unit
+) {
+    var showAddDialog by remember { mutableStateOf(false) }
+    var editingMethod by remember { mutableStateOf<com.example.sparely.domain.model.PaymentMethod?>(null) }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        MaterialSymbolIcon(icon = MaterialSymbols.PAYMENTS, contentDescription = null, size = 20.dp, tint = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(R.string.settings_payment_methods_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    }
+                    Text(
+                        text = stringResource(R.string.settings_payment_methods_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                androidx.compose.material3.IconButton(onClick = { showAddDialog = true }) {
+                    MaterialSymbolIcon(icon = MaterialSymbols.ADD, contentDescription = stringResource(R.string.action_add_method_desc))
+                }
+            }
+            
+            if (paymentMethods.isEmpty()) {
+                Text(stringResource(R.string.settings_no_payment_methods), style = MaterialTheme.typography.bodySmall)
+            } else {
+                paymentMethods.forEach { method ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { editingMethod = method }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        com.example.sparely.ui.components.PaymentMethodIcon(
+                           method = method,
+                           modifier = Modifier.size(40.dp)
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(method.name, style = MaterialTheme.typography.bodyMedium)
+                            if (method.isCreditCard) {
+                                val utilization = (method.utilizationPercent * 100).toInt()
+                                val utilizationColor = when {
+                                    method.isUtilizationHealthy -> MaterialTheme.colorScheme.primary
+                                    method.isUtilizationWarning -> Color(0xFFFF9800) // Orange
+                                    else -> MaterialTheme.colorScheme.error
+                                }
+                                val limit = String.format("%.0f", method.creditLimit ?: 0.0)
+                                Text(
+                                    stringResource(R.string.settings_credit_card_summary_line, String.format("%.2f", method.currentBalance), limit, utilization),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = utilizationColor
+                                )
+                            } else {
+                                Text(
+                                    if (method.type == com.example.sparely.domain.model.PaymentMethodType.CASH) stringResource(R.string.payment_method_type_cash) else stringResource(R.string.payment_method_type_card),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        if (method.isDefault) {
+                            SparelyChip(
+                                selected = true, 
+                                onClick = {}, 
+                                label = { Text(stringResource(R.string.common_default)) }
+                            )
+                        }
+                    }
+                    if (method != paymentMethods.last()) {
+                        HorizontalDivider()
+                    }
+                }
+            }
+        }
+    }
+
+    if (showAddDialog || editingMethod != null) {
+        val isEditing = editingMethod != null
+        var name by remember { mutableStateOf(editingMethod?.name ?: "") }
+        var type by remember { mutableStateOf(editingMethod?.type ?: com.example.sparely.domain.model.PaymentMethodType.CARD) }
+        var defaultDeduct by remember { mutableStateOf(editingMethod?.defaultDeductFromMainAccount ?: true) }
+        var isDefault by remember { mutableStateOf(editingMethod?.isDefault ?: false) }
+        
+        // Credit card specific fields
+        var isCreditCard by remember { mutableStateOf(editingMethod?.isCreditCard ?: false) }
+        var creditLimitText by remember { mutableStateOf(editingMethod?.creditLimit?.toString() ?: "") }
+        var billingCycleDayText by remember { mutableStateOf(editingMethod?.billingCycleDay?.toString() ?: "") }
+        
+        // Reset default deduct when type changes if creating new
+        LaunchedEffect(type) {
+             if (!isEditing) {
+                 defaultDeduct = type == com.example.sparely.domain.model.PaymentMethodType.CARD
+             }
+        }
+        
+        // Auto-set deduct to false for credit cards
+        LaunchedEffect(isCreditCard) {
+            if (isCreditCard) {
+                defaultDeduct = false
+            }
+        }
+
+        AlertDialog(
+            onDismissRequest = { 
+                showAddDialog = false 
+                editingMethod = null
+            },
+            title = { Text(if (isEditing) "Edit Payment Method" else "Add Payment Method") },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    SparelyTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Name (e.g. Visa, Cash)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    
+                    Column {
+                        Text("Type", style = MaterialTheme.typography.labelMedium)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SparelyChip(
+                                selected = type == com.example.sparely.domain.model.PaymentMethodType.CARD,
+                                onClick = { type = com.example.sparely.domain.model.PaymentMethodType.CARD },
+                                label = { Text("Card/Digital") }
+                            )
+                            SparelyChip(
+                                selected = type == com.example.sparely.domain.model.PaymentMethodType.CASH,
+                                onClick = { 
+                                    type = com.example.sparely.domain.model.PaymentMethodType.CASH
+                                    isCreditCard = false // Can't be credit card if cash
+                                },
+                                label = { Text("Cash") }
+                            )
+                        }
+                    }
+                    
+                    // Credit Card Toggle - only show for CARD type
+                    if (type == com.example.sparely.domain.model.PaymentMethodType.CARD) {
+                        HorizontalDivider()
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    MaterialSymbolIcon(icon = MaterialSymbols.CREDIT_CARD, contentDescription = null, size = 20.dp, tint = MaterialTheme.colorScheme.primary)
+                                    Text("This is a Credit Card", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                }
+                                Text(
+                                    "Track balance and credit utilization",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(checked = isCreditCard, onCheckedChange = { isCreditCard = it })
+                        }
+                        
+                        // Credit card specific fields
+                        if (isCreditCard) {
+                            SparelyTextField(
+                                value = creditLimitText,
+                                onValueChange = { creditLimitText = it.filter { c -> c.isDigit() || c == '.' } },
+                                label = { Text("Credit Limit") },
+                                leadingIcon = { Text("$", style = MaterialTheme.typography.bodyLarge) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            
+                            SparelyTextField(
+                                value = billingCycleDayText,
+                                onValueChange = { 
+                                    val filtered = it.filter { c -> c.isDigit() }
+                                    val num = filtered.toIntOrNull()
+                                    billingCycleDayText = if (num != null && num in 1..31) filtered else filtered.take(2)
+                                },
+                                label = { Text("Billing Cycle Day (1-31)") },
+                                supportingText = { Text("Day of month when statement closes") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            
+                            // Show current balance for editing (read-only info)
+                            if (isEditing && editingMethod?.currentBalance ?: 0.0 > 0) {
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceContainerHighest
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Text("Current Balance", style = MaterialTheme.typography.labelMedium)
+                                        Text(
+                                            "$${String.format("%.2f", editingMethod?.currentBalance ?: 0.0)}",
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        val utilPct = (editingMethod?.utilizationPercent ?: 0.0) * 100
+                                        val utilizationColor = when {
+                                            editingMethod?.isUtilizationHealthy == true -> MaterialTheme.colorScheme.primary
+                                            editingMethod?.isUtilizationWarning == true -> Color(0xFFFF9800)
+                                            else -> MaterialTheme.colorScheme.error
+                                        }
+                                        Text(
+                                            "${String.format("%.1f", utilPct)}% utilization",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = utilizationColor
+                                        )
+                                        if (editingMethod?.isUtilizationWarning == true || editingMethod?.isUtilizationDanger == true) {
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                if (editingMethod?.isUtilizationDanger == true)
+                                                    "⚠️ High utilization may hurt your credit score"
+                                                else
+                                                    "💡 Keep utilization under 30% for best credit score",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = utilizationColor
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        HorizontalDivider()
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Deduct from Main Account by default?", style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                if (isCreditCard) "Credit cards don't deduct immediately."
+                                else "Turn off for Credit Cards, on for Debit/Cash.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = defaultDeduct, 
+                            onCheckedChange = { defaultDeduct = it },
+                            enabled = !isCreditCard // Disable for credit cards
+                        )
+                    }
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                         Text("Set as default method", style = MaterialTheme.typography.bodyMedium)
+                         Switch(checked = isDefault, onCheckedChange = { isDefault = it })
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val method = com.example.sparely.domain.model.PaymentMethod(
+                            id = editingMethod?.id ?: 0,
+                            name = name,
+                            type = type,
+                            defaultDeductFromMainAccount = if (isCreditCard) false else defaultDeduct,
+                            isDefault = isDefault,
+                            iconName = if (type == com.example.sparely.domain.model.PaymentMethodType.CASH) "payments" else "credit_card",
+                            isCreditCard = isCreditCard && type == com.example.sparely.domain.model.PaymentMethodType.CARD,
+                            creditLimit = if (isCreditCard) creditLimitText.toDoubleOrNull() else null,
+                            currentBalance = editingMethod?.currentBalance ?: 0.0,
+                            billingCycleDay = if (isCreditCard) billingCycleDayText.toIntOrNull() else null,
+                            lastPaymentDate = editingMethod?.lastPaymentDate,
+                            lastPaymentAmount = editingMethod?.lastPaymentAmount
+                        )
+                        if (isEditing) onEdit(method) else onAdd(method)
+                        showAddDialog = false
+                        editingMethod = null
+                    },
+                    enabled = name.isNotBlank() && (!isCreditCard || creditLimitText.toDoubleOrNull() != null)
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                Row {
+                     if (isEditing) {
+                        TextButton(onClick = {
+                            editingMethod?.let { onDelete(it) }
+                            editingMethod = null
+                        }) {
+                            Text("Delete", color = MaterialTheme.colorScheme.error)
+                        }
+                     }
+                    TextButton(onClick = {
+                        showAddDialog = false
+                        editingMethod = null
+                    }) {
+                        Text("Cancel")
+                    }
+                }
+            }
+        )
+    }
+}
+

@@ -21,12 +21,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.model.*
-import com.example.sparely.ui.state.SparelyUiState
-import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.theme.MaterialSymbols
 import com.example.sparely.ui.components.ExpressiveCard
+import androidx.compose.ui.res.stringResource
+import com.sparely.app.R
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Brush
+import com.example.sparely.ui.state.SparelyUiState
+import com.example.sparely.ui.theme.MaterialSymbolIcon
 
 @Composable
 fun FinancialHealthScreen(
@@ -49,7 +51,7 @@ fun FinancialHealthScreen(
 
             item {
                 Text(
-                    text = "Score Breakdown",
+                    text = stringResource(R.string.health_score_breakdown),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -62,7 +64,7 @@ fun FinancialHealthScreen(
             if (healthScore.topStrengths.isNotEmpty()) {
                 item {
                     Text(
-                        text = "Your Strengths",
+                        text = stringResource(R.string.health_strengths),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -77,7 +79,7 @@ fun FinancialHealthScreen(
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Ways to Improve",
+                        text = stringResource(R.string.health_improve),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -89,7 +91,7 @@ fun FinancialHealthScreen(
             }
         } else {
             item {
-                Text("Loading health data...")
+                Text(stringResource(R.string.health_loading))
             }
         }
     }
@@ -118,7 +120,7 @@ fun HealthScoreCard(healthScore: FinancialHealthScore) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Financial Health",
+                text = stringResource(R.string.dashboard_financial_health),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -135,7 +137,7 @@ fun HealthScoreCard(healthScore: FinancialHealthScore) {
             Spacer(modifier = Modifier.height(24.dp))
             
             Text(
-                text = healthScore.healthLevel.label,
+                text = healthScore.healthLevel.displayName(),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.ExtraBold,
                 color = startColor
@@ -259,7 +261,7 @@ fun BreakdownTile(category: String, score: Int, modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = category,
+                text = getCategoryDisplayName(category),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -304,7 +306,7 @@ fun ScoreBreakdownRow(category: String, score: Int) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = category,
+                text = getCategoryDisplayName(category),
                 style = MaterialTheme.typography.bodyMedium
             )
             Text(
@@ -417,4 +419,22 @@ fun ImprovementTipCard(tip: ImprovementTip) {
             }
         }
     }
+}
+@Composable
+fun HealthLevel.displayName(): String = when (this) {
+    HealthLevel.EXCELLENT -> stringResource(R.string.health_level_excellent)
+    HealthLevel.GOOD -> stringResource(R.string.health_level_good)
+    HealthLevel.FAIR -> stringResource(R.string.health_level_fair)
+    HealthLevel.NEEDS_WORK -> stringResource(R.string.health_level_needs_work)
+    HealthLevel.CRITICAL -> stringResource(R.string.health_level_critical)
+}
+
+@Composable
+fun getCategoryDisplayName(category: String): String = when (category) {
+    "Savings Rate" -> stringResource(R.string.health_cat_savings_rate)
+    "Emergency Fund" -> stringResource(R.string.health_cat_emergency_fund)
+    "Budget Adherence" -> stringResource(R.string.health_cat_budget_adherence)
+    "Goal Progress" -> stringResource(R.string.health_cat_goal_progress)
+    "Debt Management" -> stringResource(R.string.health_cat_debt_management)
+    else -> category
 }

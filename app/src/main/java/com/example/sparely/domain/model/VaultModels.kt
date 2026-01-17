@@ -36,15 +36,63 @@ data class SmartVault(
     val defaultManualDepositDeductFromMain: Boolean = true,
     val defaultManualWithdrawalCreditMain: Boolean = true,
     val schedules: List<VaultSchedule> = emptyList(),
-    val iconName: String? = null
+    val iconName: String? = null,
+    // High-Yield Savings Account features
+    val isHighYieldAccount: Boolean = false,
+    val annualPercentageYield: Double? = null, // APY for high-yield accounts (e.g., 4.5 for 4.5%)
+    val lastInterestCalculation: LocalDate? = null,
+    val accruedInterest: Double = 0.0
 ) {
     val progressPercent: Double = if (targetAmount > 0) (currentBalance / targetAmount).coerceIn(0.0, 1.0) else 0.0
+    
+    /** Check if this is a high-yield savings vault */
+    val isHighYieldSavings: Boolean 
+        get() = type == VaultType.HIGH_YIELD_SAVINGS || isHighYieldAccount
+    
+    /** Get effective APY (uses vault APY or default 4.5%) */
+    val effectiveApy: Double
+        get() = annualPercentageYield ?: if (isHighYieldSavings) 4.5 else 0.0
 }
 
+/** Calculate projected annual interest earnings based on current balance and APY */
+fun SmartVault.projectedAnnualInterest(): Double {
+    if (effectiveApy <= 0) return 0.0
+    return currentBalance * (effectiveApy / 100.0)
+}
+
+/** Calculate projected monthly interest earnings */
+fun SmartVault.projectedMonthlyInterest(): Double {
+    return projectedAnnualInterest() / 12.0
+}
+
+/** Calculate interest earned over a specific number of months */
+fun SmartVault.projectedInterestOverMonths(months: Int): Double {
+    return projectedMonthlyInterest() * months
+}
+
+/** Calculate what the balance would be after N months with compound interest (monthly compounding) */
+fun SmartVault.balanceAfterMonths(months: Int, additionalMonthlyDeposit: Double = 0.0): Double {
+    if (effectiveApy <= 0) return currentBalance + (additionalMonthlyDeposit * months)
+    
+    val monthlyRate = effectiveApy / 100.0 / 12.0
+    var balance = currentBalance
+    
+    repeat(months) {
+        balance += additionalMonthlyDeposit
+        balance *= (1 + monthlyRate)
+    }
+    
+    return balance
+}
+
+
+
 enum class VaultScheduleType {
+    DAILY,
     SPECIFIC_DATE,
     DAY_OF_MONTH,
-    DAY_OF_WEEK
+    DAY_OF_WEEK,
+    QUARTERLY
 }
 
 enum class VaultTransferDirection {
@@ -82,7 +130,8 @@ data class VaultContribution(
     val date: LocalDate = LocalDate.now(),
     val source: VaultContributionSource,
     val note: String? = null,
-    val reconciled: Boolean = false
+    val reconciled: Boolean = false,
+    val relatedExpenseId: Long? = null
 )
 
 enum class VaultContributionSource {
@@ -136,3 +185,29 @@ data class VaultArchivePrompt(
     val vaultBalanceAfter: Double,
     val overflowToMainAccount: Double
 )
+
+sealed interface VaultHistoryItem {
+    val id: Long
+    val date: LocalDateTime
+    val amount: Double
+    val description: String?
+}
+
+data class HistoryContribution(
+    val contribution: VaultContribution
+) : VaultHistoryItem {
+    override val id = contribution.id
+    override val date: LocalDateTime = contribution.date.atStartOfDay()
+    override val amount = contribution.amount
+    override val description = contribution.note
+}
+
+data class HistoryAdjustment(
+    val adjustment: VaultBalanceAdjustment
+) : VaultHistoryItem {
+    override val id = adjustment.id
+    override val date: LocalDateTime = LocalDateTime.ofInstant(adjustment.createdAt, java.time.ZoneId.systemDefault())
+    override val amount = adjustment.delta
+    override val description = adjustment.reason
+    val balanceAfter = adjustment.resultingBalance
+}

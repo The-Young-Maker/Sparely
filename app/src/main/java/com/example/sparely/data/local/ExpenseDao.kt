@@ -10,8 +10,9 @@ import java.time.LocalDate
 
 @Dao
 interface ExpenseDao {
+    @androidx.room.Transaction
     @Query("SELECT * FROM expenses ORDER BY date DESC, id DESC")
-    fun observeExpenses(): Flow<List<ExpenseEntity>>
+    fun observeExpenses(): Flow<List<ExpenseWithItemsRelation>>
 
     @Query("SELECT * FROM expenses WHERE date BETWEEN :from AND :to ORDER BY date DESC, id DESC")
     fun observeExpensesBetween(from: LocalDate, to: LocalDate): Flow<List<ExpenseEntity>>
@@ -20,7 +21,7 @@ interface ExpenseDao {
     suspend fun getExpensesBetween(from: LocalDate, to: LocalDate): List<ExpenseEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertExpense(entity: ExpenseEntity)
+    suspend fun upsertExpense(entity: ExpenseEntity): Long
 
     @Delete
     suspend fun deleteExpense(entity: ExpenseEntity)
@@ -36,4 +37,10 @@ interface ExpenseDao {
 
     @Query("DELETE FROM expenses")
     suspend fun clearAll()
+
+    @Query("DELETE FROM expenses WHERE date < :date")
+    suspend fun deleteExpensesBefore(date: LocalDate): Int
+
+    @Query("SELECT COUNT(*) FROM expenses WHERE date < :date")
+    suspend fun countExpensesBefore(date: LocalDate): Int
 }

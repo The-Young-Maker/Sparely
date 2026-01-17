@@ -33,5 +33,10 @@ data class BackupData(
     val vaultContributions: List<VaultContribution>? = null,
     val vaultAdjustments: List<VaultBalanceAdjustment>? = null,
     val allocationHistory: List<com.example.sparely.data.local.AllocationHistoryEntity>? = null,
-    val mainAccountBalance: Double? = null
+    val stores: List<Store>? = null,
+    val mainAccountBalance: Double? = null,
+    val paymentMethods: List<PaymentMethod>? = null,
+    val creditCardPayments: List<CreditCardPayment>? = null,
+    val expenseItems: List<ExpenseItem>? = null
 )
+

@@ -9,7 +9,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.sparely.MainActivity
-import com.example.sparely.R
+import com.sparely.app.R
 import com.example.sparely.domain.model.VaultSchedule
 import com.example.sparely.domain.model.VaultTransferDirection
 import java.text.NumberFormat
@@ -19,11 +19,13 @@ object NotificationHelper {
     const val AUTO_DEPOSIT_CHANNEL_ID = "sparely_auto_deposits"
     const val VAULT_TRANSFER_CHANNEL_ID = "sparely_vault_transfers"
     const val PAYDAY_CHANNEL_ID = "sparely_payday_reminders"
+    const val CREDIT_CARD_CHANNEL_ID = "sparely_credit_card_reminders"
     private const val REMINDER_NOTIFICATION_ID = 1001
     private const val AUTO_DEPOSIT_NOTIFICATION_ID = 3001
     private const val VAULT_TRANSFER_NOTIFICATION_ID = 4001
     private const val PAYDAY_NOTIFICATION_ID = 4002
     private const val SCHEDULE_SUMMARY_NOTIFICATION_ID = 5001
+    private const val CREDIT_CARD_BASE_NOTIFICATION_ID = 6001
 
     fun ensureChannels(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -58,10 +60,19 @@ object NotificationHelper {
                 description = "Step-by-step vault transfer workflow"
                 setShowBadge(false)
             }
+            val creditCardChannel = NotificationChannel(
+                CREDIT_CARD_CHANNEL_ID,
+                "Credit Card Reminders",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Reminders for credit card bill due dates"
+                setShowBadge(true)
+            }
             manager.createNotificationChannel(reminderChannel)
             manager.createNotificationChannel(autoDepositChannel)
             manager.createNotificationChannel(paydayChannel)
             manager.createNotificationChannel(vaultTransferChannel)
+            manager.createNotificationChannel(creditCardChannel)
         }
     }
 
@@ -352,6 +363,86 @@ object NotificationHelper {
 
     fun dismissPaydayReminder(context: Context) {
         NotificationManagerCompat.from(context).cancel(PAYDAY_NOTIFICATION_ID)
+    }
+
+    fun showCreditCardDueReminder(
+        context: Context,
+        cardId: Long,
+        cardName: String,
+        balance: Double,
+        daysUntilDue: Int
+    ) {
+        ensureChannels(context)
+        val formattedBalance = formatAmount(balance)
+        val title = when (daysUntilDue) {
+            0 -> "$cardName bill due today!"
+            1 -> "$cardName bill due tomorrow"
+            else -> "$cardName bill due in $daysUntilDue days"
+        }
+        val message = "Current balance: $formattedBalance. Tap to pay now."
+
+        val contentIntent = PendingIntent.getActivity(
+            context,
+            cardId.toInt(),
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("navigate_to", "creditCards")
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, CREDIT_CARD_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_logo)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .build()
+
+        val notificationId = CREDIT_CARD_BASE_NOTIFICATION_ID + (cardId % 1000).toInt()
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
+    }
+
+    fun showCreditCardUtilizationAlert(
+        context: Context,
+        cardId: Long,
+        cardName: String,
+        utilization: Int,
+        threshold: Int
+    ) {
+        ensureChannels(context)
+        val title = "High utilization on $cardName"
+        val message = "Utilization is at $utilization%, which exceeds your $threshold% limit. Tap to pay now."
+
+        val contentIntent = PendingIntent.getActivity(
+            context,
+            cardId.toInt() + 2000,
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("navigate_to", "creditCards")
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, CREDIT_CARD_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_logo)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .build()
+
+        val notificationId = CREDIT_CARD_BASE_NOTIFICATION_ID + (cardId % 1000).toInt() + 1000
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
+    }
+
+    fun dismissCreditCardReminder(context: Context, cardId: Long) {
+        val notificationId = CREDIT_CARD_BASE_NOTIFICATION_ID + (cardId % 1000).toInt()
+        NotificationManagerCompat.from(context).cancel(notificationId)
     }
 
     fun formatAmount(amount: Double): String =

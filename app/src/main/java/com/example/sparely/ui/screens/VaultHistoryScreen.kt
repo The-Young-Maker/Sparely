@@ -12,7 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import com.example.sparely.R
+import com.sparely.app.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.sparely.domain.model.VaultBalanceAdjustment
@@ -25,60 +25,69 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun VaultHistoryScreen(
     vaultName: String,
-    adjustments: List<VaultBalanceAdjustment>,
+    historyItems: List<com.example.sparely.domain.model.VaultHistoryItem>,
     onNavigateBack: () -> Unit
 ) {
-    // Removed local TopAppBar - using global SparelyTopBar instead
-    if (adjustments.isEmpty()) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.vault_history_title, vaultName)) },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        MaterialSymbolIcon(icon = MaterialSymbols.ARROW_BACK, contentDescription = stringResource(R.string.common_back))
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        if (historyItems.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    MaterialSymbolIcon(icon = MaterialSymbols.HISTORY,
+                    MaterialSymbolIcon(
+                        icon = MaterialSymbols.HISTORY,
                         contentDescription = null,
                         modifier = Modifier.size(64.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "No adjustment history yet",
+                        text = stringResource(R.string.vault_history_empty_title),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "Manual deposits and withdrawals will appear here",
+                        text = stringResource(R.string.vault_history_empty_desc),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-                items(adjustments) { adjustment ->
-                    AdjustmentCard(adjustment)
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(historyItems) { item ->
+                    HistoryItemCard(item)
                 }
             }
         }
     }
-
-
+}
 
 @Composable
-private fun AdjustmentCard(adjustment: VaultBalanceAdjustment) {
+private fun HistoryItemCard(item: com.example.sparely.domain.model.VaultHistoryItem) {
     val dateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a")
-    val isDeposit = adjustment.type == VaultAdjustmentType.MANUAL_DEPOSIT
-    val isWithdrawal = adjustment.type == VaultAdjustmentType.MANUAL_DEDUCTION
-    
-    // Calculate old balance from current balance and delta
-    val oldBalance = adjustment.resultingBalance - adjustment.delta
-    val newBalance = adjustment.resultingBalance
     
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -91,19 +100,22 @@ private fun AdjustmentCard(adjustment: VaultBalanceAdjustment) {
                 .padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            val (icon, color) = when (item) {
+                is com.example.sparely.domain.model.HistoryContribution -> MaterialSymbols.ADD to MaterialTheme.colorScheme.primary
+                is com.example.sparely.domain.model.HistoryAdjustment -> {
+                    when (item.adjustment.type) {
+                        VaultAdjustmentType.MANUAL_DEPOSIT -> MaterialSymbols.ADD to MaterialTheme.colorScheme.primary
+                        VaultAdjustmentType.MANUAL_DEDUCTION -> MaterialSymbols.REMOVE to MaterialTheme.colorScheme.error
+                        VaultAdjustmentType.MANUAL_EDIT -> MaterialSymbols.EDIT to MaterialTheme.colorScheme.tertiary
+                        VaultAdjustmentType.AUTOMATIC_RECURRING_TRANSFER -> MaterialSymbols.SYNC to MaterialTheme.colorScheme.secondary
+                    }
+                }
+            }
+
             MaterialSymbolIcon(
-                icon = when (adjustment.type) {
-                    VaultAdjustmentType.MANUAL_DEPOSIT -> MaterialSymbols.ADD
-                    VaultAdjustmentType.MANUAL_DEDUCTION -> MaterialSymbols.REMOVE
-                    VaultAdjustmentType.MANUAL_EDIT -> MaterialSymbols.EDIT
-                    VaultAdjustmentType.AUTOMATIC_RECURRING_TRANSFER -> MaterialSymbols.SYNC
-                },
+                icon = icon,
                 contentDescription = null,
-                tint = when {
-                    isDeposit -> MaterialTheme.colorScheme.primary
-                    isWithdrawal -> MaterialTheme.colorScheme.error
-                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                },
+                tint = color,
                 modifier = Modifier.size(24.dp),
                 size = 24.dp
             )
@@ -112,75 +124,83 @@ private fun AdjustmentCard(adjustment: VaultBalanceAdjustment) {
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                val title = when (item) {
+                    is com.example.sparely.domain.model.HistoryContribution -> when(item.contribution.source) {
+                         com.example.sparely.domain.model.VaultContributionSource.INCOME -> stringResource(R.string.vault_source_allocation)
+                         com.example.sparely.domain.model.VaultContributionSource.SAVING_TAX -> stringResource(R.string.vault_source_tax)
+                         com.example.sparely.domain.model.VaultContributionSource.AUTO_DEPOSIT -> stringResource(R.string.vault_source_schedule)
+                         com.example.sparely.domain.model.VaultContributionSource.MANUAL -> stringResource(R.string.vault_source_manual)
+                         com.example.sparely.domain.model.VaultContributionSource.TRANSFER -> stringResource(R.string.vault_adjust_type_transfer)
+                    }
+                    is com.example.sparely.domain.model.HistoryAdjustment -> when (item.adjustment.type) {
+                        VaultAdjustmentType.MANUAL_DEPOSIT -> stringResource(R.string.vault_manual_deposit_title)
+                        VaultAdjustmentType.MANUAL_DEDUCTION -> stringResource(R.string.vault_manual_withdrawal_title)
+                        VaultAdjustmentType.MANUAL_EDIT -> stringResource(R.string.vault_manual_edit_title)
+                        VaultAdjustmentType.AUTOMATIC_RECURRING_TRANSFER -> stringResource(R.string.vault_automatic_transfer_title)
+                    }
+                }
+                
                 Text(
-                    text = when (adjustment.type) {
-                        VaultAdjustmentType.MANUAL_DEPOSIT -> "Manual Deposit"
-                        VaultAdjustmentType.MANUAL_DEDUCTION -> "Manual Withdrawal"
-                        VaultAdjustmentType.MANUAL_EDIT -> "Manual Edit"
-                        VaultAdjustmentType.AUTOMATIC_RECURRING_TRANSFER -> "Automatic Transfer"
-                    },
+                    text = title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold
                 )
                 
-                if (adjustment.reason?.isNotBlank() == true) {
+                if (item.description?.isNotBlank() == true) {
                     Text(
-                        text = adjustment.reason,
+                        text = item.description ?: "",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 
                 Text(
-                    text = adjustment.createdAt.atZone(java.time.ZoneId.systemDefault()).format(dateFormatter),
+                    text = item.date.atZone(java.time.ZoneId.systemDefault()).format(dateFormatter),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Previous:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "$${String.format("%.2f", oldBalance)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium
-                    )
-                    MaterialSymbolIcon(icon = MaterialSymbols.ARROW_FORWARD,
-                        contentDescription = null,
-                        modifier = Modifier.size(12.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "$${String.format("%.2f", newBalance)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Bold,
-                        color = when {
-                            isDeposit -> MaterialTheme.colorScheme.primary
-                            isWithdrawal -> MaterialTheme.colorScheme.error
-                            else -> MaterialTheme.colorScheme.onSurface
-                        }
-                    )
+                if (item is com.example.sparely.domain.model.HistoryAdjustment) {
+                    val oldBalance = item.balanceAfter - item.amount
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.vault_history_previous),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "$${String.format("%.2f", oldBalance)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium
+                        )
+                        MaterialSymbolIcon(icon = MaterialSymbols.ARROW_FORWARD,
+                            contentDescription = null,
+                            modifier = Modifier.size(12.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "$${String.format("%.2f", item.balanceAfter)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
             }
             
             Column(
                 horizontalAlignment = Alignment.End
             ) {
+                val amountText = if (item.amount > 0) "+$${String.format("%.2f", item.amount)}" 
+                                 else "-$${String.format("%.2f", kotlin.math.abs(item.amount))}"
                 Text(
-                    text = "${if (adjustment.delta > 0) "+" else ""}$${String.format("%.2f", kotlin.math.abs(adjustment.delta))}",
+                    text = amountText,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = when {
-                        isDeposit -> MaterialTheme.colorScheme.primary
-                        isWithdrawal -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.onSurface
-                    }
+                    color = if (item.amount >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                 )
             }
         }

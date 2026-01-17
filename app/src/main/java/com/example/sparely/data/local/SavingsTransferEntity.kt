@@ -6,7 +6,27 @@ import com.example.sparely.domain.model.SavingsCategory
 import com.example.sparely.domain.model.SavingsTransfer
 import java.time.LocalDate
 
-@Entity(tableName = "savings_transfers")
+@Entity(
+    tableName = "savings_transfers",
+    foreignKeys = [
+        androidx.room.ForeignKey(
+            entity = SavingsAccountEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["sourceAccountId"],
+            onDelete = androidx.room.ForeignKey.SET_NULL
+        ),
+        androidx.room.ForeignKey(
+            entity = SavingsAccountEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["destinationAccountId"],
+            onDelete = androidx.room.ForeignKey.SET_NULL
+        )
+    ],
+    indices = [
+        androidx.room.Index("sourceAccountId"),
+        androidx.room.Index("destinationAccountId")
+    ]
+)
 data class SavingsTransferEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val category: SavingsCategory,

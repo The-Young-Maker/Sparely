@@ -19,8 +19,8 @@ class ReminderWorker(
             "Log your latest purchase in Sparely to start automating savings."
         } else {
             val sevenDaysAgo = LocalDate.now().minusDays(7)
-            val recent = expenses.filter { !it.date.isBefore(sevenDaysAgo) }
-            val reserved = recent.sumOf { it.emergencyAmount + it.investmentAmount + it.funAmount }
+            val recent = expenses.filter { !it.expense.date.isBefore(sevenDaysAgo) }
+            val reserved = recent.sumOf { it.expense.emergencyAmount + it.expense.investmentAmount + it.expense.funAmount }
             if (recent.isEmpty()) {
                 "You haven't logged a purchase this week. Add one to keep your savings plan on track."
             } else {

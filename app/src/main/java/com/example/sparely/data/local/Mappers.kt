@@ -13,6 +13,12 @@ import com.example.sparely.domain.model.VaultBalanceAdjustment
 import com.example.sparely.domain.model.VaultContribution
 import com.example.sparely.domain.model.VaultSchedule
 import com.example.sparely.domain.model.Expense
+import com.example.sparely.domain.model.Store
+import com.example.sparely.domain.model.PaymentMethod
+import com.example.sparely.domain.model.PaymentMethodType
+import com.example.sparely.domain.model.AmountHistoryEntry
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import java.time.YearMonth
 
 fun CategoryBudgetEntity.toDomain(): CategoryBudget = CategoryBudget(
@@ -32,33 +38,51 @@ fun CategoryBudget.toEntity(): CategoryBudgetEntity = CategoryBudgetEntity(
     isActive = isActive
 )
 
-fun RecurringExpenseEntity.toDomain(): RecurringExpense = RecurringExpense(
-    id = id,
-    description = description,
-    amount = amount,
-    category = category,
-    frequency = frequency,
-    startDate = startDate,
-    endDate = endDate,
-    lastProcessedDate = lastProcessedDate,
-    isActive = isActive,
-    autoLog = autoLog,
-    executeAutomatically = executeAutomatically,
-    reminderDaysBefore = reminderDaysBefore,
-    merchantName = merchantName,
-    notes = notes,
-    includesTax = includesTax,
-    deductFromMainAccount = deductFromMainAccount,
-    deductedFromVaultId = deductedFromVaultId,
-    manualPercentages = if (manualPercentEmergency != null || manualPercentInvest != null || manualPercentFun != null || manualSafeSplit != null) {
-        SavingsPercentages(
-            emergency = manualPercentEmergency ?: 0.0,
-            invest = manualPercentInvest ?: 0.0,
-            `fun` = manualPercentFun ?: 0.0,
-            safeInvestmentSplit = manualSafeSplit ?: 0.5
-        )
-    } else null
-)
+private val gson = Gson()
+
+fun RecurringExpenseEntity.toDomain(): RecurringExpense {
+    val amountHistory: List<AmountHistoryEntry> = amountHistoryJson?.let {
+        try {
+            val type = object : TypeToken<List<AmountHistoryEntry>>() {}.type
+            gson.fromJson(it, type)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    } ?: emptyList()
+    
+    return RecurringExpense(
+        id = id,
+        description = description,
+        amount = amount,
+        category = category,
+        frequency = frequency,
+        startDate = startDate,
+        endDate = endDate,
+        lastProcessedDate = lastProcessedDate,
+        isActive = isActive,
+        autoLog = autoLog,
+        executeAutomatically = executeAutomatically,
+        reminderDaysBefore = reminderDaysBefore,
+        merchantName = merchantName,
+        notes = notes,
+        storeId = storeId,
+        includesTax = includesTax,
+        deductFromMainAccount = deductFromMainAccount,
+        deductedFromVaultId = deductedFromVaultId,
+        manualPercentages = if (manualPercentEmergency != null || manualPercentInvest != null || manualPercentFun != null || manualSafeSplit != null) {
+            SavingsPercentages(
+                emergency = manualPercentEmergency ?: 0.0,
+                invest = manualPercentInvest ?: 0.0,
+                `fun` = manualPercentFun ?: 0.0,
+                safeInvestmentSplit = manualSafeSplit ?: 0.5
+            )
+        } else null,
+        paymentMethodId = paymentMethodId,
+        isVariableAmount = isVariableAmount,
+        amountHistory = amountHistory,
+        estimatedAmount = estimatedAmount
+    )
+}
 
 fun RecurringExpense.toEntity(): RecurringExpenseEntity = RecurringExpenseEntity(
     id = id,
@@ -75,13 +99,18 @@ fun RecurringExpense.toEntity(): RecurringExpenseEntity = RecurringExpenseEntity
     reminderDaysBefore = reminderDaysBefore,
     merchantName = merchantName,
     notes = notes,
+    storeId = storeId,
     includesTax = includesTax,
     deductFromMainAccount = deductFromMainAccount,
     deductedFromVaultId = deductedFromVaultId,
     manualPercentEmergency = manualPercentages?.emergency,
     manualPercentInvest = manualPercentages?.invest,
     manualPercentFun = manualPercentages?.`fun`,
-    manualSafeSplit = manualPercentages?.safeInvestmentSplit
+    manualSafeSplit = manualPercentages?.safeInvestmentSplit,
+    paymentMethodId = paymentMethodId,
+    isVariableAmount = isVariableAmount,
+    amountHistoryJson = if (amountHistory.isNotEmpty()) gson.toJson(amountHistory) else null,
+    estimatedAmount = estimatedAmount
 )
 
 fun ChallengeMilestoneEntity.toDomain(): ChallengeMilestone = ChallengeMilestone(
@@ -232,7 +261,11 @@ fun SmartVaultEntity.toDomain(schedules: List<VaultSchedule> = emptyList()): Sma
     defaultManualDepositDeductFromMain = defaultManualDepositDeductFromMain,
     defaultManualWithdrawalCreditMain = defaultManualWithdrawalCreditMain,
     schedules = schedules,
-    iconName = iconName
+    iconName = iconName,
+    isHighYieldAccount = isHighYieldAccount,
+    annualPercentageYield = annualPercentageYield,
+    lastInterestCalculation = lastInterestCalculation,
+    accruedInterest = accruedInterest
 )
 
 fun SmartVault.toEntity(): SmartVaultEntity = SmartVaultEntity(
@@ -262,7 +295,11 @@ fun SmartVault.toEntity(): SmartVaultEntity = SmartVaultEntity(
     createdAt = createdAt,
     defaultManualDepositDeductFromMain = defaultManualDepositDeductFromMain,
     defaultManualWithdrawalCreditMain = defaultManualWithdrawalCreditMain,
-    iconName = iconName
+    iconName = iconName,
+    isHighYieldAccount = isHighYieldAccount,
+    annualPercentageYield = annualPercentageYield,
+    lastInterestCalculation = lastInterestCalculation,
+    accruedInterest = accruedInterest
 )
 
 fun VaultScheduleEntity.toDomain(): VaultSchedule = VaultSchedule(
@@ -318,7 +355,8 @@ fun VaultContributionEntity.toDomain(): VaultContribution = VaultContribution(
     date = date,
     source = source,
     note = note,
-    reconciled = reconciled
+    reconciled = reconciled,
+    relatedExpenseId = relatedExpenseId
 )
 
 fun VaultContribution.toEntity(): VaultContributionEntity = VaultContributionEntity(
@@ -328,7 +366,8 @@ fun VaultContribution.toEntity(): VaultContributionEntity = VaultContributionEnt
     date = date,
     source = source,
     note = note,
-    reconciled = reconciled
+    reconciled = reconciled,
+    relatedExpenseId = relatedExpenseId
 )
 
 fun VaultBalanceAdjustmentEntity.toDomain(): VaultBalanceAdjustment = VaultBalanceAdjustment(
@@ -356,16 +395,17 @@ fun SmartVaultWithSchedules.toDomain(): SmartVault {
     return vault.toDomain(schedules)
 }
 
-fun MainAccountTransactionEntity.toDomain(): com.example.sparely.domain.model.MainAccountTransaction =
+fun MainAccountTransactionDetails.toDomain(): com.example.sparely.domain.model.MainAccountTransaction =
     com.example.sparely.domain.model.MainAccountTransaction(
-        id = id,
-        type = type,
-        amount = amount,
-        balanceAfter = balanceAfter,
-        timestamp = timestamp,
-        description = description,
-        relatedExpenseId = relatedExpenseId,
-        relatedVaultContributionIds = relatedVaultContributionIds?.split(",")?.mapNotNull { it.toLongOrNull() }
+        id = transaction.id,
+        type = transaction.type,
+        amount = transaction.amount,
+        balanceAfter = transaction.balanceAfter,
+        timestamp = transaction.timestamp,
+        description = transaction.description,
+        relatedExpenseId = transaction.relatedExpenseId,
+        relatedVaultContributionIds = vaultContributions.map { it.id },
+        incomeCategory = transaction.incomeCategory
     )
 
 fun com.example.sparely.domain.model.MainAccountTransaction.toEntity(): MainAccountTransactionEntity =
@@ -377,7 +417,7 @@ fun com.example.sparely.domain.model.MainAccountTransaction.toEntity(): MainAcco
         timestamp = timestamp,
         description = description,
         relatedExpenseId = relatedExpenseId,
-        relatedVaultContributionIds = relatedVaultContributionIds?.joinToString(",")
+        incomeCategory = incomeCategory
     )
 
 fun ExpenseEntity.toDomain(): Expense = Expense(
@@ -402,7 +442,14 @@ fun ExpenseEntity.toDomain(): Expense = Expense(
     ),
     autoRecommended = autoRecommended,
     riskLevelUsed = riskLevelUsed,
-    deductedFromVaultId = deductedFromVaultId
+    deductedFromVaultId = deductedFromVaultId,
+    storeId = storeId,
+    paymentMethodId = paymentMethodId,
+    isRecurring = isRecurring,
+    notes = notes,
+    refundedAmount = refundedAmount,
+    isRefunded = isRefunded,
+    orderNumber = orderNumber
 )
 
 fun Expense.toEntity(): ExpenseEntity = ExpenseEntity(
@@ -423,5 +470,96 @@ fun Expense.toEntity(): ExpenseEntity = ExpenseEntity(
     appliedPercentFun = appliedPercentages.`fun`,
     appliedSafeSplit = appliedPercentages.safeInvestmentSplit,
     riskLevelUsed = riskLevelUsed,
-    deductedFromVaultId = deductedFromVaultId
+    deductedFromVaultId = deductedFromVaultId,
+    storeId = storeId,
+    paymentMethodId = paymentMethodId,
+    isRecurring = isRecurring,
+    notes = notes,
+    refundedAmount = refundedAmount,
+    isRefunded = isRefunded,
+    orderNumber = orderNumber
 )
+
+fun StoreEntity.toDomain(): Store = Store(
+    id = id,
+    name = name,
+    websiteUrl = websiteUrl,
+    iconName = iconName,
+    createdAt = createdAt
+)
+
+fun Store.toEntity(): StoreEntity = StoreEntity(
+    id = id,
+    name = name,
+    websiteUrl = websiteUrl,
+    iconName = iconName,
+    createdAt = createdAt
+)
+
+fun PaymentMethodEntity.toDomain(): PaymentMethod = PaymentMethod(
+    id = id,
+    name = name,
+    type = PaymentMethodType.valueOf(type),
+    defaultDeductFromMainAccount = defaultDeductFromMainAccount,
+    isDefault = isDefault,
+    iconName = iconName,
+    isCreditCard = isCreditCard,
+    creditLimit = creditLimit,
+    currentBalance = currentBalance,
+    billingCycleDay = billingCycleDay,
+    lastPaymentDate = lastPaymentDate,
+    lastPaymentAmount = lastPaymentAmount
+)
+
+fun PaymentMethod.toEntity(): PaymentMethodEntity = PaymentMethodEntity(
+    id = id,
+    name = name,
+    type = type.name,
+    defaultDeductFromMainAccount = defaultDeductFromMainAccount,
+    isDefault = isDefault,
+    iconName = iconName,
+    isCreditCard = isCreditCard,
+    creditLimit = creditLimit,
+    currentBalance = currentBalance,
+    billingCycleDay = billingCycleDay,
+    lastPaymentDate = lastPaymentDate,
+    lastPaymentAmount = lastPaymentAmount
+)
+
+fun CreditCardPaymentEntity.toDomain(): com.example.sparely.domain.model.CreditCardPayment =
+    com.example.sparely.domain.model.CreditCardPayment(
+        id = id,
+        paymentMethodId = paymentMethodId,
+        amount = amount,
+        date = date,
+        note = note
+    )
+
+fun com.example.sparely.domain.model.CreditCardPayment.toEntity(): CreditCardPaymentEntity =
+    CreditCardPaymentEntity(
+        id = id,
+        paymentMethodId = paymentMethodId,
+        amount = amount,
+        date = date,
+        note = note
+    )
+
+fun ExpenseItemEntity.toDomain(): com.example.sparely.domain.model.ExpenseItem =
+    com.example.sparely.domain.model.ExpenseItem(
+        id = id,
+        expenseId = expenseId,
+        name = name,
+        quantity = quantity,
+        unitPrice = unitPrice,
+        totalPrice = totalPrice
+    )
+
+fun com.example.sparely.domain.model.ExpenseItem.toEntity(): ExpenseItemEntity =
+    ExpenseItemEntity(
+        id = id,
+        expenseId = expenseId,
+        name = name,
+        quantity = quantity,
+        unitPrice = unitPrice,
+        totalPrice = totalPrice
+    )

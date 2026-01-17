@@ -33,7 +33,7 @@ import androidx.glance.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.sparely.MainActivity
-import com.example.sparely.R
+import com.sparely.app.R
 import com.example.sparely.data.local.SparelyDatabase
 import com.example.sparely.data.local.ExpenseEntity
 import com.example.sparely.data.preferences.UserPreferencesRepository
@@ -195,7 +195,7 @@ private data class NextRecurringSummary(
 
 private val widgetDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d")
 
-private class SavingsWidgetDataRepository(context: Context) {
+private class SavingsWidgetDataRepository(private val context: Context) {
     private val database = SparelyDatabase.getInstance(context)
     private val transferDao = database.transferDao()
     private val expenseDao = database.expenseDao()
@@ -225,7 +225,12 @@ private class SavingsWidgetDataRepository(context: Context) {
                     BudgetEngine.generateBudgetSummary(it, domainExpenses, month)
                 }
                 val budgetSuggestions = if (budgetSummary != null) {
-                    BudgetEngine.suggestBudgetAdjustments(currentBudgets, domainExpenses, settings)
+                    BudgetEngine.suggestBudgetAdjustments(
+                        currentBudgets = currentBudgets, 
+                        expenses = domainExpenses, 
+                        settings = settings, 
+                        context = context
+                    )
                 } else {
                     emptyList()
                 }

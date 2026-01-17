@@ -6,7 +6,34 @@ import com.example.sparely.domain.model.ExpenseCategory
 import com.example.sparely.domain.model.RecurringFrequency
 import java.time.LocalDate
 
-@Entity(tableName = "recurring_expenses")
+@Entity(
+    tableName = "recurring_expenses",
+    foreignKeys = [
+        androidx.room.ForeignKey(
+            entity = SmartVaultEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["deductedFromVaultId"],
+            onDelete = androidx.room.ForeignKey.SET_NULL
+        ),
+        androidx.room.ForeignKey(
+            entity = StoreEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["storeId"],
+            onDelete = androidx.room.ForeignKey.SET_NULL
+        ),
+        androidx.room.ForeignKey(
+            entity = PaymentMethodEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["paymentMethodId"],
+            onDelete = androidx.room.ForeignKey.SET_NULL
+        )
+    ],
+    indices = [
+        androidx.room.Index("deductedFromVaultId"),
+        androidx.room.Index("storeId"),
+        androidx.room.Index("paymentMethodId")
+    ]
+)
 data class RecurringExpenseEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val description: String,
@@ -24,6 +51,9 @@ data class RecurringExpenseEntity(
     val reminderDaysBefore: Int = 2,
     val merchantName: String? = null,
     val notes: String? = null,
+    val storeId: Long? = null,
+    // Payment method for this recurring expense
+    val paymentMethodId: Long? = null,
     // Expense-related fields (same as ExpenseEntity)
     val includesTax: Boolean = false,
     val deductFromMainAccount: Boolean = false,
@@ -31,5 +61,10 @@ data class RecurringExpenseEntity(
     val manualPercentEmergency: Double? = null,
     val manualPercentInvest: Double? = null,
     val manualPercentFun: Double? = null,
-    val manualSafeSplit: Double? = null
+    val manualSafeSplit: Double? = null,
+    // Variable amount support for bills like electricity, water, etc.
+    val isVariableAmount: Boolean = false,
+    // JSON-serialized list of AmountHistoryEntry for variable expense history
+    val amountHistoryJson: String? = null,
+    val estimatedAmount: Double? = null
 )

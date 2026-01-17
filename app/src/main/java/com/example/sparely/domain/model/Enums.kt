@@ -39,6 +39,14 @@ enum class ExpenseCategory {
     OTHER
 }
 
+enum class IncomeCategory {
+    SALARY,
+    FREELANCE,
+    GIFT,
+    INVESTMENT,
+    OTHER
+}
+
 enum class AlertType {
     INFO,
     WARNING,
@@ -58,8 +66,10 @@ enum class VaultType {
     INVESTMENT,     // Investment vault
     SHORT_TERM,     // Legacy: short-term savings
     LONG_TERM,      // Legacy: long-term savings  
-    PASSIVE_INVESTMENT  // Legacy: passive investment
+    PASSIVE_INVESTMENT,  // Legacy: passive investment
+    HIGH_YIELD_SAVINGS   // High-yield savings account for earning interest
 }
+
 
 enum class VaultAllocationMode {
     DYNAMIC_AUTO,
@@ -67,9 +77,11 @@ enum class VaultAllocationMode {
 }
 
 enum class AutoDepositFrequency {
+    DAILY,
     WEEKLY,
     BIWEEKLY,
-    MONTHLY
+    MONTHLY,
+    QUARTERLY
 }
 
 enum class IncomeTrackingMode {
@@ -84,4 +96,52 @@ enum class PayInterval {
     SEMI_MONTHLY,
     MONTHLY,
     CUSTOM
+}
+
+enum class ExpenseHistoryRetention(val label: String, val months: Int?) {
+    ONE_MONTH("1 Month", 1),
+    SIX_MONTHS("6 Months", 6),
+    ONE_YEAR("1 Year", 12),
+    INDEFINITELY("Indefinitely", null);
+
+    fun displayText(): String = label
+}
+
+fun VaultType.displayName(): String = when (this) {
+    VaultType.GOAL -> "Goal"
+    VaultType.EMERGENCY -> "Emergency Fund"
+    VaultType.INVESTMENT -> "Investment"
+    VaultType.SHORT_TERM -> "Short-Term"
+    VaultType.LONG_TERM -> "Long-Term"
+    VaultType.PASSIVE_INVESTMENT -> "Passive Investment"
+    VaultType.HIGH_YIELD_SAVINGS -> "High-Yield Savings"
+}
+
+
+fun VaultPriority.displayName(): String = when (this) {
+    VaultPriority.LOW -> "Low"
+    VaultPriority.MEDIUM -> "Medium"
+    VaultPriority.HIGH -> "High"
+    VaultPriority.CRITICAL -> "Critical"
+}
+
+fun ExpenseCategory.displayName(): String = when (this) {
+    ExpenseCategory.GROCERIES -> "Groceries"
+    ExpenseCategory.DINING -> "Dining"
+    ExpenseCategory.TRANSPORTATION -> "Transportation"
+    ExpenseCategory.ENTERTAINMENT -> "Entertainment"
+    ExpenseCategory.UTILITIES -> "Utilities"
+    ExpenseCategory.HEALTH -> "Health"
+    ExpenseCategory.EDUCATION -> "Education"
+    ExpenseCategory.SHOPPING -> "Shopping"
+    ExpenseCategory.TRAVEL -> "Travel"
+    ExpenseCategory.OTHER -> "Other"
+}
+
+fun IncomeCategory.displayName(): String = when (this) {
+    IncomeCategory.SALARY -> "Salary"
+    IncomeCategory.FREELANCE -> "Freelance"
+    IncomeCategory.GIFT -> "Gift"
+    IncomeCategory.INVESTMENT -> "Investment"
+    IncomeCategory.OTHER -> "Other"
 }

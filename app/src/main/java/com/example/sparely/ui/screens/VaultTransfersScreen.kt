@@ -17,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -26,6 +27,7 @@ import com.example.sparely.domain.model.VaultContributionSource
 import com.example.sparely.ui.components.SparelyButton
 import com.example.sparely.ui.components.SparelyTextButton
 import com.example.sparely.ui.components.SparelyTonalButton
+import com.sparely.app.R
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,7 +67,7 @@ fun VaultTransfersScreen(
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Pending Contributions",
+                        text = stringResource(R.string.vault_transfers_pending_title),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -123,13 +125,13 @@ private fun EmptyStateCard() {
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = "All caught up",
+                    text = stringResource(R.string.vault_transfers_empty_title),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "No pending transfers at the moment. Good job keeping your vaults funded!",
+                    text = stringResource(R.string.vault_transfers_empty_desc),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -163,7 +165,7 @@ private fun SummaryCard(
         ) {
             Column {
                 Text(
-                    text = "Ready to transfer",
+                    text = stringResource(R.string.vault_transfers_ready),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
                 )
@@ -200,7 +202,7 @@ private fun SummaryCard(
                 }
                 if (vaultBreakdown.size > 4) {
                     Text(
-                        text = "+ ${vaultBreakdown.size - 4} more vaults...",
+                        text = stringResource(R.string.vault_transfers_more_vaults, vaultBreakdown.size - 4),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
                     )
@@ -260,12 +262,12 @@ private fun AggregatedPendingContributionCard(
                      }
                      Column {
                         Text(
-                            text = vault?.name ?: "Unknown Vault",
+                            text = vault?.name ?: stringResource(R.string.vault_transfers_unknown_vault),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "${contributions.size} pending",
+                            text = stringResource(R.string.vault_transfers_pending_count, contributions.size),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -284,11 +286,11 @@ private fun AggregatedPendingContributionCard(
                 for ((source, entries) in sortedSources) {
                     val sourceTotal = entries.sumOf { it.amount }
                     val sourceLabel = when (source) {
-                        VaultContributionSource.SAVING_TAX -> "Saving tax"
-                        VaultContributionSource.INCOME -> "Income"
-                        VaultContributionSource.AUTO_DEPOSIT -> "Auto deposit"
-                        VaultContributionSource.MANUAL -> "Manual"
-                        VaultContributionSource.TRANSFER -> "Transfer"
+                        VaultContributionSource.SAVING_TAX -> stringResource(R.string.vault_transfers_source_saving_tax)
+                        VaultContributionSource.INCOME -> stringResource(R.string.vault_transfers_source_income)
+                        VaultContributionSource.AUTO_DEPOSIT -> stringResource(R.string.vault_transfers_source_auto_deposit)
+                        VaultContributionSource.MANUAL -> stringResource(R.string.vault_transfers_source_manual)
+                        VaultContributionSource.TRANSFER -> stringResource(R.string.vault_transfers_source_transfer)
                     }
                     Surface(
                         color = MaterialTheme.colorScheme.surface,
@@ -312,13 +314,13 @@ private fun AggregatedPendingContributionCard(
                         MaterialSymbolIcon(icon = MaterialSymbols.CHECK_CIRCLE, contentDescription = null, size = 18.dp)
                     }
                 ) {
-                    Text("Transfer all")
+                    Text(stringResource(R.string.vault_transfers_transfer_all))
                 }
                 SparelyTonalButton(
                     onClick = { expanded = !expanded },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(if (expanded) "Hide details" else "View details")
+                    Text(if (expanded) stringResource(R.string.vault_transfers_hide_details) else stringResource(R.string.vault_transfers_view_details))
                 }
             }
 
@@ -338,10 +340,10 @@ private fun AggregatedPendingContributionCard(
                                      style = MaterialTheme.typography.bodyMedium,
                                      fontWeight = FontWeight.SemiBold
                                  )
-                                 Text(
+                                  Text(
                                     text = when (contribution.source) {
-                                            VaultContributionSource.SAVING_TAX -> "Saving Tax"
-                                            else -> "Contribution"
+                                            VaultContributionSource.SAVING_TAX -> stringResource(R.string.vault_transfers_source_saving_tax)
+                                            else -> stringResource(R.string.vault_transfers_contribution)
                                         } + (contribution.note?.let { " • $it" } ?: ""),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -372,9 +374,14 @@ private fun AggregatedPendingContributionCard(
     if (showConfirmAll) {
         AlertDialog(
             onDismissRequest = { showConfirmAll = false },
-            title = { Text("Confirm transfer") },
+            title = { Text(stringResource(R.string.vault_transfers_confirm_title)) },
             text = {
-                Text("Have you moved ${String.format("$%.2f", totalAmount)} to ${vault?.name}? All ${contributions.size} entries will be marked as transferred.")
+                Text(stringResource(
+                    R.string.vault_transfers_confirm_desc,
+                    String.format("$%.2f", totalAmount),
+                    vault?.name ?: stringResource(R.string.vault_transfers_unknown_vault),
+                    contributions.size
+                ))
             },
             confirmButton = {
                 SparelyButton(
@@ -383,12 +390,12 @@ private fun AggregatedPendingContributionCard(
                         showConfirmAll = false
                     }
                 ) {
-                    Text("Yes, transferred")
+                    Text(stringResource(R.string.vault_transfers_yes_transferred))
                 }
             },
             dismissButton = {
                 SparelyTextButton(onClick = { showConfirmAll = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.action_cancel))
                 }
             }
         )
@@ -426,7 +433,7 @@ private fun InstructionsCard() {
                     }
                 }
                 Text(
-                    text = "How it works",
+                    text = stringResource(R.string.vault_transfers_how_it_works),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -434,15 +441,15 @@ private fun InstructionsCard() {
             
             InstructionStep(
                 number = "1",
-                text = "Sparely calculates saving tax contributions from your logged expenses."
+                text = stringResource(R.string.vault_transfers_step1)
             )
             InstructionStep(
                 number = "2",
-                text = "Transfer the total amount to your actual savings accounts via your banking app."
+                text = stringResource(R.string.vault_transfers_step2)
             )
             InstructionStep(
                 number = "3",
-                text = "Tap 'Transfer all' to update your vault balances in Sparely."
+                text = stringResource(R.string.vault_transfers_step3)
             )
         }
     }
@@ -484,14 +491,14 @@ private fun NotificationWorkflowButton(onStartWorkflow: () -> Unit) {
              verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                 Text(
-                    text = "Smart transfer workflow",
+                  Text(
+                    text = stringResource(R.string.vault_transfers_smart_workflow),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
                  Text(
-                    text = "Step-by-step notification guide",
+                    text = stringResource(R.string.vault_transfers_workflow_guide),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
                 )

@@ -4,7 +4,18 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.time.LocalDateTime
 
-@Entity(tableName = "main_account_transactions")
+@Entity(
+    tableName = "main_account_transactions",
+    foreignKeys = [
+        androidx.room.ForeignKey(
+            entity = ExpenseEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["relatedExpenseId"],
+            onDelete = androidx.room.ForeignKey.SET_NULL
+        )
+    ],
+    indices = [androidx.room.Index("relatedExpenseId")]
+)
 data class MainAccountTransactionEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0L,
@@ -14,7 +25,8 @@ data class MainAccountTransactionEntity(
     val timestamp: LocalDateTime,
     val description: String,
     val relatedExpenseId: Long? = null,
-    val relatedVaultContributionIds: String? = null // Comma-separated IDs if multiple
+    val incomeCategory: com.example.sparely.domain.model.IncomeCategory? = null,
+
 )
 
 enum class MainAccountTransactionType {
@@ -22,5 +34,6 @@ enum class MainAccountTransactionType {
     WITHDRAWAL,        // Manual withdrawal
     EXPENSE,           // Expense deduction
     VAULT_CONTRIBUTION, // Saving tax to vaults
-    ADJUSTMENT         // Manual correction
+    ADJUSTMENT,        // Manual correction
+    CREDIT_CARD_PAYMENT // Payment toward credit card bill
 }

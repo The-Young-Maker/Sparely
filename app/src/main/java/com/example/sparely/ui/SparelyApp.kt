@@ -23,7 +23,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.rememberDatePickerState
-import com.example.sparely.ui.utils.toSafeDatePickerMillis
+import com.example.sparely.ui.utils.DateUtils
+import com.example.sparely.ui.utils.filterCurrencyInput
+import com.example.sparely.ui.utils.toSafeDouble
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import java.time.LocalDate
@@ -48,6 +50,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -83,21 +87,40 @@ import com.example.sparely.ui.screens.SettingsScreen
 import com.example.sparely.ui.screens.VaultHistoryScreen
 import com.example.sparely.ui.screens.VaultManagementScreen
 import com.example.sparely.ui.screens.VaultTransfersScreen
+import com.example.sparely.ui.screens.CreditCardsScreen
+import com.example.sparely.ui.screens.InsightsScreen
 import com.example.sparely.ui.theme.MaterialSymbolIcon
+import com.example.sparely.ui.viewmodel.VaultViewModel
+import com.example.sparely.ui.viewmodel.VaultViewModelFactory
+import com.example.sparely.ui.viewmodel.SettingsViewModel
+import com.example.sparely.ui.viewmodel.SettingsViewModelFactory
 import androidx.compose.ui.res.stringResource
 import androidx.annotation.StringRes
-import com.example.sparely.R
+import com.sparely.app.R
 import com.example.sparely.ui.theme.MaterialSymbols
 
 @Composable
 fun SparelyApp(
     viewModel: SparelyViewModel,
     deepLinkDestination: String? = null,
-    onDeepLinkHandled: () -> Unit = {}
+    onDeepLinkHandled: () -> Unit = {},
+    onAuthenticateUser: ((Boolean) -> Unit) -> Unit = {}
 ) {
     val navController = rememberNavController()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    
+    val context = LocalContext.current
+    val app = context.applicationContext as com.example.sparely.SparelyApplication
+    val settingsViewModel: SettingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+        factory = SettingsViewModelFactory(app.container)
+    )
+    val vaultViewModel: VaultViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+        factory = VaultViewModelFactory(app.container)
+    )
+    val settingsUiState by settingsViewModel.uiState.collectAsStateWithLifecycle()
+    val vaultUiState by vaultViewModel.uiState.collectAsStateWithLifecycle()
+    val allVaults by vaultViewModel.smartVaults.collectAsStateWithLifecycle()
 
     LaunchedEffect(deepLinkDestination) {
         deepLinkDestination?.let { destination ->
@@ -113,13 +136,27 @@ fun SparelyApp(
         }
     }
 
-    val context = LocalContext.current
+    LaunchedEffect(uiState.lastDeletedExpense) {
+        val deleted = uiState.lastDeletedExpense
+        if (deleted != null) {
+            val result = snackbarHostState.showSnackbar(
+                message = context.getString(R.string.history_undo_delete_message),
+                actionLabel = context.getString(R.string.history_undo_delete_action),
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.undoDeleteExpense()
+            } else {
+                viewModel.clearDeletedExpense()
+            }
+        }
+    }
 
     if (!uiState.onboardingCompleted) {
         OnboardingScreen(
             onComplete = { profile -> viewModel.completeOnboarding(profile) },
             onImportData = { uri ->
-                viewModel.importData(uri, context) {
+                settingsViewModel.importData(uri, context) {
                     // Success callback
                 }
             },
@@ -131,7 +168,13 @@ fun SparelyApp(
             navController = navController,
             snackbarHostState = snackbarHostState,
             uiState = uiState,
-            viewModel = viewModel
+            viewModel = viewModel,
+            settingsViewModel = settingsViewModel,
+            settingsUiState = settingsUiState,
+            vaultViewModel = vaultViewModel,
+            vaultUiState = vaultUiState,
+            allVaults = allVaults,
+            onAuthenticateUser = onAuthenticateUser
         )
     }
 }
@@ -142,10 +185,20 @@ private fun SparelyScaffold(
     navController: NavHostController,
     snackbarHostState: SnackbarHostState,
     uiState: com.example.sparely.ui.state.SparelyUiState,
-    viewModel: SparelyViewModel
+    viewModel: SparelyViewModel,
+    settingsViewModel: SettingsViewModel,
+    settingsUiState: com.example.sparely.ui.viewmodel.SettingsUiState,
+    vaultViewModel: VaultViewModel,
+    vaultUiState: com.example.sparely.ui.viewmodel.VaultUiState,
+    allVaults: List<com.example.sparely.domain.model.SmartVault>,
+    onAuthenticateUser: ((Boolean) -> Unit) -> Unit
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+    
+    
+
+
     // Only show the quick actions FAB on the Dashboard screen. Other screens provide their
     // own FABs (Vaults, Recurring, etc.) and we don't want to collide with them.
     val showFab = currentDestination?.route == SparelyDestination.Dashboard.route
@@ -247,7 +300,7 @@ private fun SparelyScaffold(
                             Column {
                                 OutlinedTextField(
                                     value = manualAmountText.value,
-                                    onValueChange = { v -> manualAmountText.value = v.filter { ch -> ch.isDigit() || ch == '.' } },
+                                    onValueChange = { v -> manualAmountText.value = v.filterCurrencyInput() },
                                     label = { Text("Amount") }
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
@@ -267,7 +320,7 @@ private fun SparelyScaffold(
                         },
                         confirmButton = {
                             TextButton(onClick = {
-                                val amt = manualAmountText.value.toDoubleOrNull()
+                                val amt = manualAmountText.value.toSafeDouble()
                                 if (amt != null && amt > 0.0) {
                                     viewModel.recordPaycheck(amt, manualDate.value, manualDistribute.value, manualPending.value)
                                     manualAmountText.value = ""
@@ -281,7 +334,7 @@ private fun SparelyScaffold(
                     )
 
                     if (showDatePicker.value) {
-                        val initialMillis = manualDate.value.toSafeDatePickerMillis()
+                        val initialMillis = DateUtils.toSafeDatePickerMillis(manualDate.value)
                         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
                         DatePickerDialog(
                             onDismissRequest = { showDatePicker.value = false },
@@ -302,12 +355,19 @@ private fun SparelyScaffold(
             }
         }
     ) { innerPadding ->
-        SparelyNavHost(
-            navController = navController,
-            innerPadding = innerPadding,
-            viewModel = viewModel,
-            uiState = uiState
-        )
+            SparelyNavHost(
+                navController = navController,
+                innerPadding = innerPadding,
+                viewModel = viewModel,
+                uiState = uiState,
+                settingsViewModel = settingsViewModel,
+                settingsUiState = settingsUiState,
+                vaultViewModel = vaultViewModel,
+                vaultUiState = vaultUiState,
+                allVaults = allVaults,
+                snackbarHostState = snackbarHostState,
+                onAuthenticateUser = onAuthenticateUser
+            )
     }
     
     // Vault archive confirmation dialog
@@ -339,7 +399,7 @@ private fun SparelyScaffold(
 private fun SparelyTopBar(currentDestination: NavDestination?, navController: NavHostController) {
     val destination = SparelyDestination.fromRoute(currentDestination?.route)
     val title = destination?.labelRes?.let { stringResource(it) } ?: stringResource(R.string.app_name)
-    val isTopLevel = destination == null || destination in bottomBarDestinations
+    val isTopLevel = destination != null && destination in bottomBarDestinations
     TopAppBar(
         title = { Text(text = title) },
         navigationIcon = {
@@ -403,7 +463,14 @@ private fun SparelyNavHost(
     navController: NavHostController,
     innerPadding: PaddingValues,
     viewModel: SparelyViewModel,
-    uiState: com.example.sparely.ui.state.SparelyUiState
+    uiState: com.example.sparely.ui.state.SparelyUiState,
+    settingsViewModel: SettingsViewModel,
+    settingsUiState: com.example.sparely.ui.viewmodel.SettingsUiState,
+    vaultViewModel: VaultViewModel,
+    vaultUiState: com.example.sparely.ui.viewmodel.VaultUiState,
+    allVaults: List<com.example.sparely.domain.model.SmartVault>,
+    snackbarHostState: SnackbarHostState,
+    onAuthenticateUser: ((Boolean) -> Unit) -> Unit
 ) {
     val context = LocalContext.current
     NavHost(
@@ -416,48 +483,74 @@ private fun SparelyNavHost(
         composable(SparelyDestination.Dashboard.route) {
             DashboardScreen(
                 uiState = uiState,
+                pendingVaultContributions = vaultUiState.pendingVaultContributions,
                 onAddExpense = { navController.navigate(SparelyDestination.ExpenseEntry.route) },
+                onRepeatLastExpense = { expense ->
+                    viewModel.setPrefillExpense(expense)
+                    navController.navigate(SparelyDestination.ExpenseEntry.route)
+                },
                 onNavigateToHistory = { navController.navigate(SparelyDestination.History.route) },
                 onNavigateToBudgets = { navController.navigate(SparelyDestination.Budgets.route) },
                 onNavigateToChallenges = { navController.navigate(SparelyDestination.Challenges.route) },
                 onNavigateToHealth = { navController.navigate(SparelyDestination.Health.route) },
                 onNavigateToRecurring = { navController.navigate(SparelyDestination.Recurring.route) },
                 onManageVaults = { navController.navigate(SparelyDestination.Vaults.route) },
-                onNavigateToVaultTransfers = { navController.navigate("vaultTransfers") },
-                onNavigateToMainAccount = { navController.navigate("mainAccount") }
-            ,
+                onNavigateToVaultTransfers = { navController.navigate(SparelyDestination.VaultTransfers.route) },
+                onNavigateToMainAccount = { navController.navigate(SparelyDestination.MainAccount.route) },
+                onNavigateToCreditCards = { navController.navigate(SparelyDestination.CreditCards.route) },
+                onNavigateToInsights = { navController.navigate(SparelyDestination.Insights.route) },
                 // the global FAB/menu will be shown by the scaffold, so hide dashboard's own FAB
                 showFloatingFab = false
             )
         }
         composable(SparelyDestination.History.route) {
+            val brandSearchResults by viewModel.brandSearchResults.collectAsStateWithLifecycle()
             HistoryScreen(
                 expenses = uiState.expenses,
                 analytics = uiState.analytics,
-                onDeleteExpense = viewModel::deleteExpense
+                stores = uiState.stores,
+                onDeleteExpense = viewModel::deleteExpense,
+                onEditExpense = viewModel::updateExpense,
+                onAddExpense = { navController.navigate(SparelyDestination.ExpenseEntry.route) },
+                onCreateStore = { input ->
+                    val storeId = viewModel.addStore(input).await()
+                    viewModel.getStoreById(storeId)
+                },
+                onEditStore = viewModel::updateStore,
+                onDeleteStore = viewModel::deleteStore,
+                brandfetchClientId = uiState.settings.brandfetchClientId,
+                brandSearchResults = brandSearchResults,
+                onBrandSearch = viewModel::searchBrands,
+                onRefundExpense = viewModel::refundExpense,
+                paymentMethods = uiState.paymentMethods,
+                vaults = uiState.smartVaults
             )
         }
         composable(SparelyDestination.Vaults.route) {
             VaultManagementScreen(
-                vaults = uiState.smartVaults,
-                monthlyIncome = uiState.settings.monthlyIncome, // Ensure this is checked or passed if distinct
-                recentMonthlyExpenses = uiState.analytics.totalSpent, // Or consistent source
+                vaults = allVaults,
+                monthlyIncome = uiState.settings.monthlyIncome,
+                recentMonthlyExpenses = uiState.analytics.totalSpent,
                 savingsRate = uiState.smartSavingSummary?.actualSavingsRate ?: 0.0,
-                onAddVault = viewModel::addSmartVault,
-                onUpdateVault = viewModel::updateSmartVault,
-                onDeleteVault = viewModel::deleteSmartVault,
+                onAddVault = vaultViewModel::addSmartVault,
+                onUpdateVault = vaultViewModel::updateSmartVault,
+                onDeleteVault = vaultViewModel::deleteSmartVault,
                 onNavigateBack = { navController.popBackStack() },
                 onManualDeposit = { vaultId, amount, reason, adjustMainAccount ->
-                    viewModel.depositToVault(vaultId, amount, reason, adjustMainAccount)
+                    vaultViewModel.depositToVault(vaultId, amount, reason, adjustMainAccount)
                 },
                 onManualWithdrawal = { vaultId, amount, reason, creditMainAccount ->
-                    viewModel.deductFromVault(vaultId, amount, reason, creditMainAccount)
+                    vaultViewModel.deductFromVault(vaultId, amount, reason, creditMainAccount)
                 },
                 onViewHistory = { vaultId ->
-                    viewModel.loadVaultAdjustmentHistory(vaultId)
-                    navController.navigate("vaultHistory/$vaultId")
+                    // Navigation only, history load happens in destination
+                    navController.navigate(SparelyDestination.VaultHistory.createRoute(vaultId))
+                },
+                onBalanceOverride = { vaultId, newBalance, reason ->
+                    vaultViewModel.overrideVaultBalance(vaultId, newBalance, reason)
                 }
             )
+
         }
         composable(SparelyDestination.Budgets.route) {
             BudgetScreen(
@@ -476,13 +569,26 @@ private fun SparelyNavHost(
             )
         }
         composable(SparelyDestination.Recurring.route) {
+            val brandSearchResults by viewModel.brandSearchResults.collectAsStateWithLifecycle()
             RecurringExpensesScreen(
                 recurringExpenses = uiState.recurringExpenses,
                 smartVaults = uiState.smartVaults,
+                stores = uiState.stores,
                 onAddRecurring = viewModel::addRecurringExpense,
                 onUpdateRecurring = viewModel::updateRecurringExpense,
                 onDeleteRecurring = viewModel::deleteRecurringExpense,
-                onMarkProcessed = viewModel::markRecurringProcessed
+                onMarkProcessed = viewModel::markRecurringProcessed,
+                onCreateStore = { input ->
+                    val storeId = viewModel.addStore(input).await()
+                    viewModel.getStoreById(storeId)
+                },
+                onEditStore = viewModel::updateStore,
+                onDeleteStore = viewModel::deleteStore,
+                brandfetchClientId = uiState.settings.brandfetchClientId,
+                paymentMethods = uiState.paymentMethods,
+                onManagePaymentMethods = { navController.navigate(SparelyDestination.Settings.route) },
+                brandSearchResults = brandSearchResults,
+                onBrandSearch = viewModel::searchBrands
             )
         }
         composable(SparelyDestination.Health.route) {
@@ -492,45 +598,73 @@ private fun SparelyNavHost(
             )
         }
         composable(SparelyDestination.Settings.route) {
+            // Observe the result of file exports/imports to show snackbars
+            LaunchedEffect(settingsUiState.errorMessage) {
+                settingsUiState.errorMessage?.let { msg ->
+                    if (msg.isNotEmpty()) {
+                        snackbarHostState.showSnackbar(msg)
+                        settingsViewModel.clearErrorMessage()
+                    }
+                }
+            }
+            
             SettingsScreen(
-                settings = uiState.settings,
+                settings = settingsUiState.settings,
                 activeSaveRate = uiState.activeSaveRate,
                 activeSavingTaxRate = uiState.activeSavingTaxRate,
                 automationNotes = uiState.automationRationale,
-                autoModeEnabled = uiState.settings.autoRecommendationsEnabled,
+                autoModeEnabled = settingsUiState.settings.autoRecommendationsEnabled,
                 recommendation = uiState.recommendation,
                 alerts = uiState.alerts,
-                onPercentagesChange = viewModel::updatePercentages,
-                onAutoToggle = viewModel::toggleAutoMode,
-                onRiskChange = viewModel::updateRiskLevel,
-                onAgeChange = viewModel::updateAge,
-                onEducationStatusChange = viewModel::updateEducationStatus,
-                onEmploymentStatusChange = viewModel::updateEmploymentStatus,
-                onHasDebtsChange = viewModel::updateHasDebts,
-                onEmergencyFundChange = viewModel::updateEmergencyFund,
-                onPrimaryGoalChange = viewModel::updatePrimaryGoal,
-                onDisplayNameChange = viewModel::updateDisplayName,
-                onBirthdayChange = viewModel::updateBirthday,
-                onMonthlyIncomeChange = viewModel::updateMonthlyIncome,
-                onIncludeTaxToggle = viewModel::updateIncludeTax,
-                onVaultAllocationModeChange = viewModel::updateVaultAllocationMode,
-                onSavingTaxRateChange = viewModel::updateSavingTaxRate,
-                onDynamicSavingTaxToggle = viewModel::updateDynamicSavingTaxEnabled,
-                onReminderChange = viewModel::updateReminderSettings,
-                onResetHistory = viewModel::resetHistory,
-                onPayScheduleChange = viewModel::updatePaySchedule,
-                onRecordPaycheck = viewModel::recordPaycheck,
-                onAutoDepositsEnabledChange = viewModel::updateAutoDepositsEnabled,
-                onAutoDepositCheckHourChange = viewModel::updateAutoDepositCheckHour,
-                onManualAutoDepositTrigger = viewModel::triggerManualAutoDepositCheck,
-                autoDepositsEnabled = uiState.settings.paySchedule.autoDistributeToVaults,
-                autoDepositCheckHour = uiState.autoDepositCheckHour,
-                onRegionalSettingsChange = viewModel::updateRegionalSettings,
-                onMainAccountBalanceChange = viewModel::updateMainAccountBalance,
-                onExportData = { uri -> viewModel.exportData(uri, context) }
+                onPercentagesChange = settingsViewModel::updatePercentages,
+                onAutoToggle = settingsViewModel::toggleAutoMode,
+                onRiskChange = settingsViewModel::updateRiskLevel,
+                onAgeChange = settingsViewModel::updateAge,
+                onEducationStatusChange = settingsViewModel::updateEducationStatus,
+                onEmploymentStatusChange = settingsViewModel::updateEmploymentStatus,
+                onHasDebtsChange = settingsViewModel::updateHasDebts,
+                onEmergencyFundChange = settingsViewModel::updateEmergencyFund,
+                onPrimaryGoalChange = settingsViewModel::updatePrimaryGoal,
+                onDisplayNameChange = settingsViewModel::updateDisplayName,
+                onBirthdayChange = settingsViewModel::updateBirthday,
+                onMonthlyIncomeChange = settingsViewModel::updateMonthlyIncome,
+                onIncludeTaxToggle = settingsViewModel::updateIncludeTax,
+                onVaultAllocationModeChange = settingsViewModel::updateVaultAllocationMode,
+                onSavingTaxRateChange = settingsViewModel::updateSavingTaxRate,
+                onDynamicSavingTaxToggle = settingsViewModel::updateDynamicSavingTaxEnabled,
+                onReminderChange = settingsViewModel::updateReminderSettings,
+                onResetHistory = settingsViewModel::resetHistory,
+                onPayScheduleChange = settingsViewModel::updatePaySchedule,
+                onRecordPaycheck = viewModel::recordPaycheck, // Still in SparelyViewModel for now as it involves Transactions
+                onAutoDepositsEnabledChange = settingsViewModel::updateAutoDepositsEnabled,
+                onAutoDepositCheckHourChange = settingsViewModel::updateAutoDepositCheckHour,
+                onManualAutoDepositTrigger = settingsViewModel::triggerManualAutoDepositCheck,
+                autoDepositsEnabled = settingsUiState.settings.paySchedule.autoDistributeToVaults,
+                autoDepositCheckHour = settingsUiState.autoDepositCheckHour,
+                onRegionalSettingsChange = settingsViewModel::updateRegionalSettings,
+                onMainAccountBalanceChange = settingsViewModel::updateMainAccountBalance,
+                onExportData = { uri -> settingsViewModel.exportData(uri, context) },
+                onImportData = { uri ->
+                    settingsViewModel.importData(uri, context) {
+                        // Data refreshed automatically via Flow
+                    }
+                },
+                expenses = uiState.expenses,
+                stores = uiState.stores,
+                onExportExpensesToCsv = settingsViewModel::exportExpensesToCsv,
+                onExpenseHistoryRetentionChange = settingsViewModel::updateExpenseHistoryRetention,
+                paymentMethods = settingsUiState.paymentMethods,
+                onAddPaymentMethod = settingsViewModel::addPaymentMethod,
+                onEditPaymentMethod = settingsViewModel::updatePaymentMethod,
+                onDeletePaymentMethod = settingsViewModel::deletePaymentMethod,
+                onCreditCardReminderChange = settingsViewModel::updateCreditCardReminderSettings,
+                onCreditCardUtilizationChange = settingsViewModel::updateCreditCardUtilizationAlert,
+                onBiometricEnabledChange = settingsViewModel::updateBiometricEnabled,
+                onAuthenticateUser = onAuthenticateUser
             )
         }
         composable(SparelyDestination.ExpenseEntry.route) {
+            val brandSearchResults by viewModel.brandSearchResults.collectAsStateWithLifecycle()
             var shouldNavigateBack by remember { mutableStateOf(false) }
             var hasVaultDeduction by remember { mutableStateOf(false) }
             
@@ -556,43 +690,95 @@ private fun SparelyNavHost(
                 settings = uiState.settings,
                 recommendation = uiState.recommendation,
                 vaults = uiState.smartVaults,
+                stores = uiState.stores,
                 onSave = { input ->
                     hasVaultDeduction = input.deductFromVaultId != null
-                    viewModel.addExpense(input)
+                    viewModel.addExpense(input) {
+                        vaultViewModel.refreshPendingContributions()
+                    }
+                    viewModel.clearPrefillExpense() // Clear prefill after saving
                     shouldNavigateBack = true
                 },
-                onCancel = { navController.popBackStack() }
+                onCancel = { 
+                    viewModel.clearPrefillExpense() // Clear prefill on cancel
+                    navController.popBackStack() 
+                },
+                onCreateStore = { input ->
+                    val storeId = viewModel.addStore(input).await()
+                    viewModel.getStoreById(storeId)
+                },
+                onEditStore = viewModel::updateStore,
+                onDeleteStore = viewModel::deleteStore,
+                brandfetchClientId = uiState.settings.brandfetchClientId,
+                paymentMethods = uiState.paymentMethods,
+                onManagePaymentMethods = { navController.navigate(SparelyDestination.Settings.route) },
+                brandSearchResults = brandSearchResults,
+                onBrandSearch = viewModel::searchBrands,
+                prefillExpense = uiState.prefillExpense
             )
         }
-        composable("vaultTransfers") {
+        composable(SparelyDestination.VaultTransfers.route) {
             VaultTransfersScreen(
-                vaults = uiState.smartVaults,
-                pendingContributions = uiState.pendingVaultContributions,
-                onApproveContribution = viewModel::approvePendingVaultContribution,
-                onApproveGroup = viewModel::approvePendingVaultContributions,
-                onCancelContribution = viewModel::cancelPendingVaultContribution,
-                onStartNotificationWorkflow = viewModel::startVaultTransferNotificationWorkflow,
+                vaults = allVaults,
+                pendingContributions = vaultUiState.pendingVaultContributions,
+                onApproveContribution = vaultViewModel::approvePendingVaultContribution,
+                onApproveGroup = vaultViewModel::approvePendingVaultContributions,
+                onCancelContribution = vaultViewModel::cancelPendingVaultContribution,
+                onStartNotificationWorkflow = vaultViewModel::startVaultTransferNotificationWorkflow,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
-        composable("vaultHistory/{vaultId}") { backStackEntry ->
+        composable(SparelyDestination.VaultHistory.route) { backStackEntry ->
             val vaultId = backStackEntry.arguments?.getString("vaultId")?.toLongOrNull() ?: 0L
-            val vault = uiState.smartVaults.find { it.id == vaultId }
-            val adjustments = uiState.vaultAdjustments[vaultId] ?: emptyList()
+            
+            LaunchedEffect(vaultId) {
+                vaultViewModel.loadVaultHistory(vaultId)
+            }
+            
+            val vault = allVaults.find { it.id == vaultId }
+            val historyItems = vaultUiState.vaultHistory[vaultId] ?: emptyList()
             
             VaultHistoryScreen(
                 vaultName = vault?.name ?: "Vault",
-                adjustments = adjustments,
+                historyItems = historyItems,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
-        composable("mainAccount") {
+        composable(SparelyDestination.MainAccount.route) {
             MainAccountScreen(
                 currentBalance = uiState.settings.mainAccountBalance,
                 transactions = uiState.mainAccountTransactions,
                 onDeposit = viewModel::depositToMainAccount,
                 onWithdraw = viewModel::withdrawFromMainAccount,
                 onAdjust = viewModel::adjustMainAccountBalance,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(SparelyDestination.CreditCards.route) {
+            val creditCards = uiState.paymentMethods.filter { it.isCreditCard }
+            CreditCardsScreen(
+                creditCards = creditCards,
+                mainAccountBalance = uiState.settings.mainAccountBalance,
+                recentPayments = uiState.creditCardPayments,
+                onPayBill = { paymentMethodId, amount, note, deductFromMainAccount ->
+                    viewModel.payCreditCardBill(paymentMethodId, amount, note, deductFromMainAccount)
+                    // Optional: Refresh data or show success message if not reactive
+                },
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(SparelyDestination.Insights.route) {
+            InsightsScreen(
+                cashflowForecast = uiState.cashflowForecast,
+                spendingPatterns = uiState.spendingPatterns,
+                recurringPatterns = uiState.recurringPatterns,
+                seasonalInsights = uiState.seasonalInsights,
+                idleMoneyInsight = uiState.idleMoneyInsight,
+                uniqueExpenses = uiState.uniqueExpenses,
+                onTransferToSavings = { amount ->
+                    // Navigate to vault transfers or trigger a transfer flow
+                    navController.navigate(SparelyDestination.VaultTransfers.route)
+                },
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -613,7 +799,21 @@ private enum class SparelyDestination(
     Recurring("recurring", null, MaterialSymbols.SCHEDULE, R.string.recurring_title),
     Health("health", null, MaterialSymbols.FAVORITE, R.string.health_title),
     Settings("settings", null, MaterialSymbols.SETTINGS, R.string.settings_title),
-    ExpenseEntry("expense", null, MaterialSymbols.SAVINGS, R.string.expense_entry_title);
+    ExpenseEntry("expense", null, MaterialSymbols.SAVINGS, R.string.expense_entry_title),
+    CreditCards("creditCards", null, MaterialSymbols.CREDIT_CARD, R.string.dashboard_credit_cards_title),
+    VaultTransfers("vaultTransfers", null, MaterialSymbols.SWAP_HORIZ, R.string.vault_transfers_title),
+    VaultHistory("vaultHistory/{vaultId}", null, MaterialSymbols.HISTORY, R.string.vault_history_screen_title),
+
+    MainAccount("mainAccount", null, MaterialSymbols.ACCOUNT_BALANCE_WALLET, R.string.dashboard_main_account_title),
+    Insights("insights", null, MaterialSymbols.LIGHTBULB, R.string.insights_title);
+
+    fun createRoute(vararg args: Any): String {
+        var result = route
+        args.forEach { arg ->
+            result = result.replaceFirst(Regex("\\{[^}]+\\}"), arg.toString())
+        }
+        return result
+    }
 
     companion object {
         fun fromRoute(route: String?): SparelyDestination? {

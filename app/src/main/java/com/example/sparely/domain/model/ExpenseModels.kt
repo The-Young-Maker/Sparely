@@ -16,7 +16,15 @@ data class Expense(
     val appliedPercentages: SavingsPercentages,
     val autoRecommended: Boolean,
     val riskLevelUsed: RiskLevel,
-    val deductedFromVaultId: Long? = null
+    val deductedFromVaultId: Long? = null,
+    val storeId: Long? = null,
+    val paymentMethodId: Long? = null,
+    val isRecurring: Boolean = false,
+    val notes: String? = null,
+    val refundedAmount: Double = 0.0,
+    val isRefunded: Boolean = false,
+    val orderNumber: String? = null,
+    val items: List<ExpenseItem> = emptyList()
 )
 
 /**
@@ -31,7 +39,13 @@ data class ExpenseInput(
     val includesTax: Boolean,
     val manualPercentages: SavingsPercentages? = null,
     val deductFromMainAccount: Boolean = false,
-    val deductFromVaultId: Long? = null
+    val deductFromVaultId: Long? = null,
+    val storeId: Long? = null,
+    val paymentMethodId: Long? = null,
+    val isRecurring: Boolean = false,
+    val notes: String? = null,
+    val orderNumber: String? = null,
+    val items: List<ExpenseItem> = emptyList()
 )
 
 /**
@@ -42,5 +56,18 @@ enum class DateRangeFilter {
     LAST_30_DAYS,
     LAST_90_DAYS,
     YEAR_TO_DATE,
-    ALL_TIME
+    ALL_TIME,
+    CUSTOM
 }
+
+/**
+ * Represents a single line item within an expense (e.g., a product in a receipt).
+ */
+data class ExpenseItem(
+    val id: Long = 0L,
+    val expenseId: Long,
+    val name: String,
+    val quantity: Int = 1,
+    val unitPrice: Double,
+    val totalPrice: Double = quantity * unitPrice
+)

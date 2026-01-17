@@ -6,7 +6,34 @@ import com.example.sparely.domain.model.ExpenseCategory
 import com.example.sparely.domain.model.RiskLevel
 import java.time.LocalDate
 
-@Entity(tableName = "expenses")
+@Entity(
+    tableName = "expenses",
+    foreignKeys = [
+        androidx.room.ForeignKey(
+            entity = SmartVaultEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["deductedFromVaultId"],
+            onDelete = androidx.room.ForeignKey.SET_NULL
+        ),
+        androidx.room.ForeignKey(
+            entity = StoreEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["storeId"],
+            onDelete = androidx.room.ForeignKey.SET_NULL
+        ),
+        androidx.room.ForeignKey(
+            entity = PaymentMethodEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["paymentMethodId"],
+            onDelete = androidx.room.ForeignKey.SET_NULL
+        )
+    ],
+    indices = [
+        androidx.room.Index("deductedFromVaultId"),
+        androidx.room.Index("storeId"),
+        androidx.room.Index("paymentMethodId")
+    ]
+)
 data class ExpenseEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val description: String,
@@ -25,5 +52,12 @@ data class ExpenseEntity(
     val appliedPercentFun: Double,
     val appliedSafeSplit: Double,
     val riskLevelUsed: RiskLevel,
-    val deductedFromVaultId: Long? = null
+    val deductedFromVaultId: Long? = null,
+    val storeId: Long? = null,
+    val paymentMethodId: Long? = null,
+    val isRecurring: Boolean = false,
+    val notes: String? = null,
+    val refundedAmount: Double = 0.0,
+    val isRefunded: Boolean = false,
+    val orderNumber: String? = null
 )

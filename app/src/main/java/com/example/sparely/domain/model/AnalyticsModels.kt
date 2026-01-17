@@ -17,10 +17,19 @@ data class AnalyticsSnapshot(
     val averageMonthlyReserve: Double = 0.0,
     val averageMonthlyExpense: Double = 0.0,
     val projectedReserveSixMonths: Double = 0.0,
-    val projectedReserveTwelveMonths: Double = 0.0
+    val projectedReserveTwelveMonths: Double = 0.0,
+    // New spending pattern analytics
+    val spendingTrend: SpendingTrendType = SpendingTrendType.STABLE,
+    val weeklyAverageExpense: Double = 0.0,
+    val monthOverMonthChange: Double = 0.0, // Percentage change
+    val topGrowingCategory: ExpenseCategory? = null,
+    val predictedMonthEndSpending: Double = 0.0,
+    val runwayDays: Int = Int.MAX_VALUE // Days until balance hits zero at current rate
 ) {
     val totalReserved: Double = totalEmergency + totalInvested + totalFun
 }
+
+enum class SpendingTrendType { INCREASING, STABLE, DECREASING }
 
 data class TrendPoint(
     val date: LocalDate,

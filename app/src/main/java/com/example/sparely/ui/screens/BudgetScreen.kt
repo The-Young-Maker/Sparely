@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import com.example.sparely.domain.model.*
 import com.example.sparely.ui.components.ExpressiveCard
@@ -37,9 +38,12 @@ import com.example.sparely.ui.components.SparelyTonalButton
 import com.example.sparely.ui.theme.spacing
 import com.example.sparely.ui.theme.getCategoryColor
 import com.example.sparely.ui.theme.getCategoryIcon
+import java.time.LocalDate
 import java.time.YearMonth
 import kotlin.math.abs
-
+import com.example.sparely.ui.utils.toSafeDouble
+import com.example.sparely.ui.utils.filterCurrencyInput
+import com.sparely.app.R
 @Composable
 fun BudgetScreen(
     uiState: SparelyUiState,
@@ -74,12 +78,12 @@ fun BudgetScreen(
                     icon = {
                         MaterialSymbolIcon(
                             icon = MaterialSymbols.ADD,
-                            contentDescription = "Add Budget",
+                            contentDescription = stringResource(R.string.budget_add_budget),
                             size = 18.dp
                         )
                     }
                 ) {
-                    Text(text = "Add Budget")
+                    Text(text = stringResource(R.string.budget_add_budget))
                 }
             }
         }
@@ -113,13 +117,17 @@ fun BudgetScreen(
                         )
                         Column {
                             Text(
-                                text = "Budget exceeds income",
+                                text = stringResource(R.string.budget_exceeds_income_title),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )
                             Text(
-                                text = "Total budgets (${formatCurrency(totalBudgets)}) exceed your monthly income (${formatCurrency(monthlyIncome)}). Consider adjusting your budgets.",
+                                text = stringResource(
+                                    R.string.budget_exceeds_income_desc,
+                                    formatCurrency(totalBudgets),
+                                    formatCurrency(monthlyIncome)
+                                ),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )
@@ -144,8 +152,8 @@ fun BudgetScreen(
         if (meaningfulSuggestions.isNotEmpty()) {
             item {
                 BudgetSectionHeader(
-                    title = "Smart Suggestions",
-                    subtitle = "AI-powered budget recommendations",
+                    title = stringResource(R.string.budget_smart_suggestions_title),
+                    subtitle = stringResource(R.string.budget_smart_suggestions_desc),
                     icon = MaterialSymbols.PIE_CHART
                 )
             }
@@ -170,8 +178,8 @@ fun BudgetScreen(
         if (summary?.categoryStatuses?.isNotEmpty() == true) {
             item {
                 BudgetSectionHeader(
-                    title = "Category Budgets",
-                    subtitle = "${summary.categoryStatuses.size} active budgets",
+                    title = stringResource(R.string.budget_category_budgets_title),
+                    subtitle = stringResource(R.string.budget_active_budgets_count, summary.categoryStatuses.size),
                     icon = MaterialSymbols.ACCOUNT_BALANCE_WALLET
                 )
             }
@@ -254,13 +262,14 @@ fun BudgetSummaryCard(summary: BudgetSummary) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                  Column {
+                    val currentMonthName = YearMonth.now().month.name.lowercase().replaceFirstChar { it.uppercase() }
                     Text(
-                        text = YearMonth.now().month.name.lowercase().replaceFirstChar { it.uppercase() } + " Budget",
+                        text = stringResource(R.string.budget_month_budget_title, currentMonthName),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                         text = "${formatCurrency(summary.totalRemaining)} left",
+                         text = stringResource(R.string.budget_remaining_and_days, formatCurrency(summary.totalRemaining), YearMonth.now().lengthOfMonth() - LocalDate.now().dayOfMonth),
                          style = MaterialTheme.typography.titleMedium,
                          color = MaterialTheme.colorScheme.primary
                     )
@@ -278,11 +287,7 @@ fun BudgetSummaryCard(summary: BudgetSummary) {
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Text(
-                        text = when (summary.overallHealth) {
-                            BudgetHealthStatus.HEALTHY -> "On Track"
-                            BudgetHealthStatus.WARNING -> "Warning"
-                            else -> "Over Budget"
-                        },
+                        text = summary.overallHealth.displayName(),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = when (summary.overallHealth) {
@@ -304,7 +309,7 @@ fun BudgetSummaryCard(summary: BudgetSummary) {
                 )
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "Spent",
+                        text = stringResource(R.string.budget_spent_label),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -315,7 +320,7 @@ fun BudgetSummaryCard(summary: BudgetSummary) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "of ${formatCurrency(summary.totalBudget)}",
+                        text = stringResource(R.string.budget_spent_of, formatCurrency(summary.totalBudget)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -520,7 +525,7 @@ fun CategoryBudgetCard(
                     ) {
                         Column {
                             Text(
-                                text = "Spent",
+                                text = stringResource(R.string.budget_spent_label),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = colorScheme.onSurfaceVariant
                             )
@@ -533,7 +538,7 @@ fun CategoryBudgetCard(
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text(
-                                text = "Budget",
+                                text = stringResource(R.string.budget_category_budgets_title),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = colorScheme.onSurfaceVariant
                             )
@@ -565,9 +570,9 @@ fun CategoryBudgetCard(
                 ) {
                     Text(
                         text = if (status.isOverBudget) {
-                            "Over by ${formatCurrency(status.spent - status.limit)}"
+                            stringResource(R.string.budget_over_by, formatCurrency(status.spent - status.limit))
                         } else {
-                            "${formatCurrency(status.remaining)} left • ${status.daysRemainingInMonth} days"
+                            stringResource(R.string.budget_remaining_and_days, formatCurrency(status.remaining), status.daysRemainingInMonth)
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = if (status.isOverBudget) colorScheme.error else colorScheme.onSurfaceVariant
@@ -600,7 +605,7 @@ fun CategoryBudgetCard(
                             )
                         }
                     ) {
-                        Text("Delete")
+                        Text(stringResource(R.string.delete))
                     }
                     SparelyButton(
                         onClick = onEdit,
@@ -613,7 +618,7 @@ fun CategoryBudgetCard(
                             )
                         }
                     ) {
-                        Text("Edit")
+                        Text(stringResource(R.string.edit))
                     }
                 }
             }
@@ -633,11 +638,11 @@ fun BudgetSuggestionCard(
     
     val difference = currentBudget?.let { suggestion.suggestedLimit - it.monthlyLimit }
     val differenceLabel = when {
-        difference == null && currentBudget == null -> "Creates a new budget"
-        difference == null -> "Matches suggestion"
-        abs(difference) < 1.0 -> "≈ current limit"
-        difference > 0 -> "Increase by ${formatCurrency(abs(difference))}"
-        else -> "Reduce by ${formatCurrency(abs(difference))}"
+        difference == null && currentBudget == null -> stringResource(R.string.budget_suggestion_new)
+        difference == null -> stringResource(R.string.budget_suggestion_matches)
+        abs(difference) < 1.0 -> stringResource(R.string.budget_suggestion_similar)
+        difference > 0 -> stringResource(R.string.budget_suggestion_increase, formatCurrency(abs(difference)))
+        else -> stringResource(R.string.budget_suggestion_reduce, formatCurrency(abs(difference)))
     }
     val differenceColor = when {
         difference == null -> colorScheme.tertiary
@@ -735,7 +740,7 @@ fun BudgetSuggestionCard(
                                     tint = confidenceColor
                                 )
                                 Text(
-                                    text = "${suggestion.confidence.displayLabel()} confidence",
+                                    text = stringResource(R.string.budget_suggestion_confidence_label, suggestion.confidence.displayName()),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = confidenceColor
                                 )
@@ -747,7 +752,7 @@ fun BudgetSuggestionCard(
                 // Suggested Amount
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = "Suggested Budget",
+                        text = stringResource(R.string.budget_label_suggested),
                         style = MaterialTheme.typography.labelMedium,
                         color = colorScheme.onSurfaceVariant
                     )
@@ -766,19 +771,19 @@ fun BudgetSuggestionCard(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Current",
+                            text = stringResource(R.string.budget_label_current),
                             style = MaterialTheme.typography.labelSmall,
                             color = colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = currentBudget?.let { formatCurrency(it.monthlyLimit) } ?: "Not set",
+                            text = currentBudget?.let { formatCurrency(it.monthlyLimit) } ?: stringResource(R.string.budget_label_not_set),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Historic Avg",
+                            text = stringResource(R.string.budget_label_historic_avg),
                             style = MaterialTheme.typography.labelSmall,
                             color = colorScheme.onSurfaceVariant
                         )
@@ -790,7 +795,7 @@ fun BudgetSuggestionCard(
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Profile Target",
+                            text = stringResource(R.string.budget_label_profile_target),
                             style = MaterialTheme.typography.labelSmall,
                             color = colorScheme.onSurfaceVariant
                         )
@@ -852,7 +857,7 @@ fun BudgetSuggestionCard(
                     }
                 ) {
                     Text(
-                        text = if (currentBudget == null) "Create Budget" else "Apply Suggestion"
+                        text = if (currentBudget == null) stringResource(R.string.budget_button_create) else stringResource(R.string.budget_button_apply)
                     )
                 }
             }
@@ -914,12 +919,7 @@ fun StatusBadge(status: BudgetHealthStatus) {
         shape = RoundedCornerShape(8.dp)
     ) {
         Text(
-            text = when (status) {
-                BudgetHealthStatus.HEALTHY -> "On Track"
-                BudgetHealthStatus.WARNING -> "Warning"
-                BudgetHealthStatus.CRITICAL -> "Critical"
-                BudgetHealthStatus.OVER_BUDGET -> "Over"
-            },
+            text = status.displayName(),
             style = MaterialTheme.typography.labelSmall,
             color = Color.White,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
@@ -984,13 +984,13 @@ fun EmptyBudgetState(onAddBudget: () -> Unit) {
                 }
                 Spacer(modifier = Modifier.height(20.dp))
                 Text(
-                    text = "No Budgets Yet",
+                    text = stringResource(R.string.budget_create_first_title),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Set category budgets to track and control your spending habits",
+                    text = stringResource(R.string.budget_create_first_desc),
                     style = MaterialTheme.typography.bodyMedium,
                     color = colorScheme.onSurfaceVariant,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -1006,7 +1006,7 @@ fun EmptyBudgetState(onAddBudget: () -> Unit) {
                         )
                     }
                 ) {
-                    Text(text = "Create Your First Budget")
+                    Text(text = stringResource(R.string.budget_create_first_button))
                 }
             }
         }
@@ -1036,14 +1036,14 @@ fun AddBudgetDialog(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    text = "Set Budget",
+                    text = stringResource(R.string.budget_set_budget_title),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
 
                 Column {
                     Text(
-                        text = "Category",
+                        text = stringResource(R.string.onboarding_financial_category_label),
                         style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
@@ -1079,8 +1079,8 @@ fun AddBudgetDialog(
 
                 SparelyTextField(
                     value = amount,
-                    onValueChange = { amount = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                    label = { Text("Monthly Limit") },
+                    onValueChange = { amount = it.filterCurrencyInput() },
+                    label = { Text(stringResource(R.string.budget_monthly_limit_label)) },
                     prefix = { Text("$") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal)
@@ -1094,20 +1094,20 @@ fun AddBudgetDialog(
                         onClick = onDismiss,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.cancel))
                     }
                     SparelyButton(
                         onClick = {
-                            amount.toDoubleOrNull()?.let { limitAmount ->
+                            amount.toSafeDouble()?.let { limitAmount ->
                                 if (limitAmount > 0) {
                                     onConfirm(BudgetInput(selectedCategory, limitAmount))
                                 }
                             }
                         },
-                        enabled = amount.toDoubleOrNull()?.let { it > 0 } == true,
+                        enabled = amount.toSafeDouble()?.let { it > 0 } == true,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Set Budget")
+                        Text(stringResource(R.string.budget_set_budget_title))
                     }
                 }
             }
@@ -1151,19 +1151,19 @@ fun EditBudgetDialog(
                             tint = MaterialTheme.colorScheme.error
                         )
                         Text(
-                            text = "Delete Budget?",
+                            text = stringResource(R.string.budget_delete_confirmation_title),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
                     }
 
                     Text(
-                        text = "Are you sure you want to delete the ${budget.category.displayName()} budget?",
+                        text = stringResource(R.string.budget_delete_confirmation_desc, budget.category.displayName()),
                         style = MaterialTheme.typography.bodyLarge
                     )
 
                     Text(
-                        text = "This action cannot be undone.",
+                        text = stringResource(R.string.budget_delete_undone),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1178,7 +1178,7 @@ fun EditBudgetDialog(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                             contentColor = MaterialTheme.colorScheme.onSurface
                         ) {
-                            Text("Cancel")
+                            Text(stringResource(R.string.cancel))
                         }
 
                         SparelyButton(
@@ -1187,7 +1187,7 @@ fun EditBudgetDialog(
                             containerColor = MaterialTheme.colorScheme.error,
                             contentColor = MaterialTheme.colorScheme.onError
                         ) {
-                            Text("Delete")
+                            Text(stringResource(R.string.delete))
                         }
                     }
                 }
@@ -1207,15 +1207,15 @@ fun EditBudgetDialog(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
-                        text = "Edit ${budget.category.displayName()} budget",
+                        text = stringResource(R.string.budget_edit_budget_title, budget.category.displayName()),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
 
                     SparelyTextField(
                         value = amount,
-                        onValueChange = { amount = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                        label = { Text("Monthly Limit") },
+                        onValueChange = { amount = it.filterCurrencyInput() },
+                        label = { Text(stringResource(R.string.budget_monthly_limit_label)) },
                         prefix = { Text("$") },
                         modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal)
@@ -1231,7 +1231,7 @@ fun EditBudgetDialog(
                             containerColor = MaterialTheme.colorScheme.errorContainer,
                             contentColor = MaterialTheme.colorScheme.error
                         ) {
-                            Text("Delete")
+                            Text(stringResource(R.string.delete))
                         }
                         SparelyButton(
                             onClick = onDismiss,
@@ -1239,22 +1239,22 @@ fun EditBudgetDialog(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                             contentColor = MaterialTheme.colorScheme.onSurface
                         ) {
-                            Text("Cancel")
+                            Text(stringResource(R.string.cancel))
                         }
                     }
 
                     SparelyButton(
                         onClick = {
-                            amount.toDoubleOrNull()?.let { value ->
+                            amount.toSafeDouble()?.let { value ->
                                 if (value > 0) {
                                     onConfirm(value)
                                 }
                             }
                         },
-                        enabled = amount.toDoubleOrNull()?.let { it > 0 } == true,
+                        enabled = amount.toSafeDouble()?.let { it > 0 } == true,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Save")
+                        Text(stringResource(R.string.save))
                     }
                 }
             }
@@ -1265,11 +1265,23 @@ fun EditBudgetDialog(
 private fun formatCurrency(value: Double): String = "$" + String.format("%,.0f", value)
 private fun formatPercent(value: Double): String = String.format("%.1f%%", value.coerceIn(0.0, 2.0) * 100)
 
-private fun SuggestionConfidence.displayLabel(): String = when (this) {
-    SuggestionConfidence.HIGH -> "High confidence"
-    SuggestionConfidence.MEDIUM -> "Medium confidence"
-    SuggestionConfidence.LOW -> "Emerging trend"
+@Composable
+private fun SuggestionConfidence.displayName(): String = when (this) {
+    SuggestionConfidence.HIGH -> stringResource(R.string.confidence_high)
+    SuggestionConfidence.MEDIUM -> stringResource(R.string.confidence_medium)
+    SuggestionConfidence.LOW -> stringResource(R.string.confidence_low)
 }
+
+@Composable
+private fun BudgetHealthStatus.displayName(): String = when (this) {
+    BudgetHealthStatus.HEALTHY -> stringResource(R.string.budget_status_on_track)
+    BudgetHealthStatus.WARNING -> stringResource(R.string.budget_status_warning)
+    BudgetHealthStatus.CRITICAL -> stringResource(R.string.budget_status_critical)
+    BudgetHealthStatus.OVER_BUDGET -> stringResource(R.string.budget_status_over)
+}
+
+
+
 
 // Extension function for ExpenseCategory.displayName() - using the one from RecurringScreen.kt
 // (It's defined as a public function there, so we can use it directly)
@@ -1304,14 +1316,14 @@ private fun DeleteBudgetConfirmationDialog(
                         tint = MaterialTheme.colorScheme.error
                     )
                     Text(
-                        text = "Delete Budget?",
+                        text = stringResource(R.string.budget_delete_confirmation_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
                 }
 
                 Text(
-                    text = "Are you sure you want to delete the budget for '${budget.category.displayName()}'?",
+                    text = stringResource(R.string.budget_delete_warning_desc, budget.category.displayName()),
                     style = MaterialTheme.typography.bodyLarge
                 )
 
@@ -1339,7 +1351,7 @@ private fun DeleteBudgetConfirmationDialog(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Monthly limit: ${formatCurrency(budget.monthlyLimit)}",
+                                text = stringResource(R.string.budget_monthly_limit_stat, formatCurrency(budget.monthlyLimit)),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1348,7 +1360,7 @@ private fun DeleteBudgetConfirmationDialog(
                 }
 
                 Text(
-                    text = "This action cannot be undone. You can always create a new budget for this category later.",
+                    text = stringResource(R.string.budget_delete_undone_extended),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1363,7 +1375,7 @@ private fun DeleteBudgetConfirmationDialog(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                         contentColor = MaterialTheme.colorScheme.onSurface
                     ) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.cancel))
                     }
 
                     SparelyButton(
@@ -1372,7 +1384,7 @@ private fun DeleteBudgetConfirmationDialog(
                         containerColor = MaterialTheme.colorScheme.error,
                         contentColor = MaterialTheme.colorScheme.onError
                     ) {
-                        Text("Delete")
+                        Text(stringResource(R.string.delete))
                     }
                 }
             }

@@ -31,8 +31,8 @@ data class RegionalSettings(
     fun getLocale(): Locale = try {
         val parts = locale.split("_")
         when (parts.size) {
-            1 -> Locale(parts[0])
-            2 -> Locale(parts[0], parts[1])
+            1 -> Locale.Builder().setLanguage(parts[0]).build()
+            2 -> Locale.Builder().setLanguage(parts[0]).setRegion(parts[1]).build()
             else -> Locale.US
         }
     } catch (e: Exception) {

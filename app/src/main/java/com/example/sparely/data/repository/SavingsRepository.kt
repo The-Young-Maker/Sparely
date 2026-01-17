@@ -1,5 +1,6 @@
 package com.example.sparely.data.repository
 
+import androidx.room.withTransaction
 import com.example.sparely.data.local.AchievementDao
 import com.example.sparely.data.local.BudgetDao
 import com.example.sparely.data.local.ChallengeDao
@@ -10,6 +11,9 @@ import com.example.sparely.data.local.SavingsAccountDao
 import com.example.sparely.data.local.SavingsTransferDao
 import com.example.sparely.data.local.SavingsTransferEntity
 import com.example.sparely.data.local.SmartVaultDao
+import com.example.sparely.data.local.StoreDao
+import com.example.sparely.data.local.PaymentMethodDao
+import com.example.sparely.data.local.CreditCardPaymentDao
 import com.example.sparely.data.local.toDomain
 import com.example.sparely.data.local.toEntity
 import com.example.sparely.domain.model.BankSyncProvider
@@ -22,6 +26,8 @@ import com.example.sparely.domain.model.SavingsAccountInput
 import com.example.sparely.domain.model.SavingsCategory
 import com.example.sparely.domain.model.SavingsTransfer
 import com.example.sparely.domain.model.SmartVault
+import com.example.sparely.domain.model.Store
+import com.example.sparely.domain.model.PaymentMethod
 import com.example.sparely.domain.model.VaultBalanceAdjustment
 import com.example.sparely.domain.model.VaultContribution
 import com.example.sparely.domain.model.VaultContributionSource
@@ -48,20 +54,45 @@ class SavingsRepository(
     private val mainAccountDao: com.example.sparely.data.local.MainAccountDao,
     private val frozenFundDao: com.example.sparely.data.local.FrozenFundDao,
     private val allocationHistoryDao: com.example.sparely.data.local.AllocationHistoryDao,
-    private val preferencesRepository: com.example.sparely.data.preferences.UserPreferencesRepository
+    private val storeDao: StoreDao,
+    private val paymentMethodDao: PaymentMethodDao,
+    private val creditCardPaymentDao: CreditCardPaymentDao,
+    private val expenseItemDao: com.example.sparely.data.local.ExpenseItemDao,
+    private val preferencesRepository: com.example.sparely.data.preferences.UserPreferencesRepository,
+    private val database: com.example.sparely.data.local.SparelyDatabase
 ) {
 
-    fun observeExpenses(): Flow<List<ExpenseEntity>> = expenseDao.observeExpenses()
+    suspend fun runInTransaction(block: suspend () -> Unit) {
+        database.withTransaction {
+            block()
+        }
+    }
+
+    fun observeExpenses(): Flow<List<com.example.sparely.domain.model.Expense>> =
+        expenseDao.observeExpenses().map { entities ->
+            entities.map { relation -> 
+                val expense = relation.expense.toDomain()
+                expense.copy(items = relation.items.map { it.toDomain() })
+            }
+        }
 
     fun observeExpensesBetween(from: LocalDate, to: LocalDate): Flow<List<ExpenseEntity>> =
         expenseDao.observeExpensesBetween(from, to)
 
-    suspend fun upsertExpense(entity: ExpenseEntity) {
-        expenseDao.upsertExpense(entity)
+    suspend fun upsertExpense(entity: ExpenseEntity): Long {
+        return expenseDao.upsertExpense(entity)
     }
 
     suspend fun deleteExpense(entity: ExpenseEntity) {
         expenseDao.deleteExpense(entity)
+    }
+
+    suspend fun deleteExpensesBefore(date: LocalDate): Int {
+        return expenseDao.deleteExpensesBefore(date)
+    }
+
+    suspend fun countExpensesBefore(date: LocalDate): Int {
+        return expenseDao.countExpensesBefore(date)
     }
 
     suspend fun findExpenseById(id: Long): ExpenseEntity? = expenseDao.findExpenseById(id)
@@ -95,6 +126,7 @@ class SavingsRepository(
 
     fun observeSmartVaults(): Flow<List<SmartVault>> =
         smartVaultDao.observeActiveVaults().map { rows -> rows.map { it.toDomain() } }
+    
 
     suspend fun upsertSavingsAccount(account: SavingsAccount) {
         val assignedId = savingsAccountDao.upsert(account.toEntity())
@@ -159,6 +191,15 @@ class SavingsRepository(
     }
 
     suspend fun deleteSmartVault(id: Long) {
+        val vault = smartVaultDao.getVaultById(id) ?: return
+        if (vault.currentBalance > 0) {
+            deductFromVault(
+                vaultId = id,
+                amount = vault.currentBalance,
+                reason = "Vault closure: ${vault.name}",
+                creditMainAccount = true
+            )
+        }
         smartVaultDao.deleteVault(id)
     }
 
@@ -178,7 +219,11 @@ class SavingsRepository(
     
     suspend fun getPendingVaultContributions(): List<VaultContribution> =
         smartVaultDao.getPendingContributions().map { it.toDomain() }
+
+    fun observePendingVaultContributions(): Flow<List<VaultContribution>> =
+        smartVaultDao.observePendingContributions().map { list -> list.map { it.toDomain() } }
     
+
     suspend fun reconcileVaultContribution(contributionId: Long) {
         val contribution = smartVaultDao.getContributionById(contributionId)
         if (contribution != null && !contribution.reconciled) {
@@ -215,6 +260,9 @@ class SavingsRepository(
     suspend fun getVaultContributions(vaultId: Long): List<VaultContribution> =
         smartVaultDao.getContributionsForVault(vaultId).map { it.toDomain() }
 
+    suspend fun getReconciledVaultContributions(vaultId: Long): List<VaultContribution> =
+        smartVaultDao.getReconciledContributionsForVault(vaultId).map { it.toDomain() }
+
     suspend fun getVaultAdjustments(vaultId: Long): List<VaultBalanceAdjustment> =
         smartVaultDao.getAdjustmentsForVault(vaultId).map { it.toDomain() }
 
@@ -238,9 +286,10 @@ class SavingsRepository(
                 amount = sanitizedAmount,
                 balanceAfter = (currentBalance - sanitizedAmount).coerceAtLeast(0.0),
                 timestamp = java.time.LocalDateTime.now(),
-                description = reason?.take(100) ?: "Manual vault deposit"
+                description = reason?.take(100) ?: "Manual deposit to ${vault.name}"
             )
             insertMainAccountTransaction(transaction)
+            preferencesRepository.updateMainAccountBalance(transaction.balanceAfter)
         }
     }
 
@@ -264,9 +313,10 @@ class SavingsRepository(
                 amount = sanitizedAmount,
                 balanceAfter = currentBalance + sanitizedAmount,
                 timestamp = java.time.LocalDateTime.now(),
-                description = reason?.take(100) ?: "Manual vault withdrawal"
+                description = reason?.take(100) ?: "Manual withdrawal from ${vault.name}"
             )
             insertMainAccountTransaction(transaction)
+            preferencesRepository.updateMainAccountBalance(transaction.balanceAfter)
         }
     }
 
@@ -424,11 +474,21 @@ class SavingsRepository(
     suspend fun getRecentMainAccountTransactions(limit: Int = 50): List<com.example.sparely.domain.model.MainAccountTransaction> =
         mainAccountDao.getRecentTransactions(limit).map { it.toDomain() }
 
-    suspend fun insertMainAccountTransaction(transaction: com.example.sparely.domain.model.MainAccountTransaction): Long =
-        mainAccountDao.insertTransaction(transaction.toEntity())
+    suspend fun insertMainAccountTransaction(transaction: com.example.sparely.domain.model.MainAccountTransaction): Long {
+        val transactionId = mainAccountDao.insertTransaction(transaction.toEntity())
+        transaction.relatedVaultContributionIds?.forEach { contributionId ->
+            mainAccountDao.insertTransactionVaultCrossRef(
+                com.example.sparely.data.local.TransactionVaultContributionCrossRef(
+                    transactionId = transactionId,
+                    contributionId = contributionId
+                )
+            )
+        }
+        return transactionId
+    }
 
     suspend fun getLatestMainAccountBalance(): Double {
-        val transactionBalance = mainAccountDao.getLatestTransaction()?.balanceAfter
+        val transactionBalance = mainAccountDao.getLatestTransaction()?.transaction?.balanceAfter
         // Fall back to preferences if no transactions exist yet
         // This fixes the bug where the first deduction would use 0.0 instead of the actual balance
         return transactionBalance ?: preferencesRepository.getSettingsSnapshot().mainAccountBalance
@@ -446,6 +506,28 @@ class SavingsRepository(
     suspend fun clearMainAccountTransactions() {
         mainAccountDao.deleteAllTransactions()
     }
+
+    suspend fun flagExpenseAsRefunded(expenseId: Long, refundedAmount: Double, totalRefunded: Double) {
+        val expense = expenseDao.findExpenseById(expenseId) ?: return
+        val isFullyRefunded = totalRefunded >= expense.amount
+        val updated = expense.copy(
+            refundedAmount = totalRefunded,
+            isRefunded = isFullyRefunded
+        )
+        expenseDao.upsertExpense(updated)
+    }
+
+    suspend fun deletePendingContributionsForExpense(expenseId: Long) {
+        // Find them first to remove frozen funds
+        val contributions = smartVaultDao.getContributionsForExpense(expenseId).filter { !it.reconciled }
+        contributions.forEach { c ->
+             removeFrozenForPending("VAULT_CONTRIBUTION", c.id)
+        }
+        smartVaultDao.deletePendingContributionsForExpense(expenseId)
+    }
+
+    suspend fun getContributionsForExpense(expenseId: Long): List<VaultContribution> = 
+        smartVaultDao.getContributionsForExpense(expenseId).map { it.toDomain() }
 
     // Frozen funds methods
     suspend fun insertFrozenFund(pendingType: String, pendingId: Long, amount: Double, description: String? = null): Long {
@@ -604,6 +686,7 @@ class SavingsRepository(
                         description = notes ?: "Scheduled transfer to vault ${vault.name}"
                     )
                     insertMainAccountTransaction(transaction)
+                    preferencesRepository.updateMainAccountBalance(transaction.balanceAfter)
                     true
                 }
             }
@@ -629,6 +712,7 @@ class SavingsRepository(
                         description = notes ?: "Scheduled transfer from vault ${vault.name}"
                     )
                     insertMainAccountTransaction(transaction)
+                    preferencesRepository.updateMainAccountBalance(transaction.balanceAfter)
                     true
                 }
             }
@@ -688,4 +772,313 @@ class SavingsRepository(
     suspend fun insertAllocationHistory(history: List<com.example.sparely.data.local.AllocationHistoryEntity>) {
         history.forEach { allocationHistoryDao.insert(it) }
     }
+
+    // Store functions
+    fun observeStores(): Flow<List<Store>> =
+        storeDao.observeStores().map { entities -> entities.map { it.toDomain() } }
+
+    suspend fun searchStores(query: String): List<Store> =
+        storeDao.searchStores(query).map { it.toDomain() }
+
+    suspend fun getStoreById(id: Long): Store? =
+        storeDao.getStoreById(id)?.toDomain()
+
+    suspend fun insertStore(store: Store): Long =
+        storeDao.insertStore(store.toEntity())
+
+    suspend fun updateStore(store: Store) {
+        storeDao.updateStore(store.toEntity())
+    }
+
+    suspend fun deleteStore(store: Store) {
+        storeDao.deleteStore(store.toEntity())
+    }
+
+    suspend fun clearStores() {
+        storeDao.clearAll()
+    }
+
+    // Payment Method functions
+    fun observePaymentMethods(): Flow<List<PaymentMethod>> =
+        paymentMethodDao.getAllPaymentMethods().map { entities -> entities.map { it.toDomain() } }
+
+    suspend fun getPaymentMethodById(id: Long): PaymentMethod? =
+        paymentMethodDao.getPaymentMethodById(id)?.toDomain()
+
+    suspend fun insertPaymentMethod(method: PaymentMethod): Long {
+        if (method.isDefault) {
+            paymentMethodDao.clearDefaultPaymentMethod()
+        }
+        return paymentMethodDao.insertPaymentMethod(method.toEntity())
+    }
+
+    suspend fun updatePaymentMethod(method: PaymentMethod) {
+        if (method.isDefault) {
+            paymentMethodDao.clearDefaultPaymentMethod()
+        }
+        paymentMethodDao.updatePaymentMethod(method.toEntity())
+    }
+
+    suspend fun deletePaymentMethod(method: PaymentMethod) {
+        paymentMethodDao.deletePaymentMethod(method.toEntity())
+    }
+
+    suspend fun clearPaymentMethods() {
+        paymentMethodDao.deleteAll()
+         // Re-seed defaults if needed, but for now we just clear
+    }
+
+    // Credit Card specific functions
+    fun observeCreditCards(): Flow<List<PaymentMethod>> =
+        paymentMethodDao.getCreditCards().map { entities -> entities.map { it.toDomain() } }
+
+    suspend fun addToCreditCardBalance(paymentMethodId: Long, amount: Double) {
+        paymentMethodDao.addToBalance(paymentMethodId, amount)
+    }
+
+    suspend fun recordCreditCardPayment(
+        paymentMethodId: Long,
+        amount: Double,
+        note: String? = null,
+        date: LocalDate = LocalDate.now(),
+        deductFromMainAccount: Boolean = false
+    ) {
+        // Insert payment record
+        val payment = com.example.sparely.data.local.CreditCardPaymentEntity(
+            paymentMethodId = paymentMethodId,
+            amount = amount,
+            date = date,
+            note = note
+        )
+        creditCardPaymentDao.insertPayment(payment)
+        // Update balance on payment method
+        paymentMethodDao.recordPayment(paymentMethodId, amount, date)
+        
+        // If deducting from main account, update balance and log transaction
+        if (deductFromMainAccount) {
+            val paymentMethod = paymentMethodDao.getPaymentMethodById(paymentMethodId)
+            val cardName = paymentMethod?.name ?: "Credit Card"
+            
+            val settings = preferencesRepository.getSettingsSnapshot()
+            val currentBalance = settings.mainAccountBalance
+            val newBalance = currentBalance - amount
+            preferencesRepository.updateMainAccountBalance(newBalance)
+            
+            // Log transaction with CREDIT_CARD_PAYMENT type
+            val transaction = com.example.sparely.data.local.MainAccountTransactionEntity(
+                type = com.example.sparely.data.local.MainAccountTransactionType.CREDIT_CARD_PAYMENT,
+                amount = -amount,
+                balanceAfter = newBalance,
+                timestamp = java.time.LocalDateTime.now(),
+                description = "Payment to $cardName${note?.let { ": $it" } ?: ""}"
+            )
+            mainAccountDao.insertTransaction(transaction)
+        }
+    }
+
+    suspend fun getAllCreditCardPayments(): List<com.example.sparely.domain.model.CreditCardPayment> =
+        creditCardPaymentDao.getAllPayments().first().map { it.toDomain() }
+
+    fun observeCreditCardPayments(): Flow<List<com.example.sparely.domain.model.CreditCardPayment>> =
+        creditCardPaymentDao.getAllPayments().map { entities -> entities.map { it.toDomain() } }
+
+    suspend fun insertCreditCardPayment(payment: com.example.sparely.domain.model.CreditCardPayment) {
+        creditCardPaymentDao.insertPayment(payment.toEntity())
+    }
+
+    suspend fun clearCreditCardPayments() {
+        creditCardPaymentDao.deleteAll()
+    }
+
+    /**
+     * Process a recurring expense payment with full expense logic.
+     * This mirrors the logic in SparelyViewModel.addExpense() but runs in the background worker context.
+     * Handles:
+     * - Creating expense with all field mappings (storeId, paymentMethodId, isRecurring)
+     * - Credit card balance updates
+     * - Vault contributions (saving tax)
+     * - Main account deductions
+     */
+    suspend fun processRecurringExpensePayment(
+        recurringEntity: com.example.sparely.data.local.RecurringExpenseEntity,
+        processDate: LocalDate,
+        settings: com.example.sparely.domain.model.SparelySettings,
+        vaults: List<com.example.sparely.domain.model.SmartVault>
+    ) {
+        // Create expense entity with all field mappings
+        val percentages = if (recurringEntity.manualPercentEmergency != null) {
+            com.example.sparely.domain.model.SavingsPercentages(
+                emergency = recurringEntity.manualPercentEmergency,
+                invest = recurringEntity.manualPercentInvest ?: 0.0,
+                `fun` = recurringEntity.manualPercentFun ?: 0.0,
+                safeInvestmentSplit = recurringEntity.manualSafeSplit ?: 0.5
+            )
+        } else {
+            settings.defaultPercentages
+        }
+        
+        val adjusted = percentages.adjustWithinBudget()
+        val amount = recurringEntity.amount
+        val emergency = amount * adjusted.emergency
+        val invest = amount * adjusted.invest
+        val funAmount = amount * adjusted.`fun`
+        val safe = invest * adjusted.safeInvestmentSplit
+        val risky = invest - safe
+        
+        val expenseEntity = com.example.sparely.data.local.ExpenseEntity(
+            id = 0L,
+            description = recurringEntity.description,
+            amount = amount,
+            category = recurringEntity.category,
+            date = processDate,
+            includesTax = recurringEntity.includesTax,
+            emergencyAmount = emergency.roundCurrency(),
+            investmentAmount = invest.roundCurrency(),
+            funAmount = funAmount.roundCurrency(),
+            safeInvestmentAmount = safe.roundCurrency(),
+            highRiskInvestmentAmount = risky.roundCurrency(),
+            autoRecommended = false,
+            appliedPercentEmergency = adjusted.emergency,
+            appliedPercentInvest = adjusted.invest,
+            appliedPercentFun = adjusted.`fun`,
+            appliedSafeSplit = adjusted.safeInvestmentSplit,
+            riskLevelUsed = settings.riskLevel,
+            deductedFromVaultId = recurringEntity.deductedFromVaultId,
+            storeId = recurringEntity.storeId,
+            paymentMethodId = recurringEntity.paymentMethodId,
+            isRecurring = true
+        )
+        upsertExpense(expenseEntity)
+        
+        // Get current balance
+        var currentBalance = getLatestMainAccountBalance()
+        
+        // Handle vault deduction if specified
+        if (recurringEntity.deductedFromVaultId != null) {
+            val vault = vaults.find { it.id == recurringEntity.deductedFromVaultId }
+            if (vault != null) {
+                val vaultBalanceBefore = vault.currentBalance
+                val deductFromVault = amount.coerceAtMost(vaultBalanceBefore)
+                val overflowToMainAccount = (amount - vaultBalanceBefore).coerceAtLeast(0.0)
+                val vaultBalanceAfter = (vaultBalanceBefore - deductFromVault).coerceAtLeast(0.0)
+                
+                if (deductFromVault > 0.0) {
+                    recordVaultBalanceAdjustment(
+                        vaultId = vault.id,
+                        previousBalance = vaultBalanceBefore,
+                        newBalance = vaultBalanceAfter,
+                        type = VaultAdjustmentType.MANUAL_DEDUCTION,
+                        reason = "Recurring expense: ${recurringEntity.description.take(100)}"
+                    )
+                }
+                
+                if (overflowToMainAccount > 0.0 && recurringEntity.deductFromMainAccount) {
+                    val newBalance = (currentBalance - overflowToMainAccount).coerceAtLeast(0.0)
+                    val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                        type = com.example.sparely.data.local.MainAccountTransactionType.EXPENSE,
+                        amount = overflowToMainAccount,
+                        balanceAfter = newBalance,
+                        timestamp = java.time.LocalDateTime.now(),
+                        description = "Overflow from ${vault.name} - recurring: ${recurringEntity.description.take(70)}"
+                    )
+                    insertMainAccountTransaction(transaction)
+                    preferencesRepository.updateMainAccountBalance(newBalance)
+                    currentBalance = newBalance
+                }
+            }
+        } else if (recurringEntity.deductFromMainAccount) {
+            val newBalance = (currentBalance - amount).coerceAtLeast(0.0)
+            val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                type = com.example.sparely.data.local.MainAccountTransactionType.EXPENSE,
+                amount = amount,
+                balanceAfter = newBalance,
+                timestamp = java.time.LocalDateTime.now(),
+                description = "Auto-logged recurring: ${recurringEntity.description.take(100)}"
+            )
+            insertMainAccountTransaction(transaction)
+            preferencesRepository.updateMainAccountBalance(newBalance)
+            currentBalance = newBalance
+        }
+        
+        // Update credit card balance if payment method is a credit card
+        if (recurringEntity.paymentMethodId != null) {
+            val paymentMethod = getPaymentMethodById(recurringEntity.paymentMethodId)
+            if (paymentMethod?.isCreditCard == true) {
+                addToCreditCardBalance(paymentMethod.id, amount)
+            }
+        }
+        
+        // Apply saving tax to vaults
+        val savingTaxContext = com.example.sparely.domain.logic.SavingTaxEngine.Context(
+            expenseAmount = amount,
+            expenseDate = processDate,
+            settings = settings,
+            vaults = vaults
+        )
+        val savingTaxPlans = com.example.sparely.domain.logic.SavingTaxEngine.calculate(savingTaxContext)
+        
+        if (savingTaxPlans.isNotEmpty()) {
+            val contributions = savingTaxPlans.map { plan ->
+                VaultContribution(
+                    vaultId = plan.vaultId,
+                    amount = plan.amount,
+                    date = processDate,
+                    source = VaultContributionSource.SAVING_TAX,
+                    note = "Saving tax from recurring: ${recurringEntity.description}".take(120)
+                )
+            }
+            val contributionIds = logVaultContributions(contributions)
+            
+            val totalSavingTax = savingTaxPlans.sumOf { it.amount }
+            if (totalSavingTax > 0.0) {
+                val newBalance = (currentBalance - totalSavingTax).coerceAtLeast(0.0)
+                val transaction = com.example.sparely.domain.model.MainAccountTransaction(
+                    type = com.example.sparely.data.local.MainAccountTransactionType.VAULT_CONTRIBUTION,
+                    amount = totalSavingTax,
+                    balanceAfter = newBalance,
+                    timestamp = java.time.LocalDateTime.now(),
+                    description = "Saving tax to ${savingTaxPlans.size} vault(s)",
+                    relatedVaultContributionIds = contributionIds
+                )
+                insertMainAccountTransaction(transaction)
+                preferencesRepository.updateMainAccountBalance(newBalance)
+            }
+        }
+    }
+    
+    private fun Double.roundCurrency(): Double = kotlin.math.round(this * 100) / 100.0
+
+    // Expense Item methods
+    fun observeItemsForExpense(expenseId: Long): Flow<List<com.example.sparely.domain.model.ExpenseItem>> =
+        expenseItemDao.observeItemsForExpense(expenseId).map { entities -> entities.map { it.toDomain() } }
+
+    suspend fun getItemsForExpense(expenseId: Long): List<com.example.sparely.domain.model.ExpenseItem> =
+        expenseItemDao.getItemsForExpense(expenseId).map { it.toDomain() }
+
+    suspend fun getAllExpenseItems(): List<com.example.sparely.domain.model.ExpenseItem> =
+        expenseItemDao.getAllItems().map { it.toDomain() }
+
+    suspend fun insertExpenseItem(item: com.example.sparely.domain.model.ExpenseItem): Long =
+        expenseItemDao.insertItem(item.toEntity())
+
+    suspend fun insertExpenseItems(items: List<com.example.sparely.domain.model.ExpenseItem>) {
+        expenseItemDao.insertItems(items.map { it.toEntity() })
+    }
+
+    suspend fun updateExpenseItem(item: com.example.sparely.domain.model.ExpenseItem) {
+        expenseItemDao.updateItem(item.toEntity())
+    }
+
+    suspend fun deleteExpenseItem(item: com.example.sparely.domain.model.ExpenseItem) {
+        expenseItemDao.deleteItem(item.toEntity())
+    }
+
+    suspend fun deleteItemsForExpense(expenseId: Long) {
+        expenseItemDao.deleteItemsForExpense(expenseId)
+    }
+
+    suspend fun clearExpenseItems() {
+        expenseItemDao.clearAll()
+    }
 }
+

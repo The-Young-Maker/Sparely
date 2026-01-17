@@ -24,6 +24,8 @@ import com.example.sparely.ui.state.SparelyUiState
 import com.example.sparely.ui.theme.MaterialSymbolIcon
 import com.example.sparely.ui.theme.MaterialSymbols
 import java.time.format.DateTimeFormatter
+import androidx.compose.ui.res.stringResource
+import com.sparely.app.R
 
 @Composable
 fun ChallengesScreen(
@@ -45,7 +47,7 @@ fun ChallengesScreen(
                 horizontalArrangement = Arrangement.End
             ) {
                 IconButton(onClick = { showChallengeDialog = true }) {
-                    MaterialSymbolIcon(icon = MaterialSymbols.ADD, "New Challenge")
+                    MaterialSymbolIcon(icon = MaterialSymbols.ADD, stringResource(R.string.challenges_new_title))
                 }
             }
         }
@@ -63,7 +65,7 @@ fun ChallengesScreen(
         if (uiState.activeChallenges.isNotEmpty()) {
             item {
                 Text(
-                    text = "Active Challenges",
+                    text = stringResource(R.string.challenges_active_title),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -79,7 +81,7 @@ fun ChallengesScreen(
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Completed Challenges",
+                    text = stringResource(R.string.challenges_completed_title),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -165,7 +167,7 @@ fun ChallengeCard(challenge: SavingsChallenge) {
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     Text(
-                        text = "of ${formatCurrency(challenge.targetAmount)}",
+                        text = stringResource(R.string.challenges_target_label, formatCurrency(challenge.targetAmount)),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                     )
@@ -186,7 +188,7 @@ fun ChallengeCard(challenge: SavingsChallenge) {
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
-                    text = "${String.format("%.0f", challenge.progressPercent * 100)}% complete",
+                    text = stringResource(R.string.challenges_percent_complete, "${String.format("%.0f", challenge.progressPercent * 100)}%"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                 )
@@ -205,7 +207,7 @@ fun ChallengeCard(challenge: SavingsChallenge) {
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "${challenge.streakDays} day streak!",
+                        text = stringResource(R.string.challenges_streak_label, challenge.streakDays),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -231,7 +233,7 @@ fun ChallengeCard(challenge: SavingsChallenge) {
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Next Milestone",
+                                text = stringResource(R.string.challenges_next_milestone_label),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -243,7 +245,7 @@ fun ChallengeCard(challenge: SavingsChallenge) {
                         }
                         AssistChip(
                             onClick = {},
-                            label = { Text("+${milestone.rewardPoints} pts") },
+                            label = { Text(stringResource(R.string.challenges_points_label, milestone.rewardPoints)) },
                             colors = AssistChipDefaults.assistChipColors(
                                 containerColor = MaterialTheme.colorScheme.tertiaryContainer
                             )
@@ -259,12 +261,12 @@ fun ChallengeCard(challenge: SavingsChallenge) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "${challenge.daysRemaining} days remaining",
+                    text = stringResource(R.string.challenges_days_remaining, challenge.daysRemaining),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                 )
                 Text(
-                    text = "Ends ${challenge.endDate.format(DateTimeFormatter.ofPattern("MMM d"))}",
+                    text = stringResource(R.string.challenges_ends_label, challenge.endDate.format(DateTimeFormatter.ofPattern("MMM d"))),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                 )
@@ -282,18 +284,18 @@ private fun ChallengeOverviewCard() {
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
-                text = "How challenges help",
+                text = stringResource(R.string.challenges_help_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Savings challenges don't move money automatically. Sparely tracks your commitment, nudges you when it's time to contribute, and records progress as you log expenses or manual transfers.",
+                text = stringResource(R.string.challenges_help_desc_1),
                 style = MaterialTheme.typography.bodySmall
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Daily and 52-week challenges add their scheduled amount to your progress so you know what to transfer. No-spend challenges monitor your transactions and keep your streak alive when you avoid the selected categories.",
+                text = stringResource(R.string.challenges_help_desc_2),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
             )
@@ -331,7 +333,7 @@ fun CompletedChallengeCard(challenge: SavingsChallenge) {
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Completed ${challenge.completedDate?.format(DateTimeFormatter.ofPattern("MMM d, yyyy")) ?: ""}",
+                        text = stringResource(R.string.challenges_completed_on, challenge.completedDate?.format(DateTimeFormatter.ofPattern("MMM d, yyyy")) ?: ""),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -361,7 +363,7 @@ fun AchievementsSection(achievements: List<Achievement>) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Recent Achievements",
+                    text = stringResource(R.string.challenges_recent_achievements),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -424,13 +426,13 @@ fun EmptyChallengesState(onStartChallenge: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "No Active Challenges",
+                text = stringResource(R.string.challenges_no_active_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Start a savings challenge to gamify your financial journey and earn rewards!",
+                text = stringResource(R.string.challenges_no_active_desc),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -438,7 +440,7 @@ fun EmptyChallengesState(onStartChallenge: () -> Unit) {
             SparelyButton(onClick = onStartChallenge) {
                 MaterialSymbolIcon(icon = MaterialSymbols.PLAY_ARROW, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                SingleLineText("Start Challenge")
+                SingleLineText(stringResource(R.string.challenges_start_button))
             }
         }
     }
@@ -451,12 +453,12 @@ fun ChallengeSelectionDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Choose a Challenge") },
+        title = { Text(stringResource(R.string.challenges_choose_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ChallengeOption(
-                    title = "52-Week Challenge",
-                    description = "Save incrementally each week",
+                    title = stringResource(R.string.challenges_52week_title),
+                    description = stringResource(R.string.challenges_52week_desc),
                     icon = MaterialSymbols.CALENDAR_MONTH,
                     onClick = {
                         onSelectChallenge(
@@ -472,8 +474,8 @@ fun ChallengeSelectionDialog(
                 )
                 
                 ChallengeOption(
-                    title = "Daily Savings",
-                    description = "Save $5 every day for 30 days",
+                    title = stringResource(R.string.challenges_daily_title),
+                    description = stringResource(R.string.challenges_daily_desc),
                     icon = MaterialSymbols.TODAY,
                     onClick = {
                         onSelectChallenge(
@@ -492,7 +494,7 @@ fun ChallengeSelectionDialog(
         confirmButton = {},
         dismissButton = {
             SparelyTextButton(onClick = onDismiss) {
-                SingleLineText("Cancel")
+                SingleLineText(stringResource(R.string.cancel))
             }
         }
     )

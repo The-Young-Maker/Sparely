@@ -56,17 +56,14 @@ fun Context.setAppLocale(languageCode: String, countryCode: String? = null) {
     // This ensures Android will match values-<lang>-r<COUNTRY> if present.
     val locale = try {
         if (!countryCode.isNullOrBlank()) {
-            Locale(languageCode, countryCode)
+            Locale.Builder()
+                .setLanguage(languageCode)
+                .setRegion(countryCode)
+                .build()
         } else {
             // languageCode might itself be a BCP-47 tag like "fr-CA" or "fr_CA".
-            val tag = languageCode.replace('_', '-').lowercase()
-            if (tag.contains('-')) {
-                // split into language-region
-                val parts = tag.split('-')
-                if (parts.size >= 2) Locale(parts[0], parts[1].uppercase()) else Locale(parts[0])
-            } else {
-                Locale(languageCode)
-            }
+            val tag = languageCode.replace('_', '-')
+            Locale.forLanguageTag(tag)
         }
     } catch (e: Exception) {
         Locale.getDefault()

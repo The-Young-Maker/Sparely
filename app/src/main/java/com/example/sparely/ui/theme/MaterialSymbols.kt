@@ -10,7 +10,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.sparely.R
+import com.sparely.app.R
 
 /**
  * Helper object to migrate from old Material Icons to Material Symbols.
@@ -62,6 +62,9 @@ object MaterialSymbols {
     val ARROW_DOWNWARD = R.drawable.arrow_downward_48px
     val ARROW_UPWARD = R.drawable.arrow_upward_48px
     val ARROW_FORWARD = R.drawable.arrow_forward_48px
+    val ARROW_DROP_DOWN = R.drawable.arrow_drop_down_48px
+
+    val ARROW_DROP_UP = R.drawable.arrow_drop_up_48px
     val SHOPPING_CART = R.drawable.shopping_cart_48px
     val RECEIPT = R.drawable.receipt_48px
     val PERSON = R.drawable.person_48px
@@ -98,8 +101,15 @@ object MaterialSymbols {
     val HEALTH_AND_SAFETY = R.drawable.health_and_safety_48px
 
     val PIE_CHART = R.drawable.pie_chart_48px
+    val CREDIT_CARD = R.drawable.credit_card_48px
+    val PAYMENTS = R.drawable.payments_48px
 
+    val SWAP_HORIZ = R.drawable.swap_horiz_48px
+    val DOWNLOAD = R.drawable.download_48px
+    var SEARCH = R.drawable.search_48px
+var AUTORENEW = R.drawable.autorenew_48px
 val UPLOAD_FILE = R.drawable.upload_file_48px
+val CSV = R.drawable.list_48px
 
     /**
      * Map of stable icon names to their resource IDs.

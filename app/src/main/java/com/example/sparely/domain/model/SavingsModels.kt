@@ -80,8 +80,74 @@ data class PayScheduleSettings(
     val autoDistributeToVaults: Boolean = true,
     val autoCreatePendingTransfers: Boolean = true,
     val dynamicSaveRateEnabled: Boolean = true,
-    val lastComputedSaveRate: Double? = null
+    val lastComputedSaveRate: Double? = null,
+    // New income tracking fields
+    val paycheckHistory: List<PaycheckEntry> = emptyList(),
+    val incomeVariancePercent: Double = 0.0, // Standard deviation as percentage of mean
+    val predictedNextAmount: Double? = null, // ML-based prediction
+    val incomeStability: IncomeStability = IncomeStability.STABLE
+) {
+    /**
+     * Calculate average paycheck amount from history
+     */
+    fun averagePayAmount(): Double {
+        if (paycheckHistory.isEmpty()) return lastPayAmount.takeIf { it > 0 } ?: defaultNetPay
+        return paycheckHistory.map { it.amount }.average()
+    }
+
+    /**
+     * Calculate income variance (standard deviation / mean)
+     */
+    fun calculateVariance(): Double {
+        if (paycheckHistory.size < 2) return 0.0
+        val amounts = paycheckHistory.map { it.amount }
+        val mean = amounts.average()
+        if (mean <= 0) return 0.0
+        val variance = amounts.map { (it - mean) * (it - mean) }.average()
+        val stdDev = kotlin.math.sqrt(variance)
+        return (stdDev / mean) * 100 // As percentage
+    }
+
+    /**
+     * Determine income stability based on variance
+     */
+    fun determineStability(): IncomeStability {
+        val variance = calculateVariance()
+        return when {
+            variance <= 5.0 -> IncomeStability.VERY_STABLE
+            variance <= 15.0 -> IncomeStability.STABLE
+            variance <= 30.0 -> IncomeStability.MODERATE
+            else -> IncomeStability.VARIABLE
+        }
+    }
+
+    /**
+     * Predict next paycheck amount using weighted moving average
+     */
+    fun predictNextPaycheck(): Double {
+        if (paycheckHistory.isEmpty()) return lastPayAmount.takeIf { it > 0 } ?: defaultNetPay
+        if (paycheckHistory.size == 1) return paycheckHistory.first().amount
+
+        // Weighted moving average - more recent paychecks have higher weight
+        val weights = paycheckHistory.indices.map { i -> (i + 1).toDouble() }
+        val weightedSum = paycheckHistory.zip(weights) { entry, weight -> entry.amount * weight }.sum()
+        return weightedSum / weights.sum()
+    }
+}
+
+data class PaycheckEntry(
+    val date: LocalDate,
+    val amount: Double,
+    val source: String = "Primary", // Support for multiple income sources
+    val notes: String? = null
 )
+
+enum class IncomeStability {
+    VERY_STABLE, // <5% variance
+    STABLE,      // 5-15% variance
+    MODERATE,    // 15-30% variance
+    VARIABLE     // >30% variance
+}
 
 /**
  * Represents a tailored emergency fund target for the user.
@@ -140,7 +206,18 @@ data class SparelySettings(
     val vaultAllocationMode: VaultAllocationMode = VaultAllocationMode.DYNAMIC_AUTO,
     val dynamicSavingTaxEnabled: Boolean = true,
     val lastComputedSavingTaxRate: Double? = null,
-    val regionalSettings: RegionalSettings = RegionalSettings()
+    val regionalSettings: RegionalSettings = RegionalSettings(),
+    val brandfetchClientId: String? = null,
+    val expenseHistoryRetention: ExpenseHistoryRetention = ExpenseHistoryRetention.INDEFINITELY,
+    // Credit card reminder settings
+    val creditCardReminderEnabled: Boolean = true,
+    val creditCardReminderDaysBefore: Int = 3,
+    val creditCardReminderHour: Int = 9,
+    val promptPayOnCreditCardExpense: Boolean = false,
+    // Credit card utilization-based notification
+    val creditCardUtilizationAlertEnabled: Boolean = true,
+    val creditCardUtilizationThreshold: Int = 30,  // Default 30%, common recommended threshold
+    val biometricEnabled: Boolean = false
 ) {
     val isNewUser: Boolean
         get() = joinedDate?.let { java.time.temporal.ChronoUnit.DAYS.between(it, java.time.LocalDate.now()) < 7 } ?: true
@@ -218,6 +295,8 @@ data class SparelySettings(
         paydayReminderMinute = minute,
         paydaySuggestAverageIncome = suggestAverage
     )
+
+    fun withExpenseHistoryRetention(retention: ExpenseHistoryRetention): SparelySettings = copy(expenseHistoryRetention = retention)
 }
 
 data class SavingsAccount(

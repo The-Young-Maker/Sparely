@@ -27,7 +27,8 @@ data class MainAccountTransaction(
     val timestamp: LocalDateTime,
     val description: String,
     val relatedExpenseId: Long? = null,
-    val relatedVaultContributionIds: List<Long>? = null
+    val relatedVaultContributionIds: List<Long>? = null,
+    val incomeCategory: IncomeCategory? = null
 )
 
 data class MainAccountSummary(

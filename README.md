@@ -1,29 +1,130 @@
 # Sparely
 
-Sparely is an Android personal finance / savings app. This repository contains the app source code and developer documentation.
+**Sparely** is a modern Android personal finance and savings app built with Jetpack Compose. Track expenses, manage smart savings vaults, set budgets, and achieve your financial goals with intelligent allocation recommendations.
 
-This repo is being prepared for open-source release. The codebase may contain unfinished features and known bugs.
+## ✨ Features
 
-Quick links
-- See `README_IMPROVEMENTS.md` for feature and integration notes.
-- License: MIT (see `LICENSE`)
+- 📊 **Smart Savings Allocation** - AI-powered recommendations based on your financial profile
+- 💰 **Expense Tracking** - Category-based expense logging with automatic allocation
+- 🎯 **Smart Vaults** - Goal-based savings with automated deposits and progress tracking
+- 🔄 **Recurring Expenses** - Manage subscriptions and regular bills
+- 📈 **Financial Analytics** - Comprehensive insights into spending patterns and savings rate
+- 🏪 **Store/Merchant Tracking** - Track expenses by store with logo integration (via Brandfetch API)
+- 📱 **Home Screen Widget** - Quick view of your savings and spending at a glance
+- 💾 **Backup & Restore** - Export and import all your data in JSON format
+- 🎨 **Material Design 3** - Modern, beautiful UI following Material You guidelines
 
-Build & run (local)
+## 🏗️ Architecture
 
-Requirements
-- Android SDK (as configured in your `local.properties`)
-- JDK 11
+- **UI Layer:** Jetpack Compose with Material 3
+- **Database:** Room with SQLite for local persistence
+- **Async Operations:** Kotlin Coroutines & Flow
+- **Dependency Injection:** Manual DI via AppContainer pattern
+- **State Management:** ViewModel + StateFlow
+- **Background Tasks:** WorkManager for scheduled operations
 
-Build
-```powershell
-cd 'c:\Users\loic\AndroidStudioProjects\Sparely'
-.\gradlew.bat clean assembleDebug
-```
+## 🚀 Getting Started
 
-Notes before contributing
-- Do NOT commit private keys or `google-services.json`/`keystore.properties`/`secrets.properties`.
-- `local.properties` should remain local — it contains the SDK path.
-- The repository already ignores common sensitive files; please check `.gitignore` before adding secrets.
+### Prerequisites
 
-Contributing
-Please read `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md` before opening issues or pull requests.
+- Android Studio (Hedgehog 2023.1.1 or later)
+- JDK 11 or higher
+- Android SDK (API 26+)
+
+### Setup
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/Sparely.git
+   cd Sparely
+   ```
+
+2. **Open in Android Studio**
+   - Open Android Studio
+   - Select "Open an Existing Project"
+   - Navigate to the cloned directory
+
+3. **Sync Gradle**
+   - Android Studio should automatically sync Gradle
+   - If not, click "Sync Project with Gradle Files"
+
+4. **Run the app**
+   - Connect an Android device or start an emulator (API 26+)
+   - Click the "Run" button or press `Shift + F10`
+
+### Optional: Brandfetch Integration
+
+To enable store logo fetching:
+
+1. Get a free API key from [brandfetch.com](https://brandfetch.com)
+2. In the app: Settings → Brandfetch Client ID
+3. Enter your API key
+
+## 🛠️ Tech Stack
+
+| Category | Technology |
+|----------|-----------|
+| Language | Kotlin |
+| UI Framework | Jetpack Compose |
+| Database | Room (SQLite) |
+| Design System | Material Design 3 |
+| Image Loading | Coil |
+| JSON Serialization | Gson |
+| Background Work | WorkManager |
+| Async | Coroutines + Flow |
+| Navigation | Navigation Compose |
+
+## 📦 Backup & Restore
+
+**Export your data:**
+1. Go to Settings
+2. Tap "Export Data"
+3. Choose a location to save the JSON file
+
+**Import data:**
+1. Go to Settings
+2. Tap "Import Data"
+3. Select your backup JSON file
+
+The backup includes all expenses, vaults, budgets, stores, recurring expenses, and settings.
+
+## 🤝 Contributing
+
+We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md) before submitting pull requests.
+
+### Development Workflow
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🔒 Privacy
+
+Sparely stores all data locally on your device. No data is sent to external servers (except optional Brandfetch API calls for store logos). You have full control over your financial data with export/import capabilities.
+
+## 🐛 Known Issues
+
+- This is an early release - some features may have bugs
+- See [Issues](https://github.com/yourusername/Sparely/issues) for known problems
+
+## 📞 Support
+
+- 🐛 [Report a bug](https://github.com/yourusername/Sparely/issues/new?template=bug_report.md)
+- 💡 [Request a feature](https://github.com/yourusername/Sparely/issues/new?template=feature_request.md)
+- 💬 [Discussions](https://github.com/yourusername/Sparely/discussions)
+
+## 🙏 Acknowledgments
+
+- Material Symbols icons from Google
+- Brandfetch API for store logos
+- The Android and Kotlin communities
+
+---
+
+**Note:** This app is for personal finance tracking and educational purposes. Always consult with financial professionals for important financial decisions.

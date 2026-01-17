@@ -5,6 +5,8 @@
     <uses-permission
         android:name="android.permission.POST_NOTIFICATIONS"
         tools:targetApi="33" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
     <application
         android:allowBackup="true"
@@ -12,15 +14,15 @@
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:localeConfig="@xml/locales_config"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:theme="@style/Theme.Sparely"
-        android:name=".SparelyApplication">
+        android:name="com.example.sparely.SparelyApplication">
         
         <activity
-            android:name=".MainActivity"
+            android:name="com.example.sparely.MainActivity"
             android:exported="true"
-            android:label="@string/app_name"
             android:theme="@style/Theme.Sparely">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -30,7 +32,7 @@
         </activity>
 
         <receiver
-            android:name=".widget.SavingsWidgetReceiver"
+            android:name="com.example.sparely.widget.SavingsWidgetReceiver"
             android:exported="false"
             android:label="@string/widget_savings_label">
             <intent-filter>
@@ -43,11 +45,11 @@
         </receiver>
         
         <receiver
-            android:name=".notifications.VaultTransferNotificationReceiver"
+            android:name="com.example.sparely.notifications.VaultTransferNotificationReceiver"
             android:exported="false" />
 
         <receiver
-            android:name=".notifications.PaydayNotificationReceiver"
+            android:name="com.example.sparely.notifications.PaydayNotificationReceiver"
             android:exported="false" />
 
         <meta-data

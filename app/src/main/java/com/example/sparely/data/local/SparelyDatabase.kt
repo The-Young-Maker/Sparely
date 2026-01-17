@@ -22,9 +22,15 @@ import androidx.room.TypeConverters
         VaultBalanceAdjustmentEntity::class,
         FrozenFundEntity::class,
         AllocationHistoryEntity::class,
-        MainAccountTransactionEntity::class
+        MainAccountTransactionEntity::class,
+        StoreEntity::class,
+        PaymentMethodEntity::class,
+        CreditCardPaymentEntity::class,
+        TransactionVaultContributionCrossRef::class,
+        ExpenseItemEntity::class
     ],
-    version = 15,
+
+    version = 28,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -40,6 +46,10 @@ abstract class SparelyDatabase : RoomDatabase() {
     abstract fun allocationHistoryDao(): AllocationHistoryDao
     abstract fun mainAccountDao(): MainAccountDao
     abstract fun frozenFundDao(): FrozenFundDao
+    abstract fun storeDao(): StoreDao
+    abstract fun paymentMethodDao(): PaymentMethodDao
+    abstract fun creditCardPaymentDao(): CreditCardPaymentDao
+    abstract fun expenseItemDao(): ExpenseItemDao
 
     companion object {
         @Volatile
@@ -71,7 +81,21 @@ abstract class SparelyDatabase : RoomDatabase() {
                     MIGRATION_11_12,
                     MIGRATION_12_13,
                     MIGRATION_13_14,
-                    MIGRATION_14_15
+                    MIGRATION_14_15,
+                    MIGRATION_15_16,
+                    MIGRATION_16_17,
+                    MIGRATION_17_18,
+                    MIGRATION_18_19,
+                    MIGRATION_19_20,
+                    MIGRATION_20_21,
+                    MIGRATION_21_22,
+                    MIGRATION_22_23,
+                    MIGRATION_22_23,
+                    MIGRATION_23_24,
+                    MIGRATION_24_25,
+                    MIGRATION_25_26,
+                    MIGRATION_26_27,
+                    MIGRATION_27_28
                 )
                 .build()
         }
@@ -249,64 +273,64 @@ abstract class SparelyDatabase : RoomDatabase() {
         }
 
         val MIGRATION_1_12 = object : androidx.room.migration.Migration(1, 12) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(database)
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(db)
         }
 
         val MIGRATION_2_12 = object : androidx.room.migration.Migration(2, 12) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(database)
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(db)
         }
 
         val MIGRATION_3_12 = object : androidx.room.migration.Migration(3, 12) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(database)
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(db)
         }
 
         val MIGRATION_4_12 = object : androidx.room.migration.Migration(4, 12) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(database)
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(db)
         }
 
         val MIGRATION_5_12 = object : androidx.room.migration.Migration(5, 12) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(database)
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(db)
         }
 
         val MIGRATION_6_12 = object : androidx.room.migration.Migration(6, 12) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(database)
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(db)
         }
 
         val MIGRATION_7_12 = object : androidx.room.migration.Migration(7, 12) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(database)
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(db)
         }
 
         val MIGRATION_8_12 = object : androidx.room.migration.Migration(8, 12) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(database)
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(db)
         }
 
         val MIGRATION_9_12 = object : androidx.room.migration.Migration(9, 12) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(database)
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(db)
         }
 
         val MIGRATION_10_12 = object : androidx.room.migration.Migration(10, 12) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(database)
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(db)
         }
 
         // Migration: add new columns introduced in v12 (SmartVault additions and related fields)
         val MIGRATION_11_12 = object : androidx.room.migration.Migration(11, 12) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(database)
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) = migrateToV12(db)
         }
 
         val MIGRATION_12_13 = object : androidx.room.migration.Migration(12, 13) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE smart_vaults ADD COLUMN excludedFromAutoAllocation INTEGER NOT NULL DEFAULT 0")
-                database.execSQL("ALTER TABLE vault_auto_deposits ADD COLUMN dayOfMonth INTEGER")
-                database.execSQL("ALTER TABLE vault_auto_deposits ADD COLUMN dayOfWeek INTEGER")
-                database.execSQL("ALTER TABLE vault_auto_deposits ADD COLUMN customIntervalDays INTEGER")
-                database.execSQL("ALTER TABLE vault_auto_deposits ADD COLUMN nextRunAt INTEGER")
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE smart_vaults ADD COLUMN excludedFromAutoAllocation INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE vault_auto_deposits ADD COLUMN dayOfMonth INTEGER")
+                db.execSQL("ALTER TABLE vault_auto_deposits ADD COLUMN dayOfWeek INTEGER")
+                db.execSQL("ALTER TABLE vault_auto_deposits ADD COLUMN customIntervalDays INTEGER")
+                db.execSQL("ALTER TABLE vault_auto_deposits ADD COLUMN nextRunAt INTEGER")
             }
         }
 
         val MIGRATION_13_14 = object : androidx.room.migration.Migration(13, 14) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 fun hasColumn(tableName: String, columnName: String): Boolean {
-                    val cursor = database.query("PRAGMA table_info($tableName)")
+                    val cursor = db.query("PRAGMA table_info($tableName)")
                     cursor.use { c ->
                         val nameIndex = c.getColumnIndex("name")
                         while (c.moveToNext()) {
@@ -319,21 +343,21 @@ abstract class SparelyDatabase : RoomDatabase() {
                 val hadExcludedColumn = hasColumn("smart_vaults", "excludedFromAutoAllocation")
 
                 if (hasColumn("smart_vaults", "allow_auto_income").not()) {
-                    database.execSQL("ALTER TABLE smart_vaults ADD COLUMN allow_auto_income INTEGER NOT NULL DEFAULT 1")
+                    db.execSQL("ALTER TABLE smart_vaults ADD COLUMN allow_auto_income INTEGER NOT NULL DEFAULT 1")
                 }
                 if (hadExcludedColumn) {
-                    database.execSQL(
+                    db.execSQL(
                         "UPDATE smart_vaults SET allow_auto_income = CASE WHEN excludedFromAutoAllocation = 1 THEN 0 ELSE 1 END"
                     )
                 }
                 if (hasColumn("smart_vaults", "default_manual_deposit_deduct_main").not()) {
-                    database.execSQL("ALTER TABLE smart_vaults ADD COLUMN default_manual_deposit_deduct_main INTEGER NOT NULL DEFAULT 1")
+                    db.execSQL("ALTER TABLE smart_vaults ADD COLUMN default_manual_deposit_deduct_main INTEGER NOT NULL DEFAULT 1")
                 }
                 if (hasColumn("smart_vaults", "default_manual_withdraw_add_main").not()) {
-                    database.execSQL("ALTER TABLE smart_vaults ADD COLUMN default_manual_withdraw_add_main INTEGER NOT NULL DEFAULT 1")
+                    db.execSQL("ALTER TABLE smart_vaults ADD COLUMN default_manual_withdraw_add_main INTEGER NOT NULL DEFAULT 1")
                 }
 
-                database.execSQL(
+                db.execSQL(
                     "CREATE TABLE IF NOT EXISTS smart_vaults_new (" +
                         "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
                         "name TEXT NOT NULL, " +
@@ -364,7 +388,7 @@ abstract class SparelyDatabase : RoomDatabase() {
                         ")"
                 )
 
-                database.execSQL(
+                db.execSQL(
                     "INSERT INTO smart_vaults_new (" +
                         "id, name, targetAmount, currentBalance, targetDate, startDate, endDate, monthlyNeed, priorityWeight, autoSaveEnabled, " +
                         "allow_auto_income, priority, type, interestRate, allocationMode, manualAllocationPercent, nextExpectedContribution, " +
@@ -380,12 +404,12 @@ abstract class SparelyDatabase : RoomDatabase() {
                         "FROM smart_vaults"
                 )
 
-                database.execSQL("PRAGMA foreign_keys=OFF")
-                database.execSQL("DROP TABLE smart_vaults")
-                database.execSQL("ALTER TABLE smart_vaults_new RENAME TO smart_vaults")
-                database.execSQL("PRAGMA foreign_keys=ON")
+                db.execSQL("PRAGMA foreign_keys=OFF")
+                db.execSQL("DROP TABLE smart_vaults")
+                db.execSQL("ALTER TABLE smart_vaults_new RENAME TO smart_vaults")
+                db.execSQL("PRAGMA foreign_keys=ON")
 
-                database.execSQL(
+                db.execSQL(
                     "CREATE TABLE IF NOT EXISTS vault_schedules (" +
                         "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
                         "vaultId INTEGER NOT NULL, " +
@@ -409,12 +433,12 @@ abstract class SparelyDatabase : RoomDatabase() {
                         "updatedAt INTEGER NOT NULL, " +
                         "FOREIGN KEY(vaultId) REFERENCES smart_vaults(id) ON DELETE CASCADE)"
                 )
-                database.execSQL("CREATE INDEX IF NOT EXISTS index_vault_schedules_vaultId ON vault_schedules(vaultId)")
-                database.execSQL("CREATE INDEX IF NOT EXISTS index_vault_schedules_enabled ON vault_schedules(enabled)")
-                database.execSQL("CREATE INDEX IF NOT EXISTS index_vault_schedules_nextRunAt ON vault_schedules(nextRunAt)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_vault_schedules_vaultId ON vault_schedules(vaultId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_vault_schedules_enabled ON vault_schedules(enabled)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_vault_schedules_nextRunAt ON vault_schedules(nextRunAt)")
 
                 val nowMillis = System.currentTimeMillis()
-                database.execSQL(
+                db.execSQL(
                     "INSERT INTO vault_schedules (" +
                         "vaultId, type, amount, percentage, direction, dateValue, repeatAnnually, dayOfMonth, dayOfWeek, weekInterval, onlyIfBalanceAvailable, notifyBefore, notifyAfter, notifyOnFailure, nextRunAt, lastRunAt, enabled, createdAt, updatedAt" +
                         ") " +
@@ -441,13 +465,392 @@ abstract class SparelyDatabase : RoomDatabase() {
                         "FROM vault_auto_deposits"
                 )
 
-                database.execSQL("DROP TABLE IF EXISTS vault_auto_deposits")
+                db.execSQL("DROP TABLE IF EXISTS vault_auto_deposits")
             }
         }
 
         val MIGRATION_14_15 = object : androidx.room.migration.Migration(14, 15) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE smart_vaults ADD COLUMN iconName TEXT")
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE smart_vaults ADD COLUMN iconName TEXT")
+            }
+        }
+
+        val MIGRATION_15_16 = object : androidx.room.migration.Migration(15, 16) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Create stores table
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS stores (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "name TEXT NOT NULL, " +
+                        "iconName TEXT, " +
+                        "createdAt INTEGER NOT NULL" +
+                        ")"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_stores_name ON stores(name)")
+
+                // Add storeId column to expenses table
+                db.execSQL("ALTER TABLE expenses ADD COLUMN storeId INTEGER")
+            }
+        }
+
+        val MIGRATION_16_17 = object : androidx.room.migration.Migration(16, 17) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Add websiteUrl column to stores table (nullable, preserves existing data)
+                db.execSQL("ALTER TABLE stores ADD COLUMN websiteUrl TEXT")
+            }
+        }
+
+        val MIGRATION_17_18 = object : androidx.room.migration.Migration(17, 18) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Add storeId column to recurring_expenses table for store selection
+                db.execSQL("ALTER TABLE recurring_expenses ADD COLUMN storeId INTEGER")
+                // Add isRecurring column to expenses table
+                db.execSQL("ALTER TABLE expenses ADD COLUMN isRecurring INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        val MIGRATION_18_19 = object : androidx.room.migration.Migration(18, 19) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Create payment_methods table
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS payment_methods (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "name TEXT NOT NULL, " +
+                        "type TEXT NOT NULL, " +
+                        "defaultDeductFromMainAccount INTEGER NOT NULL, " +
+                        "isDefault INTEGER NOT NULL, " +
+                        "iconName TEXT" +
+                        ")"
+                )
+
+                // Seed default payment methods
+                // Cash: deduct = 0 (false), type = CASH
+                db.execSQL(
+                    "INSERT INTO payment_methods (name, type, defaultDeductFromMainAccount, isDefault, iconName) " +
+                        "VALUES ('Cash', 'CASH', 0, 1, 'payments')"
+                )
+                // Card: deduct = 1 (true), type = CARD
+                db.execSQL(
+                    "INSERT INTO payment_methods (name, type, defaultDeductFromMainAccount, isDefault, iconName) " +
+                        "VALUES ('Card', 'CARD', 1, 0, 'credit_card')"
+                )
+
+                // Add paymentMethodId to expenses table
+                db.execSQL("ALTER TABLE expenses ADD COLUMN paymentMethodId INTEGER")
+
+                // Add paymentMethodId to recurring_expenses table
+                db.execSQL("ALTER TABLE recurring_expenses ADD COLUMN paymentMethodId INTEGER")
+            }
+        }
+
+        val MIGRATION_19_20 = object : androidx.room.migration.Migration(19, 20) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Add credit card fields to payment_methods table
+                db.execSQL("ALTER TABLE payment_methods ADD COLUMN isCreditCard INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE payment_methods ADD COLUMN creditLimit REAL")
+                db.execSQL("ALTER TABLE payment_methods ADD COLUMN currentBalance REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE payment_methods ADD COLUMN billingCycleDay INTEGER")
+                db.execSQL("ALTER TABLE payment_methods ADD COLUMN lastPaymentDate INTEGER")
+                db.execSQL("ALTER TABLE payment_methods ADD COLUMN lastPaymentAmount REAL")
+
+                // Create credit_card_payments table
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS credit_card_payments (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "paymentMethodId INTEGER NOT NULL, " +
+                        "amount REAL NOT NULL, " +
+                        "date INTEGER NOT NULL, " +
+                        "note TEXT, " +
+                        "FOREIGN KEY(paymentMethodId) REFERENCES payment_methods(id) ON DELETE CASCADE" +
+                        ")"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_credit_card_payments_paymentMethodId ON credit_card_payments(paymentMethodId)")
+            }
+        }
+
+        val MIGRATION_20_21 = object : androidx.room.migration.Migration(20, 21) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // 1. Create the cross-reference table
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS transaction_vault_contribution_cross_ref (" +
+                        "transactionId INTEGER NOT NULL, " +
+                        "contributionId INTEGER NOT NULL, " +
+                        "PRIMARY KEY(transactionId, contributionId), " +
+                        "FOREIGN KEY(transactionId) REFERENCES main_account_transactions(id) ON DELETE CASCADE, " +
+                        "FOREIGN KEY(contributionId) REFERENCES vault_contributions(id) ON DELETE CASCADE" +
+                        ")"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_txn_vault_ref_txnId ON transaction_vault_contribution_cross_ref(transactionId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_txn_vault_ref_contribId ON transaction_vault_contribution_cross_ref(contributionId)")
+
+                // 2. Migrate data from main_account_transactions.relatedVaultContributionIds
+                // Use CTE to split comma-separated IDs and insert into cross-ref table
+                db.execSQL("""
+                    WITH RECURSIVE split(transactionId, contribId, rest) AS (
+                      SELECT id, '', relatedVaultContributionIds || ',' FROM main_account_transactions WHERE relatedVaultContributionIds IS NOT NULL AND relatedVaultContributionIds != ''
+                      UNION ALL
+                      SELECT transactionId,
+                             substr(rest, 1, instr(rest, ',') - 1),
+                             substr(rest, instr(rest, ',') + 1)
+                      FROM split
+                      WHERE rest != ''
+                    )
+                    INSERT INTO transaction_vault_contribution_cross_ref (transactionId, contributionId)
+                    SELECT transactionId, CAST(contribId AS INTEGER)
+                    FROM split
+                    WHERE contribId != '' AND contribId GLOB '[0-9]*';
+                """)
+
+                // 3. Remove relatedVaultContributionIds column from main_account_transactions
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS main_account_transactions_new (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "type TEXT NOT NULL, " +
+                        "amount REAL NOT NULL, " +
+                        "balanceAfter REAL NOT NULL, " +
+                        "timestamp INTEGER NOT NULL, " +
+                        "description TEXT NOT NULL, " +
+                        "relatedExpenseId INTEGER" +
+                        ")"
+                )
+                
+                db.execSQL(
+                    "INSERT INTO main_account_transactions_new (id, type, amount, balanceAfter, timestamp, description, relatedExpenseId) " +
+                        "SELECT id, type, amount, balanceAfter, timestamp, description, relatedExpenseId FROM main_account_transactions"
+                )
+                
+                db.execSQL("DROP TABLE main_account_transactions")
+                db.execSQL("ALTER TABLE main_account_transactions_new RENAME TO main_account_transactions")
+            }
+        }
+
+        // Migration 21->22: Add missing Foreign Key Constraints to Entities
+        val MIGRATION_21_22 = object : androidx.room.migration.Migration(21, 22) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // We'll turn off foreign keys for the duration of the migration to avoid conflict during drop tables
+                db.execSQL("PRAGMA foreign_keys=OFF")
+
+                // 1. RECREATE EXPENSES TABLE WITH FOREIGN KEYS
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS expenses_new (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "description TEXT NOT NULL, " +
+                        "amount REAL NOT NULL, " +
+                        "category TEXT NOT NULL, " +
+                        "date INTEGER NOT NULL, " +
+                        "includesTax INTEGER NOT NULL, " +
+                        "emergencyAmount REAL NOT NULL, " +
+                        "investmentAmount REAL NOT NULL, " +
+                        "funAmount REAL NOT NULL, " +
+                        "safeInvestmentAmount REAL NOT NULL, " +
+                        "highRiskInvestmentAmount REAL NOT NULL, " +
+                        "autoRecommended INTEGER NOT NULL, " +
+                        "appliedPercentEmergency REAL NOT NULL, " +
+                        "appliedPercentInvest REAL NOT NULL, " +
+                        "appliedPercentFun REAL NOT NULL, " +
+                        "appliedSafeSplit REAL NOT NULL, " +
+                        "riskLevelUsed TEXT NOT NULL, " +
+                        "deductedFromVaultId INTEGER, " +
+                        "storeId INTEGER, " +
+                        "paymentMethodId INTEGER, " +
+                        "isRecurring INTEGER NOT NULL DEFAULT 0, " +
+                        "FOREIGN KEY(deductedFromVaultId) REFERENCES smart_vaults(id) ON DELETE SET NULL, " +
+                        "FOREIGN KEY(storeId) REFERENCES stores(id) ON DELETE SET NULL, " +
+                        "FOREIGN KEY(paymentMethodId) REFERENCES payment_methods(id) ON DELETE SET NULL" +
+                        ")"
+                )
+                // Copy Data
+                db.execSQL("INSERT INTO expenses_new SELECT * FROM expenses")
+                db.execSQL("DROP TABLE expenses")
+                db.execSQL("ALTER TABLE expenses_new RENAME TO expenses")
+                // Recreate Indices
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_expenses_deductedFromVaultId ON expenses(deductedFromVaultId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_expenses_storeId ON expenses(storeId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_expenses_paymentMethodId ON expenses(paymentMethodId)")
+
+
+                // 2. RECREATE RECURRING_EXPENSES TABLE WITH FOREIGN KEYS
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS recurring_expenses_new (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "description TEXT NOT NULL, " +
+                        "amount REAL NOT NULL, " +
+                        "category TEXT NOT NULL, " +
+                        "frequency TEXT NOT NULL, " +
+                        "startDate INTEGER NOT NULL, " +
+                        "endDate INTEGER, " +
+                        "lastProcessedDate INTEGER, " +
+                        "isActive INTEGER NOT NULL, " +
+                        "autoLog INTEGER NOT NULL, " +
+                        "executeAutomatically INTEGER NOT NULL, " +
+                        "reminderDaysBefore INTEGER NOT NULL, " +
+                        "merchantName TEXT, " +
+                        "notes TEXT, " +
+                        "storeId INTEGER, " +
+                        "paymentMethodId INTEGER, " +
+                        "includesTax INTEGER NOT NULL, " +
+                        "deductFromMainAccount INTEGER NOT NULL, " +
+                        "deductedFromVaultId INTEGER, " +
+                        "manualPercentEmergency REAL, " +
+                        "manualPercentInvest REAL, " +
+                        "manualPercentFun REAL, " +
+                        "manualSafeSplit REAL, " +
+                        "FOREIGN KEY(deductedFromVaultId) REFERENCES smart_vaults(id) ON DELETE SET NULL, " +
+                        "FOREIGN KEY(storeId) REFERENCES stores(id) ON DELETE SET NULL, " +
+                        "FOREIGN KEY(paymentMethodId) REFERENCES payment_methods(id) ON DELETE SET NULL" +
+                        ")"
+                )
+                db.execSQL("INSERT INTO recurring_expenses_new SELECT * FROM recurring_expenses")
+                db.execSQL("DROP TABLE recurring_expenses")
+                db.execSQL("ALTER TABLE recurring_expenses_new RENAME TO recurring_expenses")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_recurring_expenses_deductedFromVaultId ON recurring_expenses(deductedFromVaultId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_recurring_expenses_storeId ON recurring_expenses(storeId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_recurring_expenses_paymentMethodId ON recurring_expenses(paymentMethodId)")
+
+
+                // 3. RECREATE SAVINGS_TRANSFERS TABLE WITH FOREIGN KEYS
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS savings_transfers_new (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "category TEXT NOT NULL, " +
+                        "amount REAL NOT NULL, " +
+                        "date INTEGER NOT NULL, " +
+                        "sourceAccountId INTEGER, " +
+                        "destinationAccountId INTEGER, " +
+                        "note TEXT, " +
+                        "FOREIGN KEY(sourceAccountId) REFERENCES savings_accounts(id) ON DELETE SET NULL, " +
+                        "FOREIGN KEY(destinationAccountId) REFERENCES savings_accounts(id) ON DELETE SET NULL" +
+                        ")"
+                )
+                db.execSQL("INSERT INTO savings_transfers_new SELECT * FROM savings_transfers")
+                db.execSQL("DROP TABLE savings_transfers")
+                db.execSQL("ALTER TABLE savings_transfers_new RENAME TO savings_transfers")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_savings_transfers_sourceAccountId ON savings_transfers(sourceAccountId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_savings_transfers_destinationAccountId ON savings_transfers(destinationAccountId)")
+
+
+                // 4. RECREATE MAIN_ACCOUNT_TRANSACTIONS WITH FOREIGN KEYS
+                // Note: The structure must match the ONE CREATED IN MIGRATION 20_21 + the new FK
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS main_account_transactions_new (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "type TEXT NOT NULL, " +
+                        "amount REAL NOT NULL, " +
+                        "balanceAfter REAL NOT NULL, " +
+                        "timestamp INTEGER NOT NULL, " +
+                        "description TEXT NOT NULL, " +
+                        "relatedExpenseId INTEGER, " +
+                        "FOREIGN KEY(relatedExpenseId) REFERENCES expenses(id) ON DELETE SET NULL" +
+                        ")"
+                )
+                db.execSQL("INSERT INTO main_account_transactions_new SELECT * FROM main_account_transactions")
+                // Dropping main_account_transactions might normally trigger CASCADE on its children (transaction_vault_contribution_cross_ref)
+                // But we set PRAGMA foreign_keys=OFF so we should be safe.
+                db.execSQL("DROP TABLE main_account_transactions")
+                db.execSQL("ALTER TABLE main_account_transactions_new RENAME TO main_account_transactions")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_main_account_transactions_relatedExpenseId ON main_account_transactions(relatedExpenseId)")
+                
+                // Turn foreign keys back on
+                db.execSQL("PRAGMA foreign_keys=ON")
+            }
+        }
+
+        // Migration 22->23: Add notes column to expenses table
+        val MIGRATION_22_23 = object : androidx.room.migration.Migration(22, 23) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE expenses ADD COLUMN notes TEXT")
+            }
+        }
+
+        // Migration 23->24: Add incomeCategory column to main_account_transactions table
+        val MIGRATION_23_24 = object : androidx.room.migration.Migration(23, 24) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE main_account_transactions ADD COLUMN incomeCategory TEXT")
+            }
+        }
+
+        // Migration 24->25: Add refund fields to expenses and relatedExpenseId to vault_contributions
+        val MIGRATION_24_25 = object : androidx.room.migration.Migration(24, 25) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // 1. Add columns to expenses table
+                db.execSQL("ALTER TABLE expenses ADD COLUMN refundedAmount REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE expenses ADD COLUMN isRefunded INTEGER NOT NULL DEFAULT 0")
+
+                // 2. Add relatedExpenseId to vault_contributions table
+                // Since SQLite doesn't support adding columns with foreign keys directly in ALTER TABLE in a standard way that Room always likes,
+                // and we want to be safe, we'll recreate the table.
+                
+                db.execSQL("PRAGMA foreign_keys=OFF")
+
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS vault_contributions_new (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "vaultId INTEGER NOT NULL, " +
+                        "amount REAL NOT NULL, " +
+                        "date INTEGER NOT NULL, " +
+                        "source TEXT NOT NULL, " +
+                        "note TEXT, " +
+                        "reconciled INTEGER NOT NULL, " +
+                        "relatedExpenseId INTEGER, " +
+                        "FOREIGN KEY(vaultId) REFERENCES smart_vaults(id) ON DELETE CASCADE, " +
+                        "FOREIGN KEY(relatedExpenseId) REFERENCES expenses(id) ON DELETE SET NULL" +
+                        ")"
+                )
+                
+                db.execSQL(
+                    "INSERT INTO vault_contributions_new (id, vaultId, amount, date, source, note, reconciled) " +
+                        "SELECT id, vaultId, amount, date, source, note, reconciled FROM vault_contributions"
+                )
+                
+                db.execSQL("DROP TABLE vault_contributions")
+                db.execSQL("ALTER TABLE vault_contributions_new RENAME TO vault_contributions")
+                
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_vault_contributions_vaultId ON vault_contributions(vaultId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_vault_contributions_date ON vault_contributions(date)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_vault_contributions_relatedExpenseId ON vault_contributions(relatedExpenseId)")
+                
+                db.execSQL("PRAGMA foreign_keys=ON")
+            }
+        }
+
+        // Migration 25->26: Add expense_items table for line items
+        val MIGRATION_25_26 = object : androidx.room.migration.Migration(25, 26) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS expense_items (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "expenseId INTEGER NOT NULL, " +
+                        "name TEXT NOT NULL, " +
+                        "quantity INTEGER NOT NULL DEFAULT 1, " +
+                        "unitPrice REAL NOT NULL, " +
+                        "totalPrice REAL NOT NULL, " +
+                        "FOREIGN KEY(expenseId) REFERENCES expenses(id) ON DELETE CASCADE" +
+                        ")"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_expense_items_expenseId ON expense_items(expenseId)")
+            }
+        }
+
+        // Migration 26->27: Add orderNumber column to expenses
+        val MIGRATION_26_27 = object : androidx.room.migration.Migration(26, 27) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE expenses ADD COLUMN orderNumber TEXT")
+            }
+        }
+        
+        // Migration 27->28: Add variable amount support for recurring expenses and high-yield savings for vaults
+        val MIGRATION_27_28 = object : androidx.room.migration.Migration(27, 28) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Add variable amount fields to recurring_expenses table
+                db.execSQL("ALTER TABLE recurring_expenses ADD COLUMN isVariableAmount INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE recurring_expenses ADD COLUMN amountHistoryJson TEXT")
+                db.execSQL("ALTER TABLE recurring_expenses ADD COLUMN estimatedAmount REAL")
+                
+                // Add high-yield savings fields to smart_vaults table
+                db.execSQL("ALTER TABLE smart_vaults ADD COLUMN isHighYieldAccount INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE smart_vaults ADD COLUMN annualPercentageYield REAL")
+                db.execSQL("ALTER TABLE smart_vaults ADD COLUMN lastInterestCalculation INTEGER")
+                db.execSQL("ALTER TABLE smart_vaults ADD COLUMN accruedInterest REAL NOT NULL DEFAULT 0.0")
             }
         }
     }

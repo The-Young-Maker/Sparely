@@ -34,7 +34,15 @@ object IncomeAutomationEngine {
         }
 
         val intervalFactor = paychecksPerMonth(input.schedule)
-        val projectedMonthlyIncome = (sanitizedPay * intervalFactor).coerceAtLeast(input.settings.monthlyIncome)
+        
+        // Use predicted pay amount if available, otherwise use current
+        val effectivePay = input.schedule.predictedNextAmount?.takeIf { it > 0 }
+            ?: input.schedule.predictNextPaycheck().takeIf { it > 0 }
+            ?: sanitizedPay
+        
+        // Use average for more stable projections
+        val averagePay = input.schedule.averagePayAmount().takeIf { it > 0 } ?: sanitizedPay
+        val projectedMonthlyIncome = (averagePay * intervalFactor).coerceAtLeast(input.settings.monthlyIncome)
 
         val monthlyExpenses = deriveMonthlyExpense(input.analytics, input.recurringExpenses)
         val bufferFloor = (monthlyExpenses * 0.15) + 150.0
@@ -43,9 +51,23 @@ object IncomeAutomationEngine {
         val expenseCoverageRatio = if (projectedMonthlyIncome <= 0.0) 0.0 else (monthlyExpenses / projectedMonthlyIncome).coerceIn(0.0, 1.0)
         val residualRatio = if (projectedMonthlyIncome <= 0.0) 0.0 else (residual / projectedMonthlyIncome).coerceIn(0.0, 1.0)
 
+        // Get income stability and variance
+        val incomeStability = input.schedule.determineStability()
+        val incomeVariance = input.schedule.calculateVariance()
+
+        // Base save rate calculation
         var recommendedSaveRate = input.settings.targetSavingsRate
         recommendedSaveRate += residualRatio * 0.35
         recommendedSaveRate -= expenseCoverageRatio * 0.1
+        
+        // Adjust for income stability - more conservative for variable income
+        val stabilityAdjustment = when (incomeStability) {
+            com.example.sparely.domain.model.IncomeStability.VERY_STABLE -> 0.05  // Can save more aggressively
+            com.example.sparely.domain.model.IncomeStability.STABLE -> 0.0
+            com.example.sparely.domain.model.IncomeStability.MODERATE -> -0.05  // More conservative
+            com.example.sparely.domain.model.IncomeStability.VARIABLE -> -0.10  // Much more conservative
+        }
+        recommendedSaveRate += stabilityAdjustment
         recommendedSaveRate = recommendedSaveRate.coerceIn(0.05, 0.65)
 
         val baselineExpensePerPay = if (intervalFactor <= 0.0) monthlyExpenses else monthlyExpenses / intervalFactor
@@ -53,12 +75,16 @@ object IncomeAutomationEngine {
         recommendedSaveRate = recommendedSaveRate.coerceAtMost(maxAffordableRate.coerceIn(0.1, 0.8))
         recommendedSaveRate = recommendedSaveRate.coerceIn(0.05, 0.6)
 
-        val recommendedSavingTaxRate = buildSavingTaxRate(recommendedSaveRate, residualRatio, expenseCoverageRatio)
+        val recommendedSavingTaxRate = buildSavingTaxRate(recommendedSaveRate, residualRatio, expenseCoverageRatio, incomeStability)
 
         val rationale = mutableListOf<String>()
         rationale += "Monthly income baseline: ${"%,.0f".format(projectedMonthlyIncome)}"
         rationale += "Average monthly expenses: ${"%,.0f".format(monthlyExpenses)}"
         rationale += "Residual buffer: ${"%,.0f".format(residual)}"
+        rationale += "Income stability: ${incomeStability.name.lowercase().replace("_", " ")}"
+        if (incomeVariance > 0) {
+            rationale += "Income variance: ${String.format("%.1f%%", incomeVariance)}"
+        }
         rationale += "Applied save rate: ${String.format("%.1f%%", recommendedSaveRate * 100)}"
         rationale += "Saving tax skim: ${String.format("%.1f%%", recommendedSavingTaxRate * 100)}"
 
@@ -101,10 +127,24 @@ object IncomeAutomationEngine {
         }
     }
 
-    private fun buildSavingTaxRate(saveRate: Double, residualRatio: Double, expenseCoverageRatio: Double): Double {
+    private fun buildSavingTaxRate(
+        saveRate: Double,
+        residualRatio: Double,
+        expenseCoverageRatio: Double,
+        incomeStability: com.example.sparely.domain.model.IncomeStability
+    ): Double {
         val baseline = saveRate * 0.25
         val demandBoost = residualRatio * 0.1
         val safetyPenalty = expenseCoverageRatio * 0.05
-        return min(0.25, max(0.0, baseline + demandBoost - safetyPenalty))
+        
+        // Reduce saving tax for variable income to build more cushion
+        val stabilityAdjustment = when (incomeStability) {
+            com.example.sparely.domain.model.IncomeStability.VERY_STABLE -> 0.02
+            com.example.sparely.domain.model.IncomeStability.STABLE -> 0.0
+            com.example.sparely.domain.model.IncomeStability.MODERATE -> -0.02
+            com.example.sparely.domain.model.IncomeStability.VARIABLE -> -0.05
+        }
+        
+        return min(0.25, max(0.0, baseline + demandBoost - safetyPenalty + stabilityAdjustment))
     }
 }

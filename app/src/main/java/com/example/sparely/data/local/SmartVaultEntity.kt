@@ -49,7 +49,12 @@ data class SmartVaultEntity(
     val defaultManualDepositDeductFromMain: Boolean = true,
     @ColumnInfo(name = "default_manual_withdraw_add_main")
     val defaultManualWithdrawalCreditMain: Boolean = true,
-    val iconName: String? = null
+    val iconName: String? = null,
+    // High-yield savings support
+    val isHighYieldAccount: Boolean = false,
+    val annualPercentageYield: Double? = null,
+    val lastInterestCalculation: LocalDate? = null,
+    val accruedInterest: Double = 0.0
 )
 
 {
@@ -104,7 +109,11 @@ data class SmartVaultEntity(
         createdAt = createdAt ?: LocalDate.now(),
         defaultManualDepositDeductFromMain = true,
         defaultManualWithdrawalCreditMain = true,
-        iconName = iconName
+        iconName = iconName,
+        isHighYieldAccount = false,
+        annualPercentageYield = null,
+        lastInterestCalculation = null,
+        accruedInterest = 0.0
     )
 }
 
@@ -116,9 +125,15 @@ data class SmartVaultEntity(
             parentColumns = ["id"],
             childColumns = ["vaultId"],
             onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = ExpenseEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["relatedExpenseId"],
+            onDelete = ForeignKey.SET_NULL
         )
     ],
-    indices = [Index("vaultId"), Index("date")]
+    indices = [Index("vaultId"), Index("date"), Index("relatedExpenseId")]
 )
 data class VaultContributionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0L,
@@ -127,7 +142,8 @@ data class VaultContributionEntity(
     val date: LocalDate,
     val source: VaultContributionSource,
     val note: String?,
-    val reconciled: Boolean
+    val reconciled: Boolean,
+    val relatedExpenseId: Long? = null
 )
 
 @Entity(

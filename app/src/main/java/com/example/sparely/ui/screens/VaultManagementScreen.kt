@@ -6,6 +6,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.staggeredgrid.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -20,8 +21,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.Dialog
-import com.example.sparely.R
+import com.sparely.app.R
 import com.example.sparely.domain.model.*
 import com.example.sparely.ui.components.ExpressiveCard
 import com.example.sparely.ui.components.SingleLineText
@@ -40,6 +42,8 @@ import java.time.temporal.ChronoUnit
 import java.time.format.TextStyle
 import java.util.Locale
 import com.example.sparely.ui.utils.toSafeDatePickerMillis
+import com.example.sparely.ui.utils.filterCurrencyInput
+import com.example.sparely.ui.utils.toSafeDouble
 import kotlin.math.abs
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -48,6 +52,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.style.TextOverflow
+import com.example.sparely.ui.theme.PoppinsFontFamily
 import kotlin.math.max
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -63,8 +69,10 @@ fun VaultManagementScreen(
     onNavigateBack: () -> Unit,
     onManualDeposit: ((Long, Double, String?, Boolean) -> Unit)? = null,
     onManualWithdrawal: ((Long, Double, String?, Boolean) -> Unit)? = null,
-    onViewHistory: ((Long) -> Unit)? = null
+    onViewHistory: ((Long) -> Unit)? = null,
+    onBalanceOverride: ((Long, Double, String?) -> Unit)? = null
 ) {
+
     var vaultToEdit by remember { mutableStateOf<SmartVault?>(null) }
     var vaultToDeposit by remember { mutableStateOf<SmartVault?>(null) }
     var vaultToWithdraw by remember { mutableStateOf<SmartVault?>(null) }
@@ -83,6 +91,29 @@ fun VaultManagementScreen(
         if (totalTargetAmount > 0) (totalVaultBalance / totalTargetAmount * 100).toInt() else 0
     }
 
+    // Effect to detect new completions and trigger confetti
+    var completedVaultIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var showConfetti by remember { mutableStateOf(false) }
+    var isInitialized by remember { mutableStateOf(false) }
+
+    LaunchedEffect(vaults) {
+        val currentlyCompleted = vaults.filter { it.targetAmount > 0 && it.currentBalance >= it.targetAmount }.map { it.id }.toSet()
+        
+        if (!isInitialized) {
+            completedVaultIds = currentlyCompleted
+            isInitialized = true
+        } else {
+            val newCompletions = currentlyCompleted - completedVaultIds
+            if (newCompletions.isNotEmpty()) {
+                showConfetti = true
+            }
+            completedVaultIds = currentlyCompleted
+        }
+    }
+    
+    Box(modifier = Modifier.fillMaxSize()) { // Wrap Scaffold in Box to overlay confetti
+
+
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
@@ -98,10 +129,10 @@ fun VaultManagementScreen(
                 ) {
                     MaterialSymbolIcon(
                         icon = MaterialSymbols.ADD,
-                        contentDescription = "Create vault",
+                        contentDescription = stringResource(R.string.vault_management_create_desc),
                         size = 24.dp
                     )
-                    Text("Create Vault", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.vault_management_add), style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
@@ -148,19 +179,19 @@ fun VaultManagementScreen(
                 if (urgentVaults.isNotEmpty()) {
                     item {
                         SectionHeader(
-                            title = "Urgent Goals",
-                            subtitle = "${urgentVaults.size} goal(s) need attention soon",
+                            title = stringResource(R.string.vault_urgent_goals),
+                            subtitle = stringResource(R.string.vault_urgent_goals_count, urgentVaults.size),
                             icon = MaterialSymbols.LOCAL_FIRE_DEPARTMENT
                         )
                     }
-                    items(urgentVaults.size) { index ->
+                    items(urgentVaults, key = { it.id }) { vault ->
                         EnhancedVaultCard(
-                            vault = urgentVaults[index],
-                            onEdit = { vaultToEdit = urgentVaults[index] },
-                            onDelete = { vaultToDelete = urgentVaults[index] },
-                            onDeposit = onManualDeposit?.let { { vaultToDeposit = urgentVaults[index] } },
-                            onWithdraw = onManualWithdrawal?.let { { vaultToWithdraw = urgentVaults[index] } },
-                            onViewHistory = onViewHistory?.let { { it(urgentVaults[index].id) } }
+                            vault = vault,
+                            onEdit = { vaultToEdit = vault },
+                            onDelete = { vaultToDelete = vault },
+                            onDeposit = onManualDeposit?.let { { vaultToDeposit = vault } },
+                            onWithdraw = onManualWithdrawal?.let { { vaultToWithdraw = vault } },
+                            onViewHistory = onViewHistory?.let { { it(vault.id) } }
                         )
                     }
                 }
@@ -168,19 +199,19 @@ fun VaultManagementScreen(
                 if (activeVaults.isNotEmpty()) {
                     item {
                         SectionHeader(
-                            title = "Active Flow Goals",
-                            subtitle = "${activeVaults.size} recurring goal(s) currently active",
+                            title = stringResource(R.string.vault_active_flow_goals),
+                            subtitle = stringResource(R.string.vault_active_flow_goals_count, activeVaults.size),
                             icon = MaterialSymbols.TRENDING_UP
                         )
                     }
-                    items(activeVaults.size) { index ->
+                    items(activeVaults, key = { it.id }) { vault ->
                         EnhancedVaultCard(
-                            vault = activeVaults[index],
-                            onEdit = { vaultToEdit = activeVaults[index] },
-                            onDelete = { vaultToDelete = activeVaults[index] },
-                            onDeposit = onManualDeposit?.let { { vaultToDeposit = activeVaults[index] } },
-                            onWithdraw = onManualWithdrawal?.let { { vaultToWithdraw = activeVaults[index] } },
-                            onViewHistory = onViewHistory?.let { { it(activeVaults[index].id) } }
+                            vault = vault,
+                            onEdit = { vaultToEdit = vault },
+                            onDelete = { vaultToDelete = vault },
+                            onDeposit = onManualDeposit?.let { { vaultToDeposit = vault } },
+                            onWithdraw = onManualWithdrawal?.let { { vaultToWithdraw = vault } },
+                            onViewHistory = onViewHistory?.let { { it(vault.id) } }
                         )
                     }
                 }
@@ -188,19 +219,19 @@ fun VaultManagementScreen(
                 if (plannedVaults.isNotEmpty()) {
                     item {
                         SectionHeader(
-                            title = "Planned Goals",
-                            subtitle = "${plannedVaults.size} goal(s) in progress",
+                            title = stringResource(R.string.vault_planned_goals),
+                            subtitle = stringResource(R.string.vault_planned_goals_count, plannedVaults.size),
                             icon = MaterialSymbols.ACCOUNT_BALANCE_WALLET
                         )
                     }
-                    items(plannedVaults.size) { index ->
+                    items(plannedVaults, key = { it.id }) { vault ->
                         EnhancedVaultCard(
-                            vault = plannedVaults[index],
-                            onEdit = { vaultToEdit = plannedVaults[index] },
-                            onDelete = { vaultToDelete = plannedVaults[index] },
-                            onDeposit = onManualDeposit?.let { { vaultToDeposit = plannedVaults[index] } },
-                            onWithdraw = onManualWithdrawal?.let { { vaultToWithdraw = plannedVaults[index] } },
-                            onViewHistory = onViewHistory?.let { { it(plannedVaults[index].id) } }
+                            vault = vault,
+                            onEdit = { vaultToEdit = vault },
+                            onDelete = { vaultToDelete = vault },
+                            onDeposit = onManualDeposit?.let { { vaultToDeposit = vault } },
+                            onWithdraw = onManualWithdrawal?.let { { vaultToWithdraw = vault } },
+                            onViewHistory = onViewHistory?.let { { it(vault.id) } }
                         )
                     }
                 }
@@ -228,8 +259,14 @@ fun VaultManagementScreen(
             existingVaults = vaults,
             monthlyIncome = monthlyIncome,
             onSave = { updatedVault ->
+                // Detect if balance changed and record it in history
+                val balanceDelta = updatedVault.currentBalance - vault.currentBalance
+                if (balanceDelta != 0.0 && onBalanceOverride != null) {
+                    onBalanceOverride(vault.id, updatedVault.currentBalance, "Balance edited in vault settings")
+                }
                 onUpdateVault(updatedVault)
                 vaultToEdit = null
+
             },
             onDelete = {
                 vaultToDelete = vault
@@ -277,6 +314,11 @@ fun VaultManagementScreen(
             onDismiss = { vaultToDelete = null }
         )
     }
+
+    if (showConfetti) {
+        ConfettiExplosion(onComplete = { showConfetti = false })
+    }
+    }
 }
 
 @Composable
@@ -309,7 +351,7 @@ private fun OverallProgressCard(
             ) {
                 Column {
                     Text(
-                        text = "Total Saved",
+                        text = stringResource(R.string.vault_label_total_saved),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -319,7 +361,7 @@ private fun OverallProgressCard(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "of $${String.format("%.2f", totalTarget)} target",
+                        text = stringResource(R.string.vault_label_of_target, String.format("%.2f", totalTarget)),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -334,7 +376,7 @@ private fun OverallProgressCard(
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "$vaultCount active vault${if (vaultCount != 1) "s" else ""}",
+                        text = stringResource(R.string.vault_label_active_vaults_count, vaultCount),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -359,12 +401,12 @@ private fun OverallProgressCard(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     HealthIndicator(
-                        label = "Savings Rate",
+                        label = stringResource(R.string.vault_health_savings_rate),
                         value = "$displaySavingsRate%",
                         isHealthy = displaySavingsRate >= 20
                     )
                     HealthIndicator(
-                        label = "Monthly Spending",
+                        label = stringResource(R.string.vault_health_monthly_spending),
                         value = "$${String.format("%.0f", recentExpenses)}",
                         isHealthy = recentExpenses < monthlyIncome * 0.5
                     )
@@ -459,12 +501,12 @@ private fun EmptyVaultsCard(onCreateVault: () -> Unit) {
                 tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
             )
             Text(
-                text = "No vaults yet",
+                text = stringResource(R.string.vault_empty_title_short),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "Create smart vaults to automatically save for your goals. The system will intelligently allocate funds based on urgency and priorities.",
+                text = stringResource(R.string.vault_empty_desc_detailed),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -479,7 +521,7 @@ private fun EmptyVaultsCard(onCreateVault: () -> Unit) {
                     size = 18.dp
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Create Your First Vault")
+                Text(stringResource(R.string.vault_management_add))
             }
         }
     }
@@ -503,7 +545,8 @@ private fun EnhancedVaultCard(
     )
     
     val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
-    val scheduleFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a") }
+    val atText = stringResource(R.string.vault_date_time_at)
+    val scheduleFormatter = remember(atText) { DateTimeFormatter.ofPattern("MMM d, yyyy '$atText' h:mm a") }
     val locale = remember { Locale.getDefault() }
     val primarySchedule = remember(vault.schedules) {
         vault.schedules
@@ -516,30 +559,43 @@ private fun EnhancedVaultCard(
     val isUrgent = daysUntilTarget != null && daysUntilTarget in 0..90
     val remaining = (vault.targetAmount - vault.currentBalance).coerceAtLeast(0.0)
     
-    // Projected Completion Logic
+    // Projected Completion Logic - calculates estimated date to reach goal
     val projectedCompletionDate = remember(vault.currentBalance, vault.monthlyNeed, vault.targetAmount, vault.schedules) {
         if (remaining <= 0) null
         else {
+            // Calculate effective monthly contribution from all sources
             val monthlyContribution = if (vault.monthlyNeed != null && vault.monthlyNeed > 0) {
                  vault.monthlyNeed
             } else {
                  vault.schedules
                     .filter { it.enabled && it.direction == VaultTransferDirection.MAIN_TO_VAULT }
                     .sumOf { schedule ->
+                        val amount = schedule.amount ?: 0.0
                         when (schedule.type) {
-                            VaultScheduleType.DAY_OF_MONTH -> schedule.amount ?: 0.0
-                            VaultScheduleType.DAY_OF_WEEK -> (schedule.amount ?: 0.0) * 4.33
-                            else -> 0.0 
+                            // Daily: multiply by average days per month
+                            VaultScheduleType.DAILY -> amount * 30.44
+                            // Monthly: happens once per month
+                            VaultScheduleType.DAY_OF_MONTH -> amount
+                            // Weekly: approximately 4.33 weeks per month
+                            VaultScheduleType.DAY_OF_WEEK -> {
+                                val interval = schedule.weekInterval ?: 1
+                                amount * (4.33 / interval)
+                            }
+                            // Quarterly: divide by 3 to get monthly equivalent
+                            VaultScheduleType.QUARTERLY -> amount / 3.0
+                            // Specific date: one-time contribution, treated as 0 for ongoing projection
+                            VaultScheduleType.SPECIFIC_DATE -> 0.0
                         }
                     }
             }
             
             if (monthlyContribution > 0) {
-                val monthsNeeded = (remaining / monthlyContribution).toLong()
+                val monthsNeeded = kotlin.math.ceil(remaining / monthlyContribution).toLong()
                 LocalDate.now().plusMonths(monthsNeeded)
             } else null
         }
     }
+
 
     // Smart status indicator
     val statusColor = when {
@@ -550,11 +606,11 @@ private fun EnhancedVaultCard(
     }
     
     val statusText = when {
-        progress >= 1.0f -> "Goal Reached"
-        isOverdue -> "Overdue"
-        isUrgent -> "Urgent (${daysUntilTarget} days)"
-        vault.monthlyNeed != null && vault.startDate?.let { it <= LocalDate.now() } == true -> "Active Flow"
-        else -> "In Progress"
+        progress >= 1.0f -> stringResource(R.string.vault_status_goal_reached)
+        isOverdue -> stringResource(R.string.vault_status_overdue)
+        isUrgent -> stringResource(R.string.vault_status_urgent, daysUntilTarget ?: 0)
+        vault.monthlyNeed != null && vault.startDate?.let { it <= LocalDate.now() } == true -> stringResource(R.string.vault_status_active_flow)
+        else -> stringResource(R.string.vault_status_in_progress)
     }
     
     val statusIcon = when {
@@ -671,7 +727,7 @@ private fun EnhancedVaultCard(
                             IconButton(onClick = it) {
                                 MaterialSymbolIcon(
                                     icon = MaterialSymbols.EDIT,
-                                    contentDescription = "Edit",
+                                    contentDescription = stringResource(R.string.vault_management_edit_desc),
                                     size = 20.dp,
                                     tint = colorScheme.onSurfaceVariant
                                 )
@@ -689,7 +745,7 @@ private fun EnhancedVaultCard(
                     ) {
                         Column {
                             Text(
-                                text = "Current Balance",
+                                text = stringResource(R.string.vault_label_current_balance),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = colorScheme.onSurfaceVariant
                             )
@@ -703,7 +759,7 @@ private fun EnhancedVaultCard(
                         Column(horizontalAlignment = Alignment.End) {
                              if (remaining > 0) {
                                 Text(
-                                    text = "Target: $${String.format("%.0f", vault.targetAmount)}",
+                                    text = stringResource(R.string.vault_label_target_with_amount, String.format("%.0f", vault.targetAmount)),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = colorScheme.onSurfaceVariant
                                 )
@@ -735,7 +791,7 @@ private fun EnhancedVaultCard(
                     ) {
                          if (remaining > 0) {
                              Text(
-                                 text = "$${String.format("%.2f", remaining)} to go",
+                                 text = stringResource(R.string.vault_label_remaining_to_go, String.format("%.2f", remaining)),
                                  style = MaterialTheme.typography.bodySmall,
                                  color = colorScheme.onSurfaceVariant,
                                  fontWeight = FontWeight.Medium
@@ -744,14 +800,14 @@ private fun EnhancedVaultCard(
                          
                          if(projectedCompletionDate != null && remaining > 0) {
                              Text(
-                                 text = "On track for ${projectedCompletionDate.format(dateFormatter)}",
+                                 text = stringResource(R.string.vault_label_on_track, projectedCompletionDate.format(dateFormatter)),
                                  style = MaterialTheme.typography.bodySmall,
                                  color = colorScheme.tertiary,
                                  fontWeight = FontWeight.Bold
                              )
                          } else if (vault.targetDate != null && remaining > 0) {
                              Text(
-                                 text = "Due ${vault.targetDate.format(dateFormatter)}",
+                                 text = stringResource(R.string.vault_label_due_date, vault.targetDate.format(dateFormatter)),
                                  style = MaterialTheme.typography.bodySmall,
                                  color = colorScheme.onSurfaceVariant
                              )
@@ -768,7 +824,7 @@ private fun EnhancedVaultCard(
                         onDeposit?.let {
                             VaultActionButton(
                                 modifier = Modifier.weight(1f),
-                                label = "Add",
+                                label = stringResource(R.string.vault_action_add_short),
                                 icon = MaterialSymbols.ADD,
                                 tint = MaterialTheme.colorScheme.primary,
                                 onClick = it
@@ -777,7 +833,7 @@ private fun EnhancedVaultCard(
                         onWithdraw?.let {
                             VaultActionButton(
                                 modifier = Modifier.weight(1f),
-                                label = "Withdraw",
+                                label = stringResource(R.string.vault_action_withdraw_short),
                                 icon = MaterialSymbols.REMOVE,
                                 tint = MaterialTheme.colorScheme.error,
                                 onClick = it
@@ -787,7 +843,7 @@ private fun EnhancedVaultCard(
                              // Assuming we might want a smaller button or just an icon for history
                             VaultActionButton(
                                 modifier = Modifier.weight(1f),
-                                label = "History",
+                                label = stringResource(R.string.vault_action_history_short),
                                 icon = MaterialSymbols.HISTORY,
                                 tint = MaterialTheme.colorScheme.secondary,
                                 onClick = it
@@ -831,11 +887,11 @@ private fun VaultActionButton(
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium.copy(
-                    fontFamily = com.example.sparely.ui.theme.PoppinsFontFamily,
+                    fontFamily = PoppinsFontFamily,
                     fontWeight = FontWeight.Bold
                 ),
                 maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -888,14 +944,17 @@ private fun ManualAdjustmentDialog(
     var reason by remember { mutableStateOf("") }
     var affectMainAccount by remember(defaultAffectMainAccount) { mutableStateOf(defaultAffectMainAccount) }
 
-    val title = if (isDeposit) "Add to Vault" else "Withdraw from Vault"
+    val title = if (isDeposit) stringResource(R.string.vault_action_add) else stringResource(R.string.vault_action_withdraw)
     val icon = if (isDeposit) MaterialSymbols.ADD else MaterialSymbols.REMOVE
-    val affectMainLabel = if (isDeposit) "Deduct from main account" else "Credit back to main account"
+    val affectMainLabel = if (isDeposit) stringResource(R.string.vault_affect_main_deduct) else stringResource(R.string.vault_affect_main_credit)
     val affectMainHelper = if (isDeposit) {
-        "Subtract this amount from your main balance when adding it to the vault"
+        stringResource(R.string.vault_affect_main_deduct_helper)
     } else {
-        "Return this amount to your main balance after withdrawing from the vault"
+        stringResource(R.string.vault_affect_main_credit_helper)
     }
+    
+    val defaultDepositReason = stringResource(R.string.vault_manual_deposit_default)
+    val defaultWithdrawReason = stringResource(R.string.vault_manual_withdrawal_default)
 
     // Smart suggestions based on context
     val suggestedAmounts = remember(currentBalance, isDeposit) {
@@ -989,7 +1048,7 @@ private fun ManualAdjustmentDialog(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "Current Balance",
+                            text = stringResource(R.string.vault_current_balance_label),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1003,17 +1062,17 @@ private fun ManualAdjustmentDialog(
 
                 SparelyTextField(
                     value = amountText,
-                    onValueChange = { amountText = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                    label = { Text("Amount") },
-                    prefix = { Text("$") },
+                    onValueChange = { amountText = it.filterCurrencyInput() },
+                    label = { Text(stringResource(R.string.vault_amount_label)) },
+                    prefix = { Text(stringResource(R.string.currency_prefix)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    isError = !isDeposit && amountText.toDoubleOrNull()?.let { it > currentBalance } == true,
+                    isError = !isDeposit && amountText.toSafeDouble()?.let { it > currentBalance } == true,
                     supportingText = {
-                        if (!isDeposit && amountText.toDoubleOrNull()?.let { it > currentBalance } == true) {
+                        if (!isDeposit && amountText.toSafeDouble()?.let { it > currentBalance } == true) {
                             Text(
-                                text = "Amount exceeds current balance",
+                                text = stringResource(R.string.vault_error_insufficient_balance),
                                 color = MaterialTheme.colorScheme.error
                             )
                         }
@@ -1024,7 +1083,7 @@ private fun ManualAdjustmentDialog(
                 if (suggestedAmounts.isNotEmpty()) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = "Quick amounts",
+                            text = stringResource(R.string.vault_quick_amounts),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1034,7 +1093,7 @@ private fun ManualAdjustmentDialog(
                         ) {
                             for (amount in suggestedAmounts.take(4)) {
                                 SparelyChip(
-                                    selected = amountText.toDoubleOrNull() == amount,
+                                    selected = amountText.toSafeDouble() == amount,
                                     onClick = { amountText = String.format("%.0f", amount) },
                                     label = {
                                         SingleLineText(
@@ -1052,8 +1111,8 @@ private fun ManualAdjustmentDialog(
                 SparelyTextField(
                     value = reason,
                     onValueChange = { reason = it },
-                    label = { Text("Note (optional)") },
-                    placeholder = { Text("e.g., Birthday gift, Emergency expense...") },
+                    label = { Text(stringResource(R.string.vault_note_optional)) },
+                    placeholder = { Text(stringResource(R.string.vault_note_placeholder)) },
                     modifier = Modifier.fillMaxWidth(),
                     // minLines not supported in simple SparelyTextField yet, but singleLine=false defaults.
                     // Assuming SparelyTextField handles multiline if singleLine is false (default is true).
@@ -1070,27 +1129,26 @@ private fun ManualAdjustmentDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    SparelyTonalButton(
+                        SparelyTonalButton(
                         onClick = onDismiss,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.action_cancel))
                     }
 
                     if (isDeposit) {
                         SparelyButton(
                             onClick = {
-                                val amount = amountText.toDoubleOrNull()
+                                val amount = amountText.toSafeDouble()
                                 if (amount != null && amount > 0) {
-                                    val defaultReason = "Manual deposit"
-                                    val finalReason = reason.trim().ifBlank { defaultReason }
+                                    val finalReason = reason.trim().ifBlank { defaultDepositReason }
                                     onConfirm(amount, finalReason, affectMainAccount)
                                 }
                             },
                             modifier = Modifier.weight(1f),
-                            enabled = amountText.toDoubleOrNull()?.let { it > 0 } == true
+                            enabled = amountText.toSafeDouble()?.let { it > 0 } == true
                         ) {
-                            Text("Add")
+                            Text(stringResource(R.string.vault_management_add))
                         }
                     } else {
                         // For withdraw, we want a red button, so we might need a custom Sparely button or just configure SparelyButton
@@ -1099,15 +1157,14 @@ private fun ManualAdjustmentDialog(
                         // For now, I'll use Button but style it to match SparelyButton (height 48, radius 16, bold text).
                         Button(
                             onClick = {
-                                val amount = amountText.toDoubleOrNull()
+                                val amount = amountText.toSafeDouble()
                                 if (amount != null && amount > 0 && amount <= currentBalance) {
-                                    val defaultReason = "Manual withdrawal"
-                                    val finalReason = reason.trim().ifBlank { defaultReason }
+                                    val finalReason = reason.trim().ifBlank { defaultWithdrawReason }
                                     onConfirm(amount, finalReason, affectMainAccount)
                                 }
                             },
                             modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                            enabled = amountText.toDoubleOrNull()?.let { 
+                            enabled = amountText.toSafeDouble()?.let { 
                                 it > 0 && it <= currentBalance
                             } == true,
                             shape = RoundedCornerShape(16.dp),
@@ -1122,7 +1179,7 @@ private fun ManualAdjustmentDialog(
                                     fontWeight = FontWeight.Bold // Bolder text
                                 )
                             ) {
-                                Text("Withdraw")
+                                Text(stringResource(R.string.vault_withdraw))
                             }
                         }
                     }
@@ -1138,102 +1195,84 @@ private fun DeleteConfirmationDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    MaterialSymbolIcon(
-                        icon = MaterialSymbols.WARNING,
-                        contentDescription = null,
-                        size = 32.dp,
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                    Text(
-                        text = "Delete Vault?",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            MaterialSymbolIcon(
+                icon = MaterialSymbols.WARNING,
+                contentDescription = null,
+                size = 32.dp,
+                tint = MaterialTheme.colorScheme.error
+            )
+        },
+        title = {
+            Text(
+                text = stringResource(R.string.vault_delete_confirm_title),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(
-                    text = "Are you sure you want to delete '${vault.name}'?",
+                    text = stringResource(R.string.vault_delete_confirm_message, vault.name),
                     style = MaterialTheme.typography.bodyLarge
                 )
-
-                if (vault.currentBalance > 0) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = "⚠️ Important",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                            Text(
-                                text = "This vault has a balance of ${String.format("%.2f", vault.currentBalance)}. This amount will be returned to your main account.",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                    }
-                }
-
-                Text(
-                    text = "This action cannot be undone.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    SparelyTextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f)
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("Cancel")
-                    }
-
-                    Button(
-                        onClick = onConfirm,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(16.dp),
-                        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError
-                        )
-                    ) {
-                         ProvideTextStyle(
-                            value = MaterialTheme.typography.labelLarge.copy(
-                                fontFamily = com.example.sparely.ui.theme.PoppinsFontFamily,
-                                fontWeight = FontWeight.Bold
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = stringResource(R.string.vault_important),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onErrorContainer
                             )
-                        ) {
-                            Text("Delete")
                         }
+                        
+                        if (vault.currentBalance > 0) {
+                            Text(
+                                text = stringResource(R.string.vault_delete_balance_return, vault.currentBalance),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                        
+                        Text(
+                            text = stringResource(R.string.vault_undone_warning),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                        )
                     }
                 }
             }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(stringResource(R.string.action_delete))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_cancel))
+            }
         }
-    }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1325,6 +1364,7 @@ private fun SmartVaultEditorDialog(
     val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
     
     // Smart validation with helpful feedback
+    val context = LocalContext.current
     val validationResult = remember(
         name,
         targetAmount,
@@ -1339,15 +1379,15 @@ private fun SmartVaultEditorDialog(
     ) {
         val nextRunCandidate = LocalDateTime.of(autoDepositNextRunDate, autoDepositNextRunTime)
         when {
-            name.isBlank() -> ValidationResult(false, "Vault name is required")
-            isFlowGoal && monthlyNeed.toDoubleOrNull()?.let { it <= 0 } != false -> 
-                ValidationResult(false, "Monthly need must be greater than 0")
-            !isFlowGoal && targetAmount.toDoubleOrNull()?.let { it <= 0 } != false -> 
-                ValidationResult(false, "Target amount must be greater than 0")
-            autoDepositEnabled && autoDepositAmount.toDoubleOrNull()?.let { it <= 0 } != false ->
-                ValidationResult(false, "Auto-deposit amount must be greater than 0")
+            name.isBlank() -> ValidationResult(false, context.getString(R.string.vault_error_name_required))
+            isFlowGoal && monthlyNeed.toSafeDouble()?.let { it <= 0 } != false -> 
+                ValidationResult(false, context.getString(R.string.vault_error_monthly_need_positive))
+            !isFlowGoal && targetAmount.toSafeDouble()?.let { it <= 0 } != false -> 
+                ValidationResult(false, context.getString(R.string.vault_error_target_amount_positive))
+            autoDepositEnabled && autoDepositAmount.toSafeDouble()?.let { it <= 0 } != false ->
+                ValidationResult(false, context.getString(R.string.vault_error_auto_deposit_positive))
             autoDepositEnabled && !nextRunCandidate.isAfter(LocalDateTime.now()) ->
-                ValidationResult(false, "Next run must be scheduled in the future")
+                ValidationResult(false, context.getString(R.string.vault_error_schedule_future))
             else -> ValidationResult(true, "")
         }
     }
@@ -1379,14 +1419,14 @@ private fun SmartVaultEditorDialog(
                 TextButton(onClick = {
                     val selected = datePickerState.selectedDateMillis
                     targetDate = selected?.let { 
-                        Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate() 
+                        Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() 
                     }
                     if (isFlowGoal) endDate = targetDate
                     showTargetDatePicker = false
-                }) { Text("Save") }
+                }) { Text(stringResource(R.string.action_save)) }
             },
             dismissButton = {
-                TextButton(onClick = { showTargetDatePicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showTargetDatePicker = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         ) {
             DatePicker(state = datePickerState)
@@ -1402,13 +1442,13 @@ private fun SmartVaultEditorDialog(
                 TextButton(onClick = {
                     val selected = startPickerState.selectedDateMillis
                     startDate = selected?.let { 
-                        Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate() 
+                        Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() 
                     }
                     showStartPicker = false
-                }) { Text("Save") }
+                }) { Text(stringResource(R.string.action_save)) }
             },
             dismissButton = {
-                TextButton(onClick = { showStartPicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showStartPicker = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         ) {
             DatePicker(state = startPickerState)
@@ -1424,14 +1464,14 @@ private fun SmartVaultEditorDialog(
                 TextButton(onClick = {
                     val selected = endPickerState.selectedDateMillis
                     endDate = selected?.let { 
-                        Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate() 
+                        Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() 
                     }
                     if (isFlowGoal) targetDate = endDate
                     showEndPicker = false
-                }) { Text("Save") }
+                }) { Text(stringResource(R.string.action_save)) }
             },
             dismissButton = {
-                TextButton(onClick = { showEndPicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showEndPicker = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         ) {
             DatePicker(state = endPickerState)
@@ -1447,13 +1487,13 @@ private fun SmartVaultEditorDialog(
                 TextButton(onClick = {
                     val selected = schedulePickerState.selectedDateMillis
                     autoDepositNextRunDate = selected?.let {
-                        Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                        Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
                     } ?: autoDepositNextRunDate
                     showScheduleDatePicker = false
-                }) { Text("Save") }
+                }) { Text(stringResource(R.string.action_save)) }
             },
             dismissButton = {
-                TextButton(onClick = { showScheduleDatePicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showScheduleDatePicker = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         ) {
             DatePicker(state = schedulePickerState)
@@ -1476,12 +1516,12 @@ private fun SmartVaultEditorDialog(
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = if (vault == null) "Create Smart Vault" else "Edit Vault",
-                            style = MaterialTheme.typography.headlineSmall,
+                            text = if (vault == null) stringResource(R.string.vault_editor_add_title) else stringResource(R.string.vault_editor_edit_title),
+                            style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "The system will automatically allocate funds based on urgency and priority",
+                            text = stringResource(R.string.vault_allocation_desc),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1492,9 +1532,9 @@ private fun SmartVaultEditorDialog(
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
-                            text = "Goal Type",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
+                            text = stringResource(R.string.vault_goal_type),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
                         )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -1502,8 +1542,8 @@ private fun SmartVaultEditorDialog(
                         ) {
                             GoalTypeCard(
                                 modifier = Modifier.weight(1f),
-                                title = "Fixed Goal",
-                                description = "Save a specific amount by a deadline",
+                                title = stringResource(R.string.vault_fixed_goal),
+                                description = stringResource(R.string.vault_fixed_goal_desc),
                                 icon = MaterialSymbols.FLAG,
                                 isSelected = !isFlowGoal,
                                 onClick = {
@@ -1517,8 +1557,8 @@ private fun SmartVaultEditorDialog(
                             )
                             GoalTypeCard(
                                 modifier = Modifier.weight(1f),
-                                title = "Flow Goal",
-                                description = "Recurring monthly expenses",
+                                title = stringResource(R.string.vault_flow_goal),
+                                description = stringResource(R.string.vault_flow_goal_desc),
                                 icon = MaterialSymbols.REFRESH,
                                 isSelected = isFlowGoal,
                                 onClick = {
@@ -1549,7 +1589,7 @@ private fun SmartVaultEditorDialog(
                     
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = "Vault Icon",
+                            text = stringResource(R.string.vault_management_vault_icon_label),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1584,8 +1624,8 @@ private fun SmartVaultEditorDialog(
                     SparelyTextField(
                         value = name,
                         onValueChange = { name = it },
-                        label = { Text("Vault Name") },
-                        placeholder = { Text("e.g., Car Fund, Emergency, Tuition") },
+                        label = { Text(stringResource(R.string.vault_name_label)) },
+                        placeholder = { Text(stringResource(R.string.vault_name_placeholder)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         leadingIcon = {
@@ -1604,17 +1644,17 @@ private fun SmartVaultEditorDialog(
                     item {
                         SparelyTextField(
                             value = monthlyNeed,
-                            onValueChange = { monthlyNeed = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                            label = { Text("Monthly Need") },
-                            prefix = { Text("$") },
+                            onValueChange = { monthlyNeed = it.filterCurrencyInput() },
+                            label = { Text(stringResource(R.string.vault_monthly_need)) },
+                            prefix = { Text(stringResource(R.string.currency_prefix)) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             supportingText = {
-                                val amount = monthlyNeed.toDoubleOrNull()
+                                val amount = monthlyNeed.toSafeDouble()
                                 if (amount != null && monthlyIncome > 0) {
                                     val percent = (amount / monthlyIncome * 100).toInt()
-                                    Text("${percent}% of your monthly income")
+                                    Text(stringResource(R.string.vault_income_percent, percent))
                                 }
                             }
                         )
@@ -1632,7 +1672,7 @@ private fun SmartVaultEditorDialog(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = startDate?.format(dateFormatter) ?: "Set start date (optional)"
+                                text = startDate?.format(dateFormatter) ?: stringResource(R.string.vault_set_start_date)
                             )
                         }
                         if (startDate != null) {
@@ -1640,7 +1680,7 @@ private fun SmartVaultEditorDialog(
                                 onClick = { startDate = null },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("Clear start date")
+                                Text(stringResource(R.string.vault_clear_start_date))
                             }
                         }
                     }
@@ -1657,7 +1697,7 @@ private fun SmartVaultEditorDialog(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = endDate?.format(dateFormatter) ?: "Set end date (optional)"
+                                text = endDate?.format(dateFormatter) ?: stringResource(R.string.vault_set_end_date)
                             )
                         }
                         if (endDate != null) {
@@ -1665,10 +1705,33 @@ private fun SmartVaultEditorDialog(
                                 onClick = { endDate = null },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("Clear end date")
+                                Text(stringResource(R.string.vault_clear_end_date))
                             }
                         }
                     }
+
+                    // Allow editing current balance for existing flow vaults
+                    if (vault != null) {
+                        item {
+                            SparelyTextField(
+                                value = currentBalance,
+                                onValueChange = { currentBalance = it.filterCurrencyInput() },
+                                label = { Text(stringResource(R.string.vault_current_balance_label)) },
+                                prefix = { Text(stringResource(R.string.currency_prefix)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                supportingText = {
+                                    Text(
+                                        text = stringResource(R.string.vault_balance_edit_note),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            )
+                        }
+                    }
+
                 } else {
                     item {
                         Row(
@@ -1677,9 +1740,9 @@ private fun SmartVaultEditorDialog(
                         ) {
                             SparelyTextField(
                                 value = targetAmount,
-                                onValueChange = { targetAmount = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                                label = { Text("Target Amount") },
-                                prefix = { Text("$") },
+                                onValueChange = { targetAmount = it.filterCurrencyInput() },
+                                label = { Text(stringResource(R.string.vault_target_amount_label)) },
+                                prefix = { Text(stringResource(R.string.currency_prefix)) },
                                 modifier = Modifier.weight(1f),
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
@@ -1688,9 +1751,9 @@ private fun SmartVaultEditorDialog(
                             if (vault != null) {
                                 SparelyTextField(
                                     value = currentBalance,
-                                    onValueChange = { currentBalance = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                                    label = { Text("Current") },
-                                    prefix = { Text("$") },
+                                    onValueChange = { currentBalance = it.filterCurrencyInput() },
+                                    label = { Text(stringResource(R.string.vault_current_balance_label)) },
+                                    prefix = { Text(stringResource(R.string.currency_prefix)) },
                                     modifier = Modifier.weight(1f),
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
@@ -1711,24 +1774,24 @@ private fun SmartVaultEditorDialog(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = targetDate?.format(dateFormatter) ?: "Set deadline (optional)"
+                                text = targetDate?.format(dateFormatter) ?: stringResource(R.string.vault_set_deadline)
                             )
                         }
                         if (targetDate != null) {
                             val daysUntil = ChronoUnit.DAYS.between(LocalDate.now(), targetDate)
-                            val monthsUntil = daysUntil / 30
+                            val monthsUntil = ChronoUnit.MONTHS.between(LocalDate.now(), targetDate)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "$daysUntil days ($monthsUntil months) until deadline",
+                                    text = stringResource(R.string.vault_days_until_deadline, daysUntil, monthsUntil),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 TextButton(onClick = { targetDate = null }) {
-                                    Text("Clear")
+                                    Text(stringResource(R.string.action_clear))
                                 }
                             }
                         }
@@ -1741,14 +1804,14 @@ private fun SmartVaultEditorDialog(
                         onExpandedChange = { typeMenuExpanded = it }
                     ) {
                         SparelyTextField(
-                            value = type.name.replace("_", " "),
+                            value = type.displayName(),
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Category") },
+                            label = { Text(stringResource(R.string.vault_type_label)) },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeMenuExpanded) },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .menuAnchor()
+                                .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
                         )
                         ExposedDropdownMenu(
                             expanded = typeMenuExpanded,
@@ -1756,7 +1819,7 @@ private fun SmartVaultEditorDialog(
                         ) {
                             for (vaultType in listOf(VaultType.GOAL, VaultType.EMERGENCY, VaultType.INVESTMENT, VaultType.SHORT_TERM, VaultType.LONG_TERM)) {
                                 DropdownMenuItem(
-                                    text = { Text(vaultType.name.replace("_", " ")) },
+                                    text = { Text(vaultType.displayName()) },
                                     onClick = {
                                         type = vaultType
                                         typeMenuExpanded = false
@@ -1786,19 +1849,20 @@ private fun SmartVaultEditorDialog(
                         onExpandedChange = { priorityMenuExpanded = it }
                     ) {
                         SparelyTextField(
-                            value = priority.name,
+                            value = priority.displayName(),
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Priority") },
+                            label = { Text(stringResource(R.string.vault_priority_label)) },
                             supportingText = {
                                 if (priority != suggestedPriority) {
-                                    Text("Suggested: ${suggestedPriority.name} based on your settings")
+                                    Text(stringResource(R.string.vault_suggested_priority, suggestedPriority.displayName()))
                                 }
                             },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = priorityMenuExpanded) },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .menuAnchor()
+                                .menuAnchor(),
+                            onClick = { priorityMenuExpanded = true }
                         )
                         ExposedDropdownMenu(
                             expanded = priorityMenuExpanded,
@@ -1812,14 +1876,14 @@ private fun SmartVaultEditorDialog(
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text(vaultPriority.name)
+                                            Text(vaultPriority.displayName())
                                             if (vaultPriority == suggestedPriority) {
                                                 Surface(
                                                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                                                     shape = RoundedCornerShape(8.dp)
                                                 ) {
                                                     Text(
-                                                        text = "Suggested",
+                                                        text = stringResource(R.string.vault_suggested_label),
                                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                                         style = MaterialTheme.typography.labelSmall,
                                                         color = MaterialTheme.colorScheme.primary
@@ -1852,12 +1916,12 @@ private fun SmartVaultEditorDialog(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = "💡 Budget Insight",
+                                    text = stringResource(R.string.vault_budget_insight_title),
                                     style = MaterialTheme.typography.labelLarge,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "Your other vaults already use ${String.format("%.1f", totalExistingAllocation)}% of your monthly income. Keep total allocation under 60% for comfort.",
+                                    text = stringResource(R.string.vault_budget_insight_desc, totalExistingAllocation),
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             }
@@ -1869,8 +1933,8 @@ private fun SmartVaultEditorDialog(
                     SparelyTextField(
                         value = accountNotes,
                         onValueChange = { accountNotes = it },
-                        label = { Text("Notes (optional)") },
-                        placeholder = { Text("Add details about this goal...") },
+                        label = { Text(stringResource(R.string.vault_account_notes_label)) },
+                        placeholder = { Text(stringResource(R.string.vault_notes_placeholder_detailed)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = false
                     )
@@ -1879,12 +1943,12 @@ private fun SmartVaultEditorDialog(
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = "Manual transfer defaults",
+                            text = stringResource(R.string.vault_manual_transfer_defaults),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "Choose how Sparely adjusts your main account when you edit this vault manually.",
+                            text = stringResource(R.string.vault_manual_transfer_defaults_desc),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1894,9 +1958,9 @@ private fun SmartVaultEditorDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Deduct deposits from main", style = MaterialTheme.typography.bodyMedium)
+                                Text(stringResource(R.string.vault_deduct_deposits), style = MaterialTheme.typography.bodyMedium)
                                 Text(
-                                    text = "Toggle off if deposits come from another source.",
+                                    text = stringResource(R.string.vault_deduct_deposits_desc),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1912,9 +1976,9 @@ private fun SmartVaultEditorDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Credit withdrawals back to main", style = MaterialTheme.typography.bodyMedium)
+                                Text(stringResource(R.string.vault_credit_withdrawals), style = MaterialTheme.typography.bodyMedium)
                                 Text(
-                                    text = "Turn off if cashing out elsewhere.",
+                                    text = stringResource(R.string.vault_credit_withdrawals_desc),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1935,9 +1999,9 @@ private fun SmartVaultEditorDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("Exclude from automatic funding", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.vault_exclude_auto_funding), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                             Text(
-                                text = "This vault will only receive money from manual and scheduled transfers.",
+                                text = stringResource(R.string.vault_exclude_auto_funding_desc),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1985,9 +2049,9 @@ private fun SmartVaultEditorDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column {
-                                Text("Auto-deposit schedule", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                Text(stringResource(R.string.vault_auto_deposit_schedule), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                                 Text(
-                                    text = "Schedule automatic transfers into this vault",
+                                    text = stringResource(R.string.vault_auto_deposit_schedule_desc),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1998,23 +2062,35 @@ private fun SmartVaultEditorDialog(
                         if (autoDepositEnabled) {
                             SparelyTextField(
                                 value = autoDepositAmount,
-                                onValueChange = { autoDepositAmount = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                                label = { Text("Amount") },
-                                prefix = { Text("$") },
+                                onValueChange = { autoDepositAmount = it.filterCurrencyInput() },
+                                label = { Text(stringResource(R.string.vault_amount_label)) },
+                                prefix = { Text(stringResource(R.string.currency_prefix)) },
                                 modifier = Modifier.fillMaxWidth(),
                                 singleLine = true
                             )
 
-                            // Frequency chips
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                for (freq in listOf(AutoDepositFrequency.WEEKLY, AutoDepositFrequency.BIWEEKLY, AutoDepositFrequency.MONTHLY)) {
+                            // Frequency chips - using FlowRow for wrapping
+                            androidx.compose.foundation.layout.FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                val frequencies = listOf(
+                                    AutoDepositFrequency.DAILY,
+                                    AutoDepositFrequency.WEEKLY,
+                                    AutoDepositFrequency.BIWEEKLY,
+                                    AutoDepositFrequency.MONTHLY,
+                                    AutoDepositFrequency.QUARTERLY
+                                )
+                                frequencies.forEach { freq ->
                                     SparelyChip(
                                         selected = autoDepositFrequency == freq,
                                         onClick = { autoDepositFrequency = freq },
-                                        label = { Text(freq.name.lowercase().replaceFirstChar { it.titlecase() }) }
+                                        label = { Text(freq.displayName()) }
                                     )
                                 }
                             }
+
 
                             Spacer(modifier = Modifier.height(8.dp))
 
@@ -2045,11 +2121,11 @@ private fun SmartVaultEditorDialog(
                                         value = autoDepositNextRunTime.format(timeFormatter),
                                         onValueChange = {},
                                         readOnly = true,
-                                        label = { Text("Run time") },
+                                        label = { Text(stringResource(R.string.vault_run_time)) },
                                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = autoDepositTimeMenuExpanded) },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .menuAnchor()
+                                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
                                     )
                                     ExposedDropdownMenu(
                                         expanded = autoDepositTimeMenuExpanded,
@@ -2069,7 +2145,7 @@ private fun SmartVaultEditorDialog(
                             }
 
                             Text(
-                                text = "Next run: ${autoDepositNextRunDate.format(dateFormatter)} at ${autoDepositNextRunTime.format(timeFormatter)}",
+                                text = stringResource(R.string.vault_next_run, autoDepositNextRunDate.format(dateFormatter), autoDepositNextRunTime.format(timeFormatter)),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -2082,9 +2158,9 @@ private fun SmartVaultEditorDialog(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text("Protect main balance", style = MaterialTheme.typography.bodyMedium)
+                                    Text(stringResource(R.string.vault_protect_main_balance), style = MaterialTheme.typography.bodyMedium)
                                     Text(
-                                        text = "Skip the transfer if there isn't enough in your main account.",
+                                        text = stringResource(R.string.vault_protect_main_balance_desc),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -2101,9 +2177,9 @@ private fun SmartVaultEditorDialog(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text("Reminder before transfer", style = MaterialTheme.typography.bodyMedium)
+                                    Text(stringResource(R.string.vault_reminder_before), style = MaterialTheme.typography.bodyMedium)
                                     Text(
-                                        text = "Get a notification so you can prepare or cancel manually.",
+                                        text = stringResource(R.string.vault_reminder_before_desc),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -2120,9 +2196,9 @@ private fun SmartVaultEditorDialog(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text("Confirmation after run", style = MaterialTheme.typography.bodyMedium)
+                                    Text(stringResource(R.string.vault_confirmation_after), style = MaterialTheme.typography.bodyMedium)
                                     Text(
-                                        text = "Receive a heads-up once money moves.",
+                                        text = stringResource(R.string.vault_heads_up_moves),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -2139,9 +2215,9 @@ private fun SmartVaultEditorDialog(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text("Alert me if it fails", style = MaterialTheme.typography.bodyMedium)
+                                    Text(stringResource(R.string.vault_alert_failure), style = MaterialTheme.typography.bodyMedium)
                                     Text(
-                                        text = "We'll ping you when a transfer is skipped or blocked.",
+                                        text = stringResource(R.string.vault_ping_skipped),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -2178,25 +2254,29 @@ private fun SmartVaultEditorDialog(
                                     )
                                 }
                             ) {
-                                Text("Delete Vault")
+                                Text(stringResource(R.string.vault_delete_vault))
                             }
                         }
                         
-                        Row(
+                        // Button row - using FlowRow for narrow screen support
+                        androidx.compose.foundation.layout.FlowRow(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            maxItemsInEachRow = 2
                         ) {
                             SparelyTonalButton(
                                 onClick = onDismiss,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f).widthIn(min = 100.dp)
                             ) {
-                                Text("Cancel")
+                                Text(stringResource(R.string.action_cancel))
                             }
+
 
                             SparelyButton(
                                 onClick = {
-                                    val balance = if (vault != null) currentBalance.toDoubleOrNull() ?: 0.0 else 0.0
-                                    val monthly = monthlyNeed.toDoubleOrNull()
+                                    val balance = if (vault != null) currentBalance.toSafeDouble() ?: 0.0 else 0.0
+                                    val monthly = monthlyNeed.toSafeDouble()
                                     // For flow goals, compute a sensible target: monthly need * number of months
                                     // Determine the months span (inclusive). Use startDate if available, otherwise today.
                                     val target = if (isFlowGoal && monthly != null) {
@@ -2207,7 +2287,7 @@ private fun SmartVaultEditorDialog(
                                         months = max(1, months)
                                         monthly * months
                                     } else {
-                                        (targetAmount.toDoubleOrNull() ?: 0.0)
+                                        (targetAmount.toSafeDouble() ?: 0.0)
                                     }
                                     
                                     // Smart priority weight calculation
@@ -2225,10 +2305,12 @@ private fun SmartVaultEditorDialog(
                                         existingSchedulesList
                                     }
 
-                                    val scheduleAmount = autoDepositAmount.toDoubleOrNull()
+                                    val scheduleAmount = autoDepositAmount.toSafeDouble()
                                     val scheduleType = when (autoDepositFrequency) {
+                                        AutoDepositFrequency.DAILY -> VaultScheduleType.DAILY
                                         AutoDepositFrequency.WEEKLY, AutoDepositFrequency.BIWEEKLY -> VaultScheduleType.DAY_OF_WEEK
                                         AutoDepositFrequency.MONTHLY -> VaultScheduleType.DAY_OF_MONTH
+                                        AutoDepositFrequency.QUARTERLY -> VaultScheduleType.QUARTERLY
                                     }
                                     val newSchedule = if (autoDepositEnabled) {
                                         val nextRunAt = LocalDateTime.of(autoDepositNextRunDate, autoDepositNextRunTime)
@@ -2244,7 +2326,9 @@ private fun SmartVaultEditorDialog(
                                             weekInterval = when (autoDepositFrequency) {
                                                 AutoDepositFrequency.BIWEEKLY -> 2
                                                 AutoDepositFrequency.WEEKLY -> 1
-                                                AutoDepositFrequency.MONTHLY -> null
+                                                AutoDepositFrequency.DAILY,
+                                                AutoDepositFrequency.MONTHLY,
+                                                AutoDepositFrequency.QUARTERLY -> null
                                             },
                                             onlyIfBalanceAvailable = autoDepositOnlyIfBalanceAvailable,
                                             notifyBefore = autoDepositNotifyBefore,
@@ -2287,7 +2371,8 @@ private fun SmartVaultEditorDialog(
                                     )
                                     onSave(updatedVault)
                                 },
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.weight(1f).widthIn(min = 100.dp),
+
                                 enabled = validationResult.isValid,
                                 icon = {
                                     MaterialSymbolIcon(
@@ -2297,7 +2382,7 @@ private fun SmartVaultEditorDialog(
                                     )
                                 }
                             ) {
-                                Text(if (vault == null) "Create Vault" else "Save Changes")
+                                Text(if (vault == null) stringResource(R.string.vault_management_add) else stringResource(R.string.vault_save_changes))
                             }
                         }
                     }
@@ -2365,6 +2450,18 @@ private fun GoalTypeCard(
             }
         }
     }
+}
+
+
+
+
+@Composable
+fun AutoDepositFrequency.displayName(): String = when (this) {
+    AutoDepositFrequency.DAILY -> stringResource(R.string.vault_frequency_daily)
+    AutoDepositFrequency.WEEKLY -> stringResource(R.string.vault_frequency_weekly)
+    AutoDepositFrequency.BIWEEKLY -> stringResource(R.string.vault_frequency_biweekly)
+    AutoDepositFrequency.MONTHLY -> stringResource(R.string.vault_frequency_monthly)
+    AutoDepositFrequency.QUARTERLY -> stringResource(R.string.vault_frequency_quarterly)
 }
 
 private data class ValidationResult(

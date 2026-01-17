@@ -1,5 +1,8 @@
 <resources>
     <string name="app_name">Sparely</string>
+    <string name="common_back">Retour</string>
+    <string name="common_cancel">Annuler</string>
+    <string name="common_save">Enregistrer</string>
     
     <!-- Navigation labels (localized) -->
     <string name="history_title">Historique</string>
@@ -7,9 +10,73 @@
     <string name="settings_title">Paramètres</string>
     <string name="budgets_title">Budgets</string>
     <string name="challenges_title">Défis</string>
-    <string name="recurring_title">Récurrence</string>
+
     <string name="health_title">Santé</string>
-    <string name="expense_entry_title">Enregistrer un achat</string>
+    <string name="insights_title">Aperçus</string>
+    
+    <!-- Insight Hub Screen -->
+    <string name="insights_projected_balance">Solde à 30 jours</string>
+    <string name="insights_burn_rate">Dépenses quotidiennes</string>
+    <string name="insights_safe_to_spend">À dépenser</string>
+    <string name="insights_runway">Autonomie</string>
+    <string name="insights_days">jours</string>
+    <string name="insights_spending_patterns">Habitudes de dépenses</string>
+    <string name="insights_anomalies_title">Anomalies de dépenses</string>
+    <string name="insights_no_anomalies">Aucune dépense inhabituelle détectée cette période.</string>
+    <string name="insights_velocity_title">Vélocité des dépenses</string>
+    <string name="insights_forecast_title">Prévision de trésorerie à 30 jours</string>
+    
+    <!-- Idle Money Insight -->
+    <string name="insights_idle_money_title">Argent dormant</string>
+    <string name="insights_idle_money_desc">Vous avez %1$s au-dessus de votre réserve recommandée. Cela pourrait générer ~%2$s/mois dans un compte épargne à haut rendement.</string>
+    <string name="insights_idle_money_transfer">Transférer vers l\'épargne</string>
+    <string name="insights_idle_money_suggested">Transfert suggéré</string>
+    <string name="insights_idle_money_projected">Pourrait générer ~%1$s/an à %2$s RPA</string>
+    
+    <!-- Recurring Patterns -->
+    <string name="insights_recurring_patterns">Habitudes de dépenses détectées</string>
+    <string name="insights_recurring_each">~%1$s chacun</string>
+    <string name="insights_recurring_per_month">/mois</string>
+    
+    <!-- Seasonal Insights -->
+    <string name="insights_seasonal_title">Tendances saisonnières</string>
+    <string name="insights_seasonal_higher">Typiquement %1$d%% plus élevé en %2$s</string>
+    <string name="insights_seasonal_lower">Typiquement %1$d%% moins élevé en %2$s</string>
+    
+    <!-- Unique Expenses -->
+    <string name="insights_unique_expenses">Achats inhabituels</string>
+    <string name="insights_unique_desc">Il s\'agit probablement d\'achats ponctuels qui n\'affecteront pas vos prévisions budgétaires récurrentes.</string>
+    <string name="insights_unique_one_time">Ponctuel</string>
+    <string name="insights_unique_reason_large">Inhabituellement élevé (%1$.1fx %2$s typique)</string>
+    <string name="insights_unique_reason_major">Achat majeur (%1$s)</string>
+    
+    <!-- Anomaly Labels -->
+    <string name="insights_unusual">Inhabituel</string>
+    <string name="insights_per_day">/%1$s</string>
+    <string name="insights_day">jour</string>
+    <string name="insights_runway_over_year">> 1 an</string>
+    
+    <!-- Month Names -->
+    <string name="month_1">janvier</string>
+    <string name="month_2">février</string>
+    <string name="month_3">mars</string>
+    <string name="month_4">avril</string>
+    <string name="month_5">mai</string>
+    <string name="month_6">juin</string>
+    <string name="month_7">juillet</string>
+    <string name="month_8">août</string>
+    <string name="month_9">septembre</string>
+    <string name="month_10">octobre</string>
+    <string name="month_11">novembre</string>
+    <string name="month_12">décembre</string>
+    
+    <!-- Pattern Frequency Labels -->
+    <string name="pattern_daily">Quotidien</string>
+    <string name="pattern_every_few_days">Tous les quelques jours</string>
+    <string name="pattern_weekly">Hebdomadaire</string>
+    <string name="pattern_biweekly">Bihebdomadaire</string>
+    <string name="pattern_monthly">Mensuel</string>
+
     <string name="action_back">Retour</string>
 
     <!-- Widget -->
@@ -23,6 +90,7 @@
     <string name="action_clear">Effacer</string>
     <string name="action_reset">Réinitialiser</string>
     <string name="action_update">Mettre à jour</string>
+    <string name="action_view_all">Tout voir</string>
 
     <!-- Settings Screen - Vault Automation -->
     <string name="settings_vault_automation_title">Automatisation des coffres intelligents</string>
@@ -103,9 +171,11 @@
     <string name="vault_auto_deposits_desc">Simuler des virements bancaires récurrents</string>
     <string name="vault_deposit_amount_label">Montant par dépôt</string>
     <string name="vault_deposit_frequency_label">Fréquence</string>
+    <string name="vault_frequency_daily">Quotidien</string>
     <string name="vault_frequency_weekly">Hebdomadaire</string>
     <string name="vault_frequency_biweekly">Bihebdomadaire</string>
     <string name="vault_frequency_monthly">Mensuel</string>
+    <string name="vault_frequency_quarterly">Trimestriel</string>
     <string name="vault_manual_deposit_title">Dépôt manuel</string>
     <string name="vault_manual_withdrawal_title">Retrait manuel</string>
     <string name="vault_amount_label">Montant</string>
@@ -133,6 +203,20 @@
 
     <!-- Settings Screen - Insights -->
     <string name="settings_insights_title">Aperçus</string>
+    <string name="settings_reset_history">Réinitialiser l\'historique des dépenses</string>
+
+    <!-- Settings Screen - Security -->
+    <string name="settings_security_title">Sécurité</string>
+    <string name="settings_biometric_unlock_title">Déverrouillage biométrique</string>
+    <string name="settings_biometric_unlock_description">Exiger l\'empreinte digitale ou la reconnaissance faciale pour ouvrir l\'application</string>
+    <string name="auth_confirm_identity">Confirmer l\'identité</string>
+    <string name="auth_security_settings_desc">Authentifiez-vous pour modifier les paramètres de sécurité</string>
+    <string name="auth_unlock_title">Déverrouiller Sparely</string>
+    <string name="auth_unlock_subtitle">Confirmez votre identité pour continuer</string>
+
+    <!-- Settings Screen - Data & Privacy -->
+    <string name="settings_data_privacy_title">Données et confidentialité</string>
+    <string name="settings_export_backup">Exporter la sauvegarde</string>
 
     <!-- Settings Screen - Profile -->
     <string name="settings_profile_basics_title">Informations de base du profil</string>
@@ -175,6 +259,19 @@
     <string name="settings_reminders_title">Rappels quotidiens</string>
     <string name="settings_reminders_hour">Heure (%1$d:00)</string>
     <string name="settings_reminders_frequency">Fréquence %1$d jour(s)</string>
+
+    <!-- Settings Screen - Credit Card Reminders -->
+    <string name="settings_credit_card_reminders_title">Rappels de carte de crédit</string>
+    <string name="settings_credit_card_reminders_desc">Recevez une notification avant l\'échéance de vos factures de carte de crédit</string>
+    <string name="settings_credit_card_days_before">Rappel %1$d jour(s) avant l\'échéance</string>
+    <string name="settings_credit_card_hour">Heure du rappel (%1$d:00)</string>
+    <string name="settings_prompt_pay_on_expense">Proposer de payer après une dépense par carte</string>
+    <string name="settings_prompt_pay_on_expense_desc">Afficher une option pour payer immédiatement votre carte de crédit après avoir enregistré une dépense</string>
+    <string name="settings_credit_card_utilization_title">Alertes d\'utilisation du crédit</string>
+    <string name="settings_credit_card_utilization_desc">Recevez une notification lorsque votre solde dépasse un pourcentage de votre limite</string>
+    <string name="settings_credit_card_utilization_threshold">Alerter à %1$d%% d\'utilisation</string>
+    <string name="settings_credit_card_recommended_thresholds">Seuils recommandés</string>
+    <string name="settings_credit_card_utilization_tip">Gardez l\'utilisation sous 30%% pour une meilleure santé de crédit</string>
 
     <!-- Settings Screen - Automation -->
     <string name="settings_automation_title">Aperçu de l\'automatisation</string>
@@ -307,12 +404,11 @@
     <string name="dashboard_budget_status">Statut du budget</string>
     <string name="dashboard_setup_budgets_description">Configurez des budgets par catégorie pour commencer à suivre les progrès avec des alertes.</string>
     <string name="dashboard_challenge_progress">%1$s terminé</string>
-    <string name="vault_type_short_term">Court terme</string>
-    <string name="vault_type_long_term">Long terme</string>
+
     <string name="vault_type_passive_investment">Passif</string>
     
     <!-- History Screen -->
-    <string name="history_all_categories">Toutes les catégories</string>
+
     <string name="history_delete_expense_title">Supprimer la dépense?</string>
     <string name="history_delete_expense_message">Êtes-vous sûr de vouloir supprimer cette dépense?</string>
     <string name="action_delete">Supprimer</string>
@@ -328,4 +424,660 @@
     <string name="vault_management_metric_total" />
     <string name="vault_management_metric_active" />
     <string name="vault_management_metric_upcoming" />
+
+    <!-- Vault Management Additional -->
+    <string name="vault_action_add">Ajouter au coffre</string>
+    <string name="vault_action_withdraw">Retirer du coffre</string>
+    <string name="vault_affect_main_deduct">Déduire du compte principal</string>
+    <string name="vault_affect_main_credit">Recréditer sur le compte principal</string>
+    <string name="vault_affect_main_deduct_helper">Soustrait ce montant de votre solde principal lors de l\'ajout au coffre</string>
+    <string name="vault_affect_main_credit_helper">Retourne ce montant sur votre solde principal après un retrait du coffre</string>
+    <string name="vault_error_insufficient_balance">Le montant dépasse le solde actuel</string>
+    <string name="vault_quick_amounts">Montants rapides</string>
+    <string name="vault_note_optional">Note (optionnel)</string>
+    <string name="vault_note_placeholder">p. ex., Cadeau d\'anniversaire, urgence...</string>
+    <string name="vault_manual_deposit_default">Dépôt manuel</string>
+    <string name="vault_manual_withdrawal_default">Retrait manuel</string>
+    <string name="vault_important">⚠️ Important</string>
+    <string name="vault_delete_balance_return">Ce coffre a un solde de %1$.2f. Ce montant sera retourné sur votre compte principal.</string>
+    <string name="vault_undone_warning">Cette action est irréversible.</string>
+    <string name="vault_allocation_desc">Le système allouera automatiquement les fonds en fonction de l\'urgence et de la priorité</string>
+    <string name="vault_goal_type">Type d\'objectif</string>
+    <string name="vault_fixed_goal">Objectif fixe</string>
+    <string name="vault_fixed_goal_desc">Épargner un montant précis d\'ici une date limite</string>
+    <string name="vault_flow_goal">Objectif de flux</string>
+    <string name="vault_flow_goal_desc">Dépenses mensuelles récurrentes</string>
+    <string name="vault_icon">Icône du coffre</string>
+    <string name="vault_name_placeholder">p. ex., Fonds de voiture, Urgence, Scolarité</string>
+    <string name="vault_monthly_need">Besoin mensuel</string>
+    <string name="vault_income_percent">%1$d%% de votre revenu mensuel</string>
+    <string name="vault_set_start_date">Définir la date de début (optionnel)</string>
+    <string name="vault_clear_start_date">Effacer la date de début</string>
+    <string name="vault_set_end_date">Définir la date de fin (optionnel)</string>
+    <string name="vault_clear_end_date">Effacer la date de fin</string>
+    <string name="vault_set_deadline">Définir une échéance (optionnel)</string>
+    <string name="vault_days_until_deadline">%1$d jours (%2$d mois) avant l\'échéance</string>
+    <string name="vault_suggested_priority">Suggéré : %1$s selon vos paramètres</string>
+    <string name="vault_suggested">Suggéré</string>
+    <string name="vault_budget_insight_title">💡 Aperçu du budget</string>
+    <string name="vault_budget_insight_desc">Vos autres coffres utilisent déjà %1$.1f%% de votre revenu mensuel. Gardez l\'allocation totale sous 60%% pour plus de confort.</string>
+    <string name="vault_notes_placeholder_detailed">Ajoutez des détails sur cet objectif...</string>
+    <string name="vault_manual_transfer_defaults">Paramètres de transfert manuel</string>
+    <string name="vault_manual_transfer_defaults_desc">Choisissez comment Sparely ajuste votre compte principal lors des modifications manuelles.</string>
+    <string name="vault_deduct_deposits">Déduire les dépôts du compte principal</string>
+    <string name="vault_deduct_deposits_desc">Désactivez si les dépôts proviennent d\'une autre source.</string>
+    <string name="vault_credit_withdrawals">Créditer les retraits sur le compte principal</string>
+    <string name="vault_credit_withdrawals_desc">Désactivez si vous encaissez ailleurs.</string>
+    <string name="vault_exclude_auto_funding">Exclure du financement automatique</string>
+    <string name="vault_exclude_auto_funding_desc">Ce coffre ne recevra de l\'argent que via des transferts manuels et programmés.</string>
+    <string name="vault_auto_deposit_schedule">Calendrier de dépôt automatique</string>
+    <string name="vault_auto_deposit_schedule_desc">Programmer des transferts automatiques vers ce coffre</string>
+    <string name="vault_next_run">Prochaine exécution : %1$s à %2$s</string>
+    <string name="vault_protect_main_balance">Protéger le solde principal</string>
+    <string name="vault_protect_main_balance_desc">Passer le transfert s\'il n\'y a pas assez de fonds sur votre compte principal.</string>
+    <string name="vault_reminder_before">Rappel avant transfert</string>
+    <string name="vault_reminder_before_desc">Recevoir une notification pour préparer ou annuler manuellement.</string>
+    <string name="vault_confirmation_after">Confirmation après exécution</string>
+    <string name="vault_confirmation_after_desc">Recevoir une notification une fois l\'argent transféré.</string>
+    <string name="vault_alert_failure">M\'alerter en cas d\'échec</string>
+    <string name="vault_alert_failure_desc">On vous contacte quand un transfert est ignoré ou bloqué.</string>
+    <string name="vault_delete_vault">Supprimer le coffre</string>
+    <string name="vault_save_changes">Enregistrer les modifications</string>
+    <string name="vault_run_time">Heure d\'exécution</string>
+
+    <!-- Vault History Additional -->
+    <string name="vault_manual_edit_title">Modification manuelle</string>
+    <string name="vault_automatic_transfer_title">Transfert automatique</string>
+    <string name="vault_history_empty_title">Aucun historique d\'ajustement</string>
+    <string name="vault_history_empty_desc">Les dépôts et retraits manuels apparaîtront ici</string>
+    <string name="vault_history_previous">Précédent :</string>
+    <string name="vault_urgent_goals">Objectifs urgents</string>
+    <string name="vault_urgent_goals_count">%1$d objectif(s) nécessitent votre attention</string>
+    <string name="vault_active_flow_goals">Flux actifs</string>
+    <string name="vault_active_flow_goals_count">%1$d objectif(s) récurrent(s) actifs</string>
+    <string name="vault_planned_goals">Objectifs prévus</string>
+    <string name="vault_planned_goals_count">%1$d objectif(s) en cours</string>
+
+    <!-- Vault Transfers Additional -->
+    <string name="vault_transfers_pending_title">Contributions en attente</string>
+    <string name="vault_transfers_empty_title">Tout est à jour</string>
+    <string name="vault_transfers_empty_desc">Aucun transfert en attente pour le moment. Bon travail !</string>
+    <string name="vault_transfers_ready">Prêt à transférer</string>
+    <string name="vault_transfers_more_vaults">+ %1$d autres coffres...</string>
+    <string name="vault_transfers_unknown_vault">Coffre inconnu</string>
+    <string name="vault_transfers_pending_count">%1$d en attente</string>
+    <string name="vault_transfers_source_saving_tax">Taxe d\'épargne</string>
+    <string name="vault_transfers_source_income">Revenu</string>
+    <string name="vault_transfers_source_auto_deposit">Dépôt auto</string>
+    <string name="vault_transfers_source_manual">Manuel</string>
+    <string name="vault_transfers_source_transfer">Transfert</string>
+    <string name="vault_transfers_transfer_all">Tout transférer</string>
+    <string name="vault_transfers_hide_details">Masquer les détails</string>
+    <string name="vault_transfers_view_details">Voir les détails</string>
+    <string name="vault_transfers_contribution">Contribution</string>
+    <string name="vault_transfers_confirm_title">Confirmer le transfert</string>
+    <string name="vault_transfers_confirm_desc">Avez-vous transféré %1$s vers %2$s ? Les %3$d entrées seront marquées comme transférées.</string>
+    <string name="vault_transfers_yes_transferred">Oui, transféré</string>
+    <string name="vault_transfers_how_it_works">Comment ça marche</string>
+    <string name="vault_transfers_step1">Sparely calcule les contributions de taxe d\'épargne à partir de vos dépenses.</string>
+    <string name="vault_transfers_step2">Transférez le montant total vers vos comptes d\'épargne réels via votre application bancaire.</string>
+    <string name="vault_transfers_step3">Appuyez sur \'Tout transférer\' pour mettre à jour vos soldes de coffre dans Sparely.</string>
+    <string name="vault_transfers_smart_workflow">Flux de transfert intelligent</string>
+    <string name="vault_transfers_workflow_guide">Guide étape par étape</string>
+
+    <!-- Vault Card Status -->
+    <string name="vault_status_goal_reached">Objectif atteint</string>
+    <string name="vault_status_overdue">En retard</string>
+    <string name="vault_status_urgent">Urgent (%1$d jours)</string>
+    <string name="vault_status_active_flow">Flux actif</string>
+    <string name="vault_status_in_progress">En cours</string>
+
+    <!-- Vault Card Labels -->
+    <string name="vault_label_current_balance">Solde actuel</string>
+    <string name="vault_label_target_with_amount">Cible : %1$s$</string>
+    <string name="vault_label_remaining_to_go">%1$s$ restants</string>
+    <string name="vault_label_on_track">En bonne voie pour le %1$s</string>
+    <string name="vault_label_due_date">Échéance le %1$s</string>
+
+    <!-- Vault Card Actions (Short) -->
+    <string name="vault_action_add_short">Ajouter</string>
+    <string name="vault_action_withdraw_short">Retirer</string>
+    <string name="vault_action_history_short">Historique</string>
+
+    <!-- Overall Progress Card -->
+    <string name="vault_health_savings_rate">Taux d\'épargne</string>
+    <string name="vault_health_monthly_spending">Dépenses mensuelles</string>
+    <string name="vault_empty_title_short">Aucun coffre pour l\'instant</string>
+    <string name="vault_empty_desc_detailed">Créez des coffres intelligents pour épargner automatiquement vers vos objectifs. Le système allouera intelligemment les fonds en fonction de l\'urgence et des priorités.</string>
+    <string name="vault_label_total_saved">Total épargné</string>
+    <string name="vault_label_of_target">sur un objectif de %1$s$</string>
+    <string name="vault_label_active_vaults_count">%1$d coffre(s) actif(s)</string>
+
+    <!-- Settings Screen - Added Strings -->
+    <string name="settings_saving_tax_desc_extended">Nous prélevons ce pourcentage sur chaque dépense et le distribuons dans vos coffres.</string>
+    <string name="settings_saving_tax_automation_info">L\'automatisation maintient le taux aligné sur vos dernières paies et vos tendances de dépenses.</string>
+    <string name="settings_total_percent">Total %1$s</string>
+    <string name="settings_backup_info">Vos données financières restent sur cet appareil. Créez une sauvegarde pour les garder en sécurité ou les transférer sur un nouveau téléphone.</string>
+    <string name="settings_history_retention_all">Conservation de tout l\'historique. Total : %1$d dépenses.</string>
+    <string name="settings_history_retention_info">Les dépenses de plus de %1$s sont supprimées pour gagner de l\'espace.</string>
+    <string name="settings_brandfetch_info">Connectez Brandfetch pour afficher automatiquement les logos des magasins.</string>
+    <string name="settings_life_context_description">L\'ajustement de ces éléments aide Sparely à adapter ses suggestions à votre étape de vie.</string>
+    <string name="settings_estimated_per_paycheck">~ %1$s transféré à chaque paie</string>
+    <string name="settings_estimated_per_month">~ %1$s par mois à ce rythme</string>
+    <string name="settings_automation_insights_trimmed_extended">Aperçus d\'automatisation limités - visualisez l\'historique complet des dernières paies.</string>
+    <string name="settings_auto_deposit_info">Sparely vérifie quotidiennement les dépôts automatiques prévus et crée des contributions en attente que vous pouvez transférer manuellement.</string>
+    <string name="settings_auto_deposit_enable_info">Activer pour suivre automatiquement les dépôts planifiés dans les coffres.</string>
+    <string name="settings_last_logged_pay_info">Dernière paie enregistrée : %1$s le %2$s</string>
+    <string name="settings_tax_rate_override_info">Remplacer le taux d\'imposition par défaut pour %1$s.</string>
+    <string name="settings_no_payment_methods">Aucun mode de paiement ajouté.</string>
+    <string name="settings_credit_card_summary_line">Carte de crédit • %1$s / %2$s (%3$d%%)</string>
+    <string name="dialog_select_currency_title">Sélectionner la devise</string>
+    <string name="settings_age_label">Âge %1$d</string>
+    <string name="settings_minor_user_note">Moins de 18 ans? Sparely réduit les suggestions d\'épargne d\'urgence.</string>
+    <string name="settings_auto_deposit_header">Dépôts automatiques</string>
+    <string name="settings_daily_check_time">Heure de vérification quotidienne</string>
+    <string name="settings_pay_amount_label">Paie nette typique</string>
+    <string name="settings_active_savings_rate_display">Taux d\'épargne actif %1$s</string>
+    <string name="settings_default_savings_rate_display">Taux d\'épargne par défaut %1$s</string>
+    <string name="settings_savings_rate_auto_info">Sparely recalcule cette cible pour chaque chèque de paie.</string>
+    <string name="settings_savings_rate_manual_info">Ajustez le curseur, puis enregistrez.</string>
+    <string name="settings_automation_insights_label">Aperçus de l\'automatisation</string>
+    <string name="settings_semi_monthly_day1">Premier jour</string>
+    <string name="settings_semi_monthly_day2">Deuxième jour</string>
+    <string name="settings_monthly_day_label">Jour de paie (jour du mois)</string>
+    <string name="settings_custom_days_label">Jours entre les paies</string>
+    <string name="settings_next_payday_label">Prochaine paie</string>
+    <string name="common_not_set">Non défini</string>
+    <string name="settings_auto_distribute_label">Distribution automatique</string>
+    <string name="settings_auto_pending_label">Créer des transferts en attente</string>
+    <string name="settings_log_paycheck_header">Enregistrer une paie</string>
+    <string name="settings_pay_received_label">Montant reçu</string>
+    <string name="settings_log_pay_distribute_label">Distribuer selon le plan</string>
+    <string name="settings_log_pay_pending_label">Garder en attente</string>
+    <string name="settings_record_paycheck_action">Enregistrer la paie</string>
+    <string name="edu_high_school">Secondaire</string>
+    <string name="edu_university">Université/Cégep</string>
+    <string name="edu_graduated">Diplômé</string>
+    <string name="edu_other">Autre</string>
+    <string name="emp_student">Étudiant</string>
+    <string name="emp_part_time">Temps partiel</string>
+    <string name="emp_employed">Temps plein</string>
+    <string name="emp_self_employed">Travailleur autonome</string>
+    <string name="emp_unemployed">Sans emploi</string>
+    <string name="emp_retired">Retraité</string>
+    <string name="settings_regional_header">Paramètres régionaux</string>
+    <string name="settings_custom_tax_rate_header">Taux de taxe personnalisé</string>
+    <string name="settings_tax_rate_field_label">Taux de taxe (%)</string>
+    <string name="settings_payment_methods_title">Modes de paiement</string>
+    <string name="settings_payment_methods_desc">Gérez vos cartes de crédit et comptes.</string>
+    <string name="payment_method_type_cash">Espèces</string>
+    <string name="payment_method_type_card">Carte de crédit</string>
+
+    <!-- Onboarding Screen -->
+    <string name="onboarding_step_text">Étape %1$d sur %2$d</string>
+    <string name="onboarding_welcome_title">Bienvenue sur Sparely</string>
+    <string name="onboarding_welcome_desc">Votre compagnon d\'épargne intelligent qui vous aide à mettre de l\'argent de côté automatiquement lors de chaque achat.</string>
+    <string name="onboarding_feature_allocation_title">Allocation intelligente</string>
+    <string name="onboarding_feature_allocation_desc">Répartissez automatiquement vos dépenses entre vos fonds d\'urgence, d\'investissement et de plaisir.</string>
+    <string name="onboarding_feature_health_title">Score de santé financière</string>
+    <string name="onboarding_feature_health_desc">Suivez votre bien-être financier grâce à des informations personnalisées.</string>
+    <string name="onboarding_feature_challenges_title">Défis d\'épargne</string>
+    <string name="onboarding_feature_challenges_desc">Transformez votre épargne en jeu avec des défis et des succès amusants.</string>
+    <string name="onboarding_feature_budgeting_title">Budgétisation intelligente</string>
+    <string name="onboarding_feature_budgeting_desc">Fixez des budgets et recevez des alertes avant de trop dépenser.</string>
+    <string name="onboarding_get_started">Commencer</string>
+    <string name="onboarding_import_backup">Importer une sauvegarde</string>
+    <string name="onboarding_skip_setup">Passer la configuration</string>
+    <string name="onboarding_reminder_title">Restez au top du financement de vos coffres</string>
+    <string name="onboarding_reminder_desc">Sparely peut vous inciter à transférer l\'argent vers les destinations de coffres que vous venez de mapper. Les contributions ne sont comptabilisées qu\'après votre confirmation.</string>
+    <string name="onboarding_reminder_enable">Activer les rappels de transfert</string>
+    <string name="onboarding_reminder_frequency_label">À quelle fréquence devrions-nous vous le rappeler ?</string>
+    <string name="onboarding_reminder_frequency_option">Tous les %1$d jours</string>
+    <string name="onboarding_reminder_time_label">Heure de rappel préférée</string>
+    <string name="onboarding_reminder_time_display">Rappelez-moi vers %1$s:00</string>
+    <string name="onboarding_reminder_target_vaults">Nous ferons correspondre les rappels à : %1$s</string>
+    <string name="onboarding_continue">Continuer</string>
+    <string name="onboarding_vaults_title">Concevez vos coffres intelligents</string>
+    <string name="onboarding_vaults_desc">Les coffres sont les destinations que Sparely finance automatiquement. Nous les utilisons pour calculer les priorités, les bonus de taxe d\'épargne et les dépôts automatiques.</string>
+    <string name="onboarding_add_vault">Ajouter un autre coffre</string>
+    <string name="onboarding_vault_recommended">Recommandé</string>
+    <string name="onboarding_vault_icon_label">Icône du coffre</string>
+    <string name="onboarding_vault_name_label">Nom du coffre</string>
+    <string name="onboarding_vault_target_label">Montant cible</string>
+    <string name="onboarding_vault_balance_label">Solde actuel</string>
+    <string name="onboarding_vault_priority_label">Priorité</string>
+    <string name="onboarding_vault_focus_label">Focus du coffre</string>
+    <string name="onboarding_vault_allocation_label">Mode d\'allocation</string>
+    <string name="onboarding_vault_allocation_dynamic">Dynamique</string>
+    <string name="onboarding_vault_allocation_manual">Manuel</string>
+    <string name="onboarding_vault_manual_percent_label">% d\'allocation manuelle</string>
+    <string name="onboarding_vault_manual_percent_placeholder">ex. 25</string>
+    <string name="onboarding_vault_tax_boost_label">Bonus de taxe d\'épargne % (optionnel)</string>
+    <string name="onboarding_vault_tax_boost_placeholder">ex. 5</string>
+    <string name="onboarding_remove_vault">Supprimer le coffre</string>
+    <string name="onboarding_name_prompt">Comment devrions-nous vous appeler ?</string>
+    <string name="onboarding_name_label">Votre nom (optionnel)</string>
+    <string name="onboarding_name_placeholder">ex. Alex</string>
+    <string name="onboarding_income_title">Comprenons vos finances</string>
+    <string name="onboarding_income_desc">Cela nous aide à fournir des recommandations d\'épargne personnalisées</string>
+    <string name="onboarding_income_label">Revenu mensuel</string>
+    <string name="onboarding_birthday_label">Ajouter votre date de naissance (optionnel)</string>
+    <string name="onboarding_age_calculated">Nous noterons que vous avez %1$d ans et adapterons les étapes en conséquence.</string>
+    <string name="onboarding_clear_birthday">Effacer la date de naissance</string>
+    <string name="onboarding_age_label">Votre âge</string>
+    <string name="onboarding_age_helper_birthday">Calculé automatiquement à partir de votre date de naissance.</string>
+    <string name="onboarding_age_helper_manual">Vous pourrez ajuster cela plus tard dans les paramètres.</string>
+    <string name="onboarding_data_privacy_note">Vos données restent privées sur votre appareil</string>
+    <string name="onboarding_risk_title">Quel est votre style d\'investissement ?</string>
+    <string name="onboarding_risk_desc">Cela affecte la façon dont nous répartissons vos allocations d\'investissement</string>
+    <string name="onboarding_risk_conservative_title">Conservateur</string>
+    <string name="onboarding_risk_conservative_desc">Priorité à la sécurité avec plus de 80 % dans des investissements stables (obligations, FNB)</string>
+    <string name="onboarding_risk_balanced_title">Équilibré</string>
+    <string name="onboarding_risk_balanced_desc">Mélange de sécurité et de croissance avec environ 65 % dans des investissements stables</string>
+    <string name="onboarding_risk_aggressive_title">Agressif</string>
+    <string name="onboarding_risk_aggressive_desc">Axé sur la croissance avec environ 50 % dans des investissements à risque plus élevé</string>
+    <string name="onboarding_situation_title">Votre situation actuelle</string>
+    <string name="onboarding_situation_desc">Aidez-nous à vous recommander les bons comptes d\'épargne</string>
+    <string name="onboarding_education_label">Niveau d\'études</string>
+    <string name="onboarding_employment_label">Statut d\'emploi</string>
+    <string name="onboarding_living_situation_label">Situation de logement</string>
+    <string name="onboarding_occupation_label">Profession (optionnelle)</string>
+    <string name="onboarding_occupation_placeholder">ex. Concepteur de produits</string>
+    <string name="onboarding_debt_question">Avez-vous des dettes ?</string>
+    <string name="onboarding_yes">Oui</string>
+    <string name="onboarding_no">Non</string>
+    <string name="onboarding_small_fund_suggestion">Étant donné votre âge, que vous vivez toujours chez vos parents et que vous travaillez à temps partiel, nous recommandons un petit fonds d\'urgence de 200 $ à 300 $ pour couvrir les petites dépenses imprévues.</string>
+    <string name="onboarding_apply_suggestion">Appliquer la suggestion de %1$s</string>
+    <string name="onboarding_keep_value">Garder ma valeur</string>
+    <string name="onboarding_emergency_fund_label">Fonds d\'urgence actuel</string>
+    <string name="onboarding_emergency_fund_helper">Combien avez-vous déjà économisé pour les urgences ?</string>
+    <string name="onboarding_balances_title">Soldes des comptes</string>
+    <string name="onboarding_balances_desc">Partagez vos réserves de liquidités actuelles afin que nous puissions les prendre en compte dans votre objectif de fonds d\'urgence.</string>
+    <string name="onboarding_main_balance_label">Solde du compte principal</string>
+    <string name="onboarding_savings_balance_label">Solde du compte d\'épargne</string>
+    <string name="onboarding_vaults_balance_label">Coffres existants ou fonds de réserve</string>
+    <string name="onboarding_subscriptions_title">Abonnements mensuels (optionnel)</string>
+    <string name="onboarding_subscriptions_desc">Listez les factures récurrentes afin que Sparely puisse les intégrer dans vos calculs de autonomie financière.</string>
+    <string name="onboarding_no_subscriptions">Aucun abonnement pour le moment. Ajoutez des services de streaming, le loyer, l\'assurance, tout ce qui revient mensuellement.</string>
+    <string name="onboarding_subscription_item_title">Abonnement %1$d</string>
+    <string name="onboarding_add_subscription">Ajouter un abonnement</string>
+    <string name="onboarding_goal_title">Quel est votre objectif principal ?</string>
+    <string name="onboarding_goal_desc">Concentrons-nous sur ce qui compte le plus pour vous</string>
+    <string name="onboarding_goal_label">Objectif d\'épargne principal (optionnel)</string>
+    <string name="onboarding_goal_placeholder">ex. Acheter une maison, Fonds d\'urgence, Vacances</string>
+    <string name="onboarding_goal_helper">Vous pourrez ajouter des objectifs plus détaillés ultérieurement</string>
+    <string name="onboarding_all_set_title">Tout est prêt !</string>
+    <string name="onboarding_all_set_desc">Sparely va maintenant vous aider à épargner automatiquement lors de chaque achat, à suivre vos progrès et à atteindre vos objectifs financiers.</string>
+    <string name="onboarding_start_saving">Commencer à épargner !</string>
+    <string name="onboarding_country_title">Choisissez votre pays</string>
+    <string name="onboarding_country_desc">Nous personnaliserons l\'application pour votre région avec la devise locale, les taux d\'imposition et les recommandations financières.</string>
+    <string name="onboarding_country_customized_note">Personnalisé pour vous</string>
+    <string name="onboarding_country_currency_stat">• Devise : %1$s</string>
+    <string name="onboarding_country_tax_stat">• Infos fiscales : ~%1$d%% d\'impôt sur le revenu</string>
+    <string name="onboarding_country_savings_stat">• Objectif d\'épargne : %1$d mois de fonds d\'urgence</string>
+
+
+    <string name="onboarding_financial_title">Votre situation actuelle</string>
+    <string name="onboarding_financial_desc">Aidez-nous à vous recommander les bons comptes d\'épargne</string>
+    <string name="onboarding_financial_debts_label">Avez-vous des dettes importantes ?</string>
+    <string name="onboarding_financial_debts_desc">Cela nous aide à prioriser les stratégies de remboursement de dettes</string>
+    <string name="onboarding_financial_emergency_label">Fonds d\'urgence actuel</string>
+    <string name="onboarding_financial_emergency_placeholder">1000</string>
+    <string name="onboarding_financial_education_label">Niveau d\'études</string>
+    <string name="onboarding_financial_employment_label">Statut professionnel</string>
+
+
+    <!-- Enum Labels -->
+    <string name="priority_low">Basse</string>
+    <string name="priority_medium">Moyenne</string>
+    <string name="priority_high">Haute</string>
+    <string name="priority_critical">Critique</string>
+
+    <string name="living_with_parents">Chez ses parents</string>
+    <string name="living_renting">Location</string>
+    <string name="living_homeowner">Propriétaire</string>
+    <string name="living_other">Autre</string>
+
+    <!-- Budget Screen -->
+    <string name="budget_add_budget">Ajouter un budget</string>
+    <string name="budget_exceeds_income_title">Le budget dépasse les revenus</string>
+    <string name="budget_exceeds_income_desc">Le total des budgets (%1$s) dépasse vos revenus mensuels (%2$s). Pensez à ajuster vos budgets.</string>
+    <string name="budget_smart_suggestions_title">Suggestions intelligentes</string>
+    <string name="budget_smart_suggestions_desc">Recommandations de budget basées sur l\'IA</string>
+    <string name="budget_category_budgets_title">Budgets par catégorie</string>
+    <string name="budget_active_budgets_count">%1$d budgets actifs</string>
+    <string name="budget_month_budget_title">Budget de %1$s</string>
+    <string name="budget_spent_of">sur %1$s</string>
+    <string name="budget_spent_label">Dépensé</string>
+    <string name="budget_over_by">Dépassement de %1$s</string>
+    <string name="budget_remaining_and_days">%1$s restant • %2$d jours</string>
+    <string name="budget_create_first_title">Aucun budget pour le moment</string>
+    <string name="budget_create_first_desc">Définissez des budgets par catégorie pour suivre et contrôler vos habitudes de dépenses</string>
+    <string name="budget_create_first_button">Créer votre premier budget</string>
+    <string name="budget_set_budget_title">Définir le budget</string>
+    <string name="budget_edit_budget_title">Modifier le budget %1$s</string>
+    <string name="budget_delete_confirmation_title">Supprimer le budget ?</string>
+    <string name="budget_delete_confirmation_desc">Êtes-vous sûr de vouloir supprimer le budget %1$s ?</string>
+    <string name="budget_delete_warning_desc">Êtes-vous sûr de vouloir supprimer le budget pour \'%1$s\' ?</string>
+    <string name="budget_delete_undone">Cette action ne peut pas être annulée.</string>
+    <string name="budget_delete_undone_extended">Cette action ne peut pas être annulée. Vous pourrez toujours créer un nouveau budget pour cette catégorie plus tard.</string>
+    <string name="budget_monthly_limit_label">Limite mensuelle</string>
+    <string name="budget_monthly_limit_stat">Limite mensuelle : %1$s</string>
+
+    <!-- Budget Component Labels -->
+    <string name="budget_status_on_track">Sur la bonne voie</string>
+    <string name="budget_status_warning">Avertissement</string>
+    <string name="budget_status_critical">Critique</string>
+    <string name="budget_status_over_budget">Hors budget</string>
+    <string name="budget_status_over">Dépassement</string>
+    
+    <string name="budget_suggestion_new">Crée un nouveau budget</string>
+    <string name="budget_suggestion_matches">Correspond à la suggestion</string>
+    <string name="budget_suggestion_similar">≈ limite actuelle</string>
+    <string name="budget_suggestion_increase">Augmenter de %1$s</string>
+    <string name="budget_suggestion_reduce">Réduire de %1$s</string>
+    <string name="budget_suggestion_confidence_label">Confiance %1$s</string>
+    
+    <string name="budget_label_suggested">Budget suggéré</string>
+    <string name="budget_label_current">Actuel</string>
+    <string name="budget_label_not_set">Non défini</string>
+    <string name="budget_label_historic_avg">Moyenne historique</string>
+    <string name="budget_label_profile_target">Cible du profil</string>
+    <string name="budget_button_create">Créer un budget</string>
+    <string name="budget_button_apply">Appliquer la suggestion</string>
+
+    <!-- Recurring Screen -->
+    <string name="recurring_title">Paiements récurrents</string>
+    <string name="recurring_insights_title">Aperçu des récurrents</string>
+    <string name="recurring_insights_desc">Appuyez sur une puce pour explorer les rappels, l\'auto-enregistrement ou les frais à venir.</string>
+    <string name="recurring_active_paused_count">%1$d actifs • %2$d en pause</string>
+    <string name="recurring_auto_log_enabled">Auto-enregistrement activé</string>
+    <string name="recurring_auto_log_count">%1$d utilisent l\'auto-enregistrement</string>
+    <string name="recurring_next_due_label">Prochaine échéance</string>
+    <string name="recurring_next_due_stat">%1$s • %2$s (%3$s)</string>
+    <string name="recurring_no_upcoming">Aucun paiement à venir prévu</string>
+    <string name="recurring_reminders_all_clear">Rien à signaler</string>
+    <string name="recurring_reminders_none">Aucun rappel prévu pour le moment.</string>
+    <string name="recurring_reminder_stat">Rappel %1$dj avant • dû le %2$s (%3$s)</string>
+    <string name="recurring_auto_log_off">Auto-enregistrement désactivé</string>
+    <string name="recurring_auto_log_tutorial">Activez l\'auto-enregistrement lors de la modification d\'un paiement récurrent.</string>
+    <string name="recurring_auto_log_stat">Enregistre auto %1$s (%2$s)</string>
+    <string name="recurring_auto_log_ready">Auto-enregistrement prêt pour le prochain cycle.</string>
+    <string name="recurring_nothing_scheduled">Rien de prévu</string>
+    <string name="recurring_add_suggestion">Ajoutez un paiement récurrent pour voir ce qui arrive.</string>
+    <string name="recurring_due_stat">Dû le %1$s (%2$s)</string>
+    <string name="recurring_paused">En pause</string>
+    <string name="recurring_due_soon">Bientôt dû</string>
+    <string name="recurring_active">Actif</string>
+    <string name="recurring_due_date">Échéance le %1$s</string>
+    <string name="recurring_mark_paid">Marquer comme payé</string>
+    <string name="recurring_empty_title">Aucun paiement récurrent</string>
+    <string name="recurring_empty_desc">Gardez un œil sur vos abonnements et factures, Sparely vous préviendra avant le débit.</string>
+    <string name="recurring_add_button">Ajouter un récurrent</string>
+    <string name="recurring_edit_title">Modifier le paiement récurrent</string>
+    <string name="recurring_add_title">Ajouter un paiement récurrent</string>
+    <string name="recurring_error_fields">Veuillez remplir correctement tous les champs obligatoires.</string>
+    <string name="recurring_auto_log_history">Auto-enregistrer dans l\'historique</string>
+    <string name="recurring_includes_tax">Taxes incluses</string>
+    <string name="recurring_execute_auto">Exécuter automatiquement à l\'échéance</string>
+    <string name="recurring_deduct_main">Déduire du compte principal</string>
+    <string name="recurring_deduct_vault">Déduire d\'un coffre (optionnel)</string>
+    <string name="recurring_no_vaults">Aucun coffre actif disponible</string>
+    <string name="recurring_choose_vault">Choisir un coffre pour la déduction</string>
+    <string name="recurring_vault_none">Aucun</string>
+    <string name="recurring_vault_none_desc">Ne pas déduire d\'un coffre</string>
+    <string name="recurring_vault_balance">Solde : %1$s</string>
+
+    <!-- Countdown Formats -->
+    <string name="countdown_overdue">en retard de %1$dj</string>
+    <string name="countdown_today">aujourd\'hui</string>
+    <string name="countdown_tomorrow">dans 1 jour</string>
+    <string name="countdown_days">dans %1$dj</string>
+
+    <!-- Enum Labels - Categories -->
+    <string name="category_groceries">Épicerie</string>
+    <string name="category_dining">Restaurants</string>
+    <string name="category_transportation">Transport</string>
+    <string name="category_entertainment">Divertissement</string>
+    <string name="category_utilities">Services publics</string>
+    <string name="category_health">Santé</string>
+    <string name="category_education">Éducation</string>
+    <string name="category_shopping">Achats</string>
+    <string name="category_travel">Voyages</string>
+    <string name="category_other">Autre</string>
+
+    <!-- Enum Labels - Frequency -->
+    <string name="freq_daily">Quotidien</string>
+    <string name="freq_weekly">Hebdomadaire</string>
+    <string name="freq_biweekly">Bihebdomadaire</string>
+    <string name="freq_monthly">Mensuel</string>
+    <string name="freq_quarterly">Trimestriel</string>
+    <string name="freq_yearly">Annuel</string>
+
+    <!-- Enum Labels - Confidence -->
+    <string name="confidence_high">Confiance élevée</string>
+    <string name="confidence_medium">Confiance moyenne</string>
+    <string name="confidence_low">Tendance émergente</string>
+
+    <!-- Enum Labels - Overview Mode -->
+    <string name="overview_mode_overview">Aperçu</string>
+    <string name="overview_mode_reminders">Rappels</string>
+    <string name="overview_mode_autolog">Auto-enregistr.</string>
+    <string name="overview_mode_upcoming">À venir</string>
+
+    <!-- Challenges Screen -->
+    <string name="challenges_new_title">Nouveau défi</string>
+    <string name="challenges_active_title">Défis actifs</string>
+    <string name="challenges_completed_title">Défis terminés</string>
+    <string name="challenges_completed_on">Terminé le %1$s</string>
+    <string name="challenges_target_label">sur %1$s</string>
+    <string name="challenges_percent_complete">%1$s terminé</string>
+    <string name="challenges_streak_label">Série de %1$d jours !</string>
+    <string name="challenges_next_milestone_label">Prochain jalon</string>
+    <string name="challenges_points_label">+%1$d pts</string>
+    <string name="challenges_days_remaining">%1$d jours restants</string>
+    <string name="challenges_ends_label">Se termine le %1$s</string>
+    <string name="challenges_help_title">Comment les défis aident</string>
+    <string name="challenges_help_desc_1">Les défis d\'épargne ne déplacent pas d\'argent automatiquement. Sparely suit votre engagement, vous avertit quand il est temps de contribuer et enregistre les progrès à mesure que vous enregistrez des dépenses ou des transferts manuels.</string>
+    <string name="challenges_help_desc_2">Les défis quotidiens et de 52 semaines ajoutent leur montant prévu à votre progression afin que vous sachiez quoi transférer. Les défis de non-dépense surveillent vos transactions et maintiennent votre série lorsque vous évitez les catégories sélectionnées.</string>
+    <string name="challenges_recent_achievements">Réussites récentes</string>
+    <string name="challenges_no_active_title">Aucun défi actif</string>
+    <string name="challenges_no_active_desc">Commencez un défi d\'épargne pour ludifier votre parcours financier et gagner des récompenses !</string>
+    <string name="challenges_start_button">Commencer le défi</string>
+    <string name="challenges_choose_title">Choisir un défi</string>
+    <string name="challenges_52week_title">Défi 52 semaines</string>
+    <string name="challenges_52week_desc">Épargnez progressivement chaque semaine</string>
+    <string name="challenges_52week_name">Défi d\'argent 52 semaines</string>
+    <string name="challenges_52week_detail">Épargnez 1 $ la semaine 1, 2 $ la semaine 2, etc.</string>
+    <string name="challenges_daily_title">Épargne quotidienne</string>
+    <string name="challenges_daily_desc">Épargnez 5 $ chaque jour pendant 30 jours</string>
+    <string name="challenges_daily_name">Défi quotidien 30 jours</string>
+    <string name="challenges_daily_detail">Épargnez 5 $ quotidiennement</string>
+
+    <!-- History Screen -->
+    <string name="history_total_spent">Total dépensé</string>
+    <string name="history_savings">Épargne</string>
+    <string name="history_savings_rate">Taux d\'épargne</string>
+    <string name="history_percent_saved">%1$s épargné</string>
+    <string name="history_today">Aujourd\'hui</string>
+    <string name="history_yesterday">Hier</string>
+    <string name="history_empty_title">Aucune entrée</string>
+    <string name="history_empty_desc">Commencez à enregistrer des achats pour voir l\'analyse.</string>
+    <string name="history_delete_confirmation_title">Supprimer la dépense ?</string>
+    <string name="history_delete_confirmation_desc">Êtes-vous sûr de vouloir supprimer cette dépense ? Cette action est irréversible.</string>
+    <string name="history_filter_7_days">7 derniers jours</string>
+    <string name="history_filter_30_days">30 derniers jours</string>
+    <string name="history_filter_90_days">90 derniers jours</string>
+    <string name="history_filter_all_time">Tout le temps</string>
+    <string name="history_filter_this_year">Cette année</string>
+    <string name="history_all_categories">Toutes les catégories</string>
+
+    <!-- Expense Entry Screen -->
+    <string name="expense_entry_title">Enregistrer un achat</string>
+    <string name="expense_entry_manual_desc">Vous contrôlez manuellement les pourcentages.</string>
+    <string name="expense_entry_auto_desc">Le mode auto applique la dernière suggestion.</string>
+    <string name="expense_entry_description_label">Description</string>
+    <string name="expense_entry_amount_label">Montant</string>
+    <string name="expense_entry_date_label">Date d\'achat</string>
+    <string name="expense_entry_change_date_button">Modifier</string>
+    <string name="expense_entry_auto_allocation_title">Allocation auto</string>
+    <string name="expense_entry_auto_allocation_desc">Laisser Sparely choisir les pourcentages</string>
+    <string name="expense_entry_applied_suggestion">Suggestion appliquée</string>
+    <string name="expense_entry_suggestion_detail">Urgence %1$s  •  Invest. %2$s  •  Plaisir %3$s</string>
+    <string name="expense_entry_include_tax_label">Le montant inclut les taxes ?</string>
+    <string name="expense_entry_deduct_main_title">Déduire du compte principal</string>
+    <string name="expense_entry_deduct_main_desc">Réduire le solde de votre compte principal de cette dépense</string>
+    <string name="expense_entry_deduct_vault_title">Déduire d\'un coffre (optionnel)</string>
+    <string name="expense_entry_no_vaults">Aucun coffre actif disponible. Créez-en un sur l\'écran des coffres.</string>
+    <string name="expense_entry_vault_overflow">Si la dépense dépasse le solde du coffre, le surplus sera déduit du compte principal</string>
+    <string name="expense_entry_choose_vault_desc">Choisissez un coffre pour déduire cette dépense</string>
+    <string name="expense_entry_none">Aucun</string>
+    <string name="expense_entry_none_desc">Ne pas déduire d\'un coffre</string>
+    <string name="expense_entry_error_amount">Entrez un montant valide</string>
+    <string name="expense_entry_manual_allocation_title">Allocation manuelle</string>
+    <string name="expense_entry_total_allocation">Total %1$s</string>
+    <string name="expense_notes_label">Notes (optionnel)</string>
+    <string name="expense_notes_placeholder">Ajouter un mémo ou contexte…</string>
+    <string name="expense_order_number_label">Nº de commande/reçu (optionnel)</string>
+    <string name="expense_order_number_placeholder">ex. #12345, AMZN-001</string>
+    <!-- Main Account Screen -->
+    <string name="main_account_current_balance">Solde actuel</string>
+    <string name="main_account_adjust_balance">Ajuster le solde</string>
+    <string name="main_account_transaction_history">Historique des transactions</string>
+    <string name="main_account_no_transactions">Aucune transaction pour le moment</string>
+    <string name="main_account_deposit_funds">Déposer des fonds</string>
+    <string name="main_account_withdraw_funds">Retirer des fonds</string>
+    <string name="main_account_optional_note">Note facultative</string>
+    <string name="main_account_new_balance">Nouveau solde</string>
+    <string name="main_account_adjust_reason_hint">Pourquoi ajuster le solde ?</string>
+    <string name="main_account_adjustment_default_reason">Ajustement du solde</string>
+    <string name="main_account_adjust_button">Ajuster</string>
+    <!-- Financial Health Screen -->
+    <string name="health_score_title">Santé financière</string>
+    <string name="health_score_breakdown">Détail du score</string>
+    <string name="health_strengths">Vos points forts</string>
+    <string name="health_improve">Pistes d\'amélioration</string>
+    <string name="health_loading">Chargement des données de santé…</string>
+    <string name="health_level_excellent">Excellent</string>
+    <string name="health_level_good">Bon</string>
+    <string name="health_level_fair">Moyen</string>
+    <string name="health_level_needs_work">À améliorer</string>
+    <string name="health_level_critical">Critique</string>
+    <string name="health_cat_savings_rate">Taux d\'épargne</string>
+    <string name="health_cat_emergency_fund">Fonds d\'urgence</string>
+    <string name="health_cat_budget_adherence">Respect du budget</string>
+    <string name="health_cat_goal_progress">Progression des objectifs</string>
+    <string name="health_cat_debt_management">Gestion des dettes</string>
+
+    <!-- Vault Management Additions -->
+    <string name="vault_date_time_at">à</string>
+    <string name="vault_management_create_desc">Créer un coffre</string>
+    <string name="vault_management_edit_desc">Modifier</string>
+    <string name="vault_management_vault_icon_label">Icône du coffre</string>
+    <string name="vault_error_name_required">Le nom du coffre est obligatoire</string>
+    <string name="vault_error_monthly_need_positive">Le besoin mensuel doit être supérieur à 0</string>
+    <string name="vault_error_target_amount_positive">L\'objectif doit être supérieur à 0</string>
+    <string name="vault_error_auto_deposit_positive">Le montant du dépôt auto doit être supérieur à 0</string>
+    <string name="vault_error_schedule_future">Le prochain virement doit être programmé dans le futur</string>
+    <string name="vault_suggested_label">Suggéré</string>
+    <string name="vault_heads_up_moves">Recevez une notification lors des mouvements d\'agent.</string>
+    <string name="vault_ping_skipped">Nous vous préviendrons si un virement est ignoré ou bloqué.</string>
+    <string name="vault_freq_weekly">Hebdomadaire</string>
+    <string name="vault_freq_biweekly">Bihebdomadaire</string>
+    <string name="vault_freq_monthly">Mensuel</string>
+    <string name="vault_priority_critical">Critique</string>
+    <string name="vault_priority_high">Haute</string>
+    <string name="vault_priority_medium">Moyenne</string>
+    <string name="vault_priority_low">Basse</string>
+    <string name="vault_type_goal">Objectif</string>
+    <string name="vault_type_emergency">Urgence</string>
+    <string name="vault_type_investment">Investissement</string>
+    <string name="vault_type_short_term">Court terme</string>
+    <string name="vault_type_long_term">Long terme</string>
+    <string name="expense_entry_category_title">Catégorie</string>
+    <string name="onboarding_name_title">Quel est votre nom ?</string>
+    <string name="onboarding_income_placeholder">ex. 5000</string>
+    <string name="onboarding_income_age_label">Votre âge</string>
+    <string name="onboarding_income_age_placeholder">ex. 25</string>
+    <string name="onboarding_income_age_milestone_desc">En fonction de votre âge (%1$d), nous vous suggérerons des jalons financiers pertinents.</string>
+    <string name="onboarding_income_privacy_notice">Vos données de revenus sont stockées localement et ne quittent jamais votre appareil.</string>
+    <string name="common_no">Non</string>
+    <string name="currency_symbol">$</string>
+    <string name="onboarding_remove_subscription">Supprimer</string>
+    <string name="common_name">Nom</string>
+    <string name="onboarding_subscription_placeholder">ex. Netflix</string>
+    <string name="onboarding_subscription_amount_label">Coût mensuel</string>
+    <string name="onboarding_welcome_for_country">Bienvenue sur Sparely %1$s</string>
+    <string name="onboarding_income_clear_birthday">Effacer la date de naissance</string>
+    <string name="onboarding_income_age_helper_auto">L\'âge est calculé à partir de votre date de naissance.</string>
+    <string name="onboarding_income_age_helper_manual">Entrez votre âge manuellement.</string>
+    <string name="onboarding_income_birthday_label">Sélectionner la date de naissance</string>
+    <string name="onboarding_financial_amount_label">Montant</string>
+    <string name="onboarding_financial_description_label">Description</string>
+    <string name="onboarding_financial_notes_label">Notes</string>
+    <string name="onboarding_financial_frequency_label">Fréquence</string>
+    <string name="onboarding_financial_start_date_label">Date de début</string>
+    <string name="onboarding_financial_end_date_label">Date de fin</string>
+    <string name="onboarding_financial_reminder_label">Me le rappeler</string>
+    <string name="onboarding_welcome_simple">Bienvenue</string>
+    <string name="common_yes">Oui</string>
+    <string name="common_selected">Sélectionné</string>
+    <string name="common_default">Par défaut</string>
+    <string name="ok">OK</string>
+    <string name="recurring_delete_confirm_title">Supprimer la dépense récurrente ?</string>
+    <string name="recurring_delete_confirm_message">Es-tu sûr de vouloir supprimer « %1$s » ? Cette action est irréversible.</string>
+
+    <!-- Credit Cards Screen -->
+    <string name="credit_cards_no_cards">Aucune carte de crédit</string>
+    <string name="credit_cards_add_hint">Ajoutez une carte de crédit dans Paramètres → Modes de paiement</string>
+    <string name="credit_cards_total_balance">Solde total</string>
+    <string name="credit_cards_of_limit">sur %1$s</string>
+    <string name="credit_cards_overall_utilization">Utilisation globale</string>
+    <string name="credit_cards_utilization_high_desc">Utilisation élevée - peut impacter significativement le score de crédit</string>
+    <string name="credit_cards_utilization_warning_desc">Utilisation supérieure à 30%% - peut affecter le score de crédit</string>
+    <string name="credit_cards_limit_label">Limite : %1$s</string>
+    <string name="credit_cards_available_label">Disponible</string>
+    <string name="credit_cards_billing_day_label">Jour de facturation</string>
+    <string name="credit_cards_utilization_label">Utilisation</string>
+    <string name="credit_cards_recent_payments_label">Paiements récents</string>
+    <string name="credit_cards_pay_bill_action">Payer la facture</string>
+    <string name="credit_cards_expand_hint">Appuyez pour les détails et actions</string>
+    <string name="credit_cards_pay_dialog_title">Payer %1$s</string>
+    <string name="credit_cards_current_balance_label">Solde actuel : %1$s</string>
+    <string name="credit_cards_preset_full">Total</string>
+    <string name="credit_cards_preset_half">Moitié</string>
+    <string name="credit_cards_preset_min">Min</string>
+    <string name="credit_cards_payment_amount_label">Montant du paiement</string>
+    <string name="credit_cards_note_label">Note (optionnel)</string>
+    <string name="credit_cards_deduct_main_label">Déduire du compte principal</string>
+    <string name="credit_cards_main_available_label">Disponible : %1$s</string>
+    <string name="credit_cards_insufficient_funds_error">Fonds insuffisants sur le compte principal</string>
+    <string name="credit_cards_pay_action_confirm">Payer</string>
+    <string name="credit_cards_cancel_action">Annuler</string>
+    <string name="credit_cards_billing_day_not_set">Non défini</string>
+    <plurals name="credit_cards_count">
+        <item quantity="one">%d carte</item>
+        <item quantity="other">%d cartes</item>
+    </plurals>
+
+    <!-- Smart Insights (Unique Entries Only) -->
+    <string name="insights_recurring_daily">Quotidien</string>
+    <string name="insights_recurring_weekly">Hebdomadaire</string>
+    <string name="insights_recurring_monthly_impact">Impact mensuel : %1$s</string>
+
+    <!-- Recurring Expenses - Variable Amount -->
+    <string name="recurring_variable_amount">Montant variable</string>
+    <string name="recurring_variable_amount_desc">Le montant change à chaque cycle (ex. : services publics)</string>
+    <string name="recurring_predicted_amount">Montant prévu</string>
+    <string name="recurring_view_history">Voir l\'historique des montants</string>
+    <string name="recurring_enter_actual">Entrer le montant réel</string>
+    <string name="recurring_amount_history_title">Historique des montants</string>
+
+    <!-- High-Yield Savings -->
+    <string name="vault_type_high_yield">Épargne à haut rendement</string>
+    <string name="vault_apy_label">Taux annuel en pourcentage (APY)</string>
+    <string name="vault_projected_monthly_interest">Intérêts mensuels prévus : %1$s</string>
+    <string name="vault_projected_annual_interest">Intérêts annuels prévus : %1$s</string>
+    <string name="vault_accrued_interest">Intérêts gagnés : %1$s</string>
 </resources>
+
